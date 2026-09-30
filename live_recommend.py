@@ -26,6 +26,7 @@ BUFFER_MIN = 1       # 정류장에 버스보다 최소 1분 먼저 도착해야
 USE_MODEL = True     # False면 board_model.pkl 없이 config 기본값만 사용 (시연용)
 USE_TRANSIT = True   # False면 ODsay·TMAP 조회 없이 config 의 환승·도보 값 사용 (시연용)
 INCIDENT_RECENT = None  # 시연용: 돌발 감지에 쓸 최근 기록(DataFrame)을 직접 넣을 때
+INCIDENT_EVENTS = None  # 시연용: ITS 돌발상황 목록을 직접 넣을 때
 
 
 def get(path, **params):
@@ -66,7 +67,7 @@ def main():
 
     # 돌발상황 — 앞서 가는 같은 노선 버스들의 최근 움직임 (collect.py 기록 사용)
     import incidents
-    inc = incidents.detect(now, b, INCIDENT_RECENT)
+    inc = incidents.detect(now, b, INCIDENT_RECENT, INCIDENT_EVENTS)
 
     # 1) 노선마다 달리고 있는 모든 차량 (위치 · 현재 잔여 좌석)
     buses = {r: get("buslocationservice/v2/getBusLocationListv2", routeId=c["route_id"])

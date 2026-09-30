@@ -34,6 +34,13 @@ def stalled(route, plate, keyword, minutes):
              "station_seq": seq}]
 
 
+def its_accident(route, keyword, message):
+    """keyword 지점에서 난 가상의 고속도로 사고 (국가교통정보센터 돌발상황정보 형식)."""
+    st = transit.route_stations(ROUTES[route]["route_id"])[seq_of(route, keyword)]
+    return {"type": "고속도로", "eventType": "사고", "eventDetailType": "추돌사고", "roadName": "경부선",
+            "coordX": str(st["x"]), "coordY": str(st["y"]), "lanesBlocked": "2개 차로 차단", "message": message}
+
+
 def moving(route, plate, keyword, n_stops):
     """keyword 지점부터 평소 속도로 n_stops 정류장을 지나온 버스의 기록."""
     now, seq = datetime.now(), seq_of(route, keyword)
@@ -48,19 +55,19 @@ SCENARIOS = [
         R3007: [{"plateNo": "3007-A", "stationSeq": 7, "remainSeatCnt": 12}],
         R7001: [{"plateNo": "7001-A", "stationSeq": 9, "remainSeatCnt": 1}],
         R3008: [],
-    }, None),
+    }, None, []),
     ("상황 2 — 집 앞에선 만석 위험, 한 정거장 앞에선 자리 있음  →  걸어가기", {
         R8800: [{"plateNo": "8800-A", "stationSeq": 1, "remainSeatCnt": 15},
                 {"plateNo": "8800-X", "stationSeq": 7, "remainSeatCnt": 0}],
         R3007: [{"plateNo": "3007-A", "stationSeq": 9, "remainSeatCnt": 2}],
         R7001: [], R3008: [],
-    }, None),
+    }, None, []),
     ("상황 3 — 8800은 전부 만석, 3007은 여유  →  다른 버스", {
         R8800: [{"plateNo": "8800-A", "stationSeq": 5, "remainSeatCnt": 1},
                 {"plateNo": "8800-B", "stationSeq": 2, "remainSeatCnt": 4}],
         R3007: [{"plateNo": "3007-A", "stationSeq": 8, "remainSeatCnt": 25}],
         R7001: [], R3008: [],
-    }, None),
+    }, None, []),
     ("상황 4 — 경부고속도로 판교IC 부근 사고: 8800·3007·3008 앞차 정지  →  다른 버스(7001, 과천 경유)", {
         R8800: [{"plateNo": "8800-A", "stationSeq": 6, "remainSeatCnt": 25}],
         R3007: [{"plateNo": "3007-A", "stationSeq": 8, "remainSeatCnt": 20}],
@@ -68,7 +75,8 @@ SCENARIOS = [
         R3008: [{"plateNo": "3008-A", "stationSeq": 5, "remainSeatCnt": 20}],
     }, lambda: pd.DataFrame(
         stalled("8800", "8800-P", "판교IC", 35) + stalled("3007", "3007-P", "판교IC", 35)
-        + stalled("3008", "3008-P", "판교IC", 35) + moving("7001", "7001-P", "의왕톨게이트", 4))),
+        + stalled("3008", "3008-P", "판교IC", 35) + moving("7001", "7001-P", "의왕톨게이트", 4)),
+        [its_accident("8800", "판교IC", "서울방향 판교IC 부근 추돌사고")]),
     ("상황 5 — 집회로 8800이 우회해 삼성1차아파트·경기아트센터를 건너뜀  →  다른 버스", {
         R8800: [{"plateNo": "8800-A", "stationSeq": 5, "remainSeatCnt": 30}],
         R3007: [{"plateNo": "3007-A", "stationSeq": 8, "remainSeatCnt": 10}],
@@ -78,12 +86,13 @@ SCENARIOS = [
         {"collected_at": datetime.now() - timedelta(minutes=3), "route_name": "8800", "plate_no": "8800-P", "station_seq": 6},
         {"collected_at": datetime.now() - timedelta(minutes=2), "route_name": "8800", "plate_no": "8800-P", "station_seq": 10},
         {"collected_at": datetime.now() - timedelta(minutes=1), "route_name": "8800", "plate_no": "8800-P", "station_seq": 11},
-    ])),
+    ]), []),
 ]
 
-for title, buses, incident in SCENARIOS:
+for title, buses, incident, events in SCENARIOS:
     print("=" * 70 + "\n" + title + "\n" + "=" * 70)
     L.get = lambda path, _b=buses, **p: _b[p["routeId"]] if "location" in path else []
     L.INCIDENT_RECENT = incident() if incident else NO_INCIDENT
+    L.INCIDENT_EVENTS = events   # 실제 돌발정보 대신 시연용 목록
     L.main()
     print()

@@ -9,13 +9,19 @@
 #   - 건너뜀 : 1~2분 사이에 정류장 순번이 3칸 이상 뛰면서 후보 정류장을 지나침 (우회 의심)
 #  평소 이동 시간은 train.py 실측값(seg_min)이 있으면 그 값을, 없으면
 #  정류장 사이 거리 ÷ 평균 속도(BASE_KMH)로 추정합니다.
+#
+#  여기에 국가교통정보센터(ITS) 돌발상황정보(사고 · 공사 · 통제)를 더해,
+#  노선이 지나는 길(정류장·경유지를 이은 선) 400m 안의 돌발상황을 원인과 함께 알려줍니다.
+#  버스가 막히기 전에도 미리 알 수 있고, 앞차 기록이 없는 시간대도 보완합니다.
 # ==========================================================
 import math
 import os
 from datetime import datetime, timedelta
 
 import pandas as pd
+import requests
 
+import api_key
 import transit
 from config import CSV_FILE, ROUTES, STOPS, MY_STOP
 
@@ -24,6 +30,15 @@ BASE_KMH = 30          # 실측값이 없을 때 쓰는 버스 평균 속도 (�
 SLOW_RATIO = 1.8       # 평소보다 이 배 이상 오래 걸리면 '정체'
 STUCK_MIN = 8          # 한 구간에 평소 시간 + 이 분 이상 머물면 '정지'
 SKIP_JUMP = 3          # 2분 안에 순번이 이만큼 이상 뛰면 '건너뜀'
+
+USE_ITS = True         # 국가교통정보센터 돌발상황정보 사용 여부
+NEAR_KM = 0.4          # 노선 경로에서 이 거리 안의 돌발상황만 반영
+MAX_ITS_DELAY = 15     # 공식 돌발정보로 더하는 지연의 상한(분)
+# 돌발 종류별 예상 지연(분) — 앞차 기록으로 실제 지연이 확인되면 그 값이 우선
+# (차로 일부만 막는 공사는 지연으로 치지 않음)
+EVENT_DELAY = {"사고": 12, "통제": 15, "정체": 4}
+# 서울로 가는 우리와 반대 방향 표시
+OPPOSITE = ("부산방향", "수원방향", "하행", "부산 방향", "수원 방향")
 
 
 def _dist_km(a, b):
@@ -46,6 +61,77 @@ def baseline_min(route, seq_from, seq_to, bundle, stations):
     return total
 
 
+def fetch_events():
+    """ITS 돌발상황 — 모든 노선 경로를 덮는 범위 안의 사고·공사·기타 돌발."""
+    key = getattr(api_key, "ITS_KEY", "")
+    if not (USE_ITS and key):
+        return []
+    xs, ys = [], []
+    for cfg in ROUTES.values():
+        for v in transit.route_stations(cfg["route_id"]).values():
+            xs.append(v["x"]); ys.append(v["y"])
+    try:
+        res = requests.get("https://openapi.its.go.kr:9443/eventInfo", timeout=15, params={
+            "apiKey": key, "type": "all", "eventType": "all", "getType": "json",
+            "minX": min(xs), "maxX": max(xs), "minY": min(ys), "maxY": max(ys)})
+        return res.json()["body"]["items"] or []
+    except Exception:
+        return []
+
+
+def _seg_dist_km(p, a, b):
+    """점 p 에서 선분 a-b 까지 거리(km)."""
+    ax, ay = (a["x"] - p["x"]) * 88.4, (a["y"] - p["y"]) * 111.0
+    bx, by = (b["x"] - p["x"]) * 88.4, (b["y"] - p["y"]) * 111.0
+    dx, dy = bx - ax, by - ay
+    t = 0.0 if dx == dy == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
+    return math.hypot(ax + t * dx, ay + t * dy)
+
+
+def event_delay(ev):
+    """돌발상황 한 건의 예상 지연(분)."""
+    text = f"{ev.get('eventType', '')} {ev.get('eventDetailType', '')} {ev.get('message', '')}"
+    if "사고" in ev.get("eventType", "") or "사고" in ev.get("eventDetailType", ""):
+        return EVENT_DELAY["사고"]
+    if "전면" in (ev.get("lanesBlocked") or "") or "전면통제" in text:
+        return EVENT_DELAY["통제"]
+    if "정체" in text:
+        return EVENT_DELAY["정체"]
+    return 0
+
+
+def on_my_road(route, ev):
+    """이 노선이 실제로 지나는 도로의 돌발인지 (고속도로는 도로명으로, 서울 방향만)."""
+    text = f"{ev.get('roadName', '')} {ev.get('message', '')}"
+    if any(w in text for w in OPPOSITE):
+        return False
+    if ev.get("type") == "고속도로":   # 교차하는 다른 고속도로의 돌발 제외
+        return any(k in (ev.get("roadName") or "") for k in ROUTES[route].get("roads", []))
+    return True
+
+
+def events_on_route(route, events):
+    """노선이 내 정류장 → 서울 도착 지점 사이에 지나는 길 위의 돌발상황."""
+    cfg = ROUTES[route]
+    st = transit.route_stations(cfg["route_id"])
+    my_seq = cfg["stops"].get(MY_STOP, min(cfg["stops"].values()))
+    found = []
+    for ev in events:
+        if not on_my_road(route, ev):
+            continue
+        try:
+            p = {"x": float(ev["coordX"]), "y": float(ev["coordY"])}
+        except (KeyError, TypeError, ValueError):
+            continue
+        for s in range(my_seq, cfg["dest_seq"]):
+            if s in st and s + 1 in st and _seg_dist_km(p, st[s], st[s + 1]) <= NEAR_KM:
+                # 위치 안내는 구간 양 끝 중 더 가까운 정류장(경유지) 이름으로
+                near = s + 1 if _dist_km(p, st[s + 1]) < _dist_km(p, st[s]) else s
+                found.append((near, ev))
+                break
+    return found
+
+
 def load_recent(now):
     """수집기가 기록한 최근 RECENT_MIN 분의 차량 위치."""
     if not os.path.exists(CSV_FILE):
@@ -55,11 +141,32 @@ def load_recent(now):
     return df[df["collected_at"] >= now - timedelta(minutes=RECENT_MIN)]
 
 
-def detect(now=None, bundle=None, recent=None):
+def detect(now=None, bundle=None, recent=None, events=None):
     """노선별 돌발 판단 → {노선: {"delay": 추가 지연(분), "notes": [...], "skip_stops": {정류장ID}}}"""
     now = now or datetime.now()
     recent = load_recent(now) if recent is None else recent
     result = {r: {"delay": 0.0, "notes": [], "skip_stops": set(), "probes": 0} for r in ROUTES}
+
+    # 1) 공식 돌발상황(ITS): 노선 경로 위의 사고·통제·차로 차단 → 원인 안내 + 예상 지연
+    events = fetch_events() if events is None else events
+    for route in ROUTES:
+        st = transit.route_stations(ROUTES[route]["route_id"])
+        its_delay, seen = 0, set()
+        for s, ev in events_on_route(route, events):
+            d = event_delay(ev)
+            key = (ev.get("roadName"), ev.get("eventDetailType"), s)
+            if not d or key in seen:   # 지연 없는 공사, 같은 곳 중복은 제외
+                continue
+            seen.add(key)
+            its_delay += d
+            near = st.get(s, {}).get("name", "").replace("(경유)", "")
+            blocked = f", {ev['lanesBlocked']}" if ev.get("lanesBlocked") else ""
+            result[route]["notes"].append(
+                f"[{ev.get('eventType', '돌발')}] {ev.get('roadName', '')} {near} 부근 — "
+                f"{(ev.get('message') or '').strip() or ev.get('eventDetailType', '')}{blocked}")
+        result[route]["delay"] = float(min(its_delay, MAX_ITS_DELAY))
+
+    # 2) 앞차 기록: 실제로 느려졌는지 · 멈췄는지 · 건너뛰었는지
     # 수집기가 멈춰 기록이 3분 넘게 끊겼으면 판단하지 않음 (오래된 기록으로 '정지'라고 오판 방지)
     if recent.empty or now - recent["collected_at"].max() > timedelta(minutes=3):
         return result
@@ -103,7 +210,7 @@ def detect(now=None, bundle=None, recent=None):
                     start = stations.get(seqs[0], {}).get("name", "")
                     result[route]["notes"].append(
                         f"앞차가 {start}→{where} 구간을 {took:.0f}분에 통과 (평소 {usual:.0f}분)")
-        if extras:
+        if extras:   # 앞차로 실제 지연이 확인되면 그 값을 우선 (공식 정보 추정치보다 정확)
             result[route]["delay"] = float(pd.Series(extras).median())
     return result
 

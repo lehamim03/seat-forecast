@@ -10,3 +10,6 @@ ODSAY_KEY = "여기에_ODsay_키"
 
 # SK open API(openapi.sk.com) TMAP 앱 키 — 보행자 경로
 TMAP_KEY = "여기에_TMAP_앱키"
+
+# 국가교통정보센터(its.go.kr) 인증키 — 돌발상황정보(사고·공사·통제)
+ITS_KEY = "여기에_ITS_키"

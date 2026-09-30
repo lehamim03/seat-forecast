@@ -35,5 +35,13 @@ if key:
                             "startName": "start", "endName": "end"})
     checks.append(("TMAP", r.status_code == 200, r.text[:120]))
 
+# 국가교통정보센터 — 돌발상황정보
+key = getattr(api_key, "ITS_KEY", "")
+if key:
+    r = requests.get("https://openapi.its.go.kr:9443/eventInfo", timeout=15, params={
+        "apiKey": key, "type": "all", "eventType": "all", "getType": "json",
+        "minX": 127.0, "maxX": 127.1, "minY": 37.4, "maxY": 37.5})
+    checks.append(("국가교통정보센터(ITS)", '"resultCode":0' in r.text.replace(" ", ""), r.text[:120]))
+
 for name, ok, detail in checks:
     print(f"{'✅' if ok else '❌'} {name}" + ("" if ok else f"\n    응답: {detail}"))
