@@ -53,6 +53,7 @@
 
 - 탑승 정류장: 삼성1차아파트 (정류소번호 04007, 서울 방향)
 - 노선: 8800(서울역), 3007(강남역), 7001(사당역), 3008(강남역)
+- 주변 후보 정류장: 자유총연맹(도보 4분), 삼성2차아파트(7분), 경기도문화의전당.두산위브아파트(9분) 등
 - 수집 시간: 평일 06:00 – 10:00, 1분 간격
 
 ## 실행 방법
@@ -61,7 +62,9 @@
 pip install requests pandas scikit-learn joblib
 
 # 1) 인증키 설정: api_key.example.py 를 복사해 api_key.py 로 만들고 키 입력
-# 2) 노선 ID · 정류장 순번 찾기 (결과를 config.py 에 입력)
+#    (공공데이터포털 키 + 경기데이터드림 키)
+# 2) 주변 정류장과 서울행 노선 찾기 → 결과를 config.py 에 입력
+python find_nearby.py
 python find_ids.py
 
 # 3) 잔여 좌석 수집 (bus_seats.csv 에 저장, Ctrl+C 로 중지)
@@ -77,6 +80,7 @@ python train.py
 |---|---|
 | `config.py` | 노선, 탑승 정류장 순번, 수집 시간 등 설정 |
 | `find_ids.py` | 노선 ID와 정류장 순번 검색 도우미 |
+| `find_nearby.py` | 기준 정류장 주변(반경 700m)의 정류장과 서울행 광역버스·정류장 순번 조회 |
 | `collect.py` | 버스위치정보 API로 잔여 좌석을 1분마다 수집 |
 | `train.py` | 탑승 성공 여부를 Random Forest로 학습·평가 |
 | `survey_form.gs` | 이용자 설문 구글폼 자동 생성 스크립트 (Google Apps Script) |

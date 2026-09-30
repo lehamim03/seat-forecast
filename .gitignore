@@ -14,3 +14,6 @@ bus_seats.csv
 __pycache__/
 venv/
 .venv/
+
+# 조회 결과
+nearby_stops.json
