@@ -10,7 +10,7 @@ from datetime import datetime
 
 import requests
 
-from config import (SERVICE_KEY, ROUTES, AFTER_SEQ, INTERVAL_SEC,
+from config import (SERVICE_KEY, ROUTES, STOPS, INTERVAL_SEC,
                     START_HOUR, END_HOUR, CSV_FILE)
 
 URL = "https://apis.data.go.kr/6410000/buslocationservice/v2/getBusLocationListv2"
@@ -42,12 +42,13 @@ def fetch_buses(route_id):
     return items if isinstance(items, list) else [items]
 
 
-def to_rows(route_name, route_id, board_seq, items, now):
-    """출발점 ~ 탑승 정류소 조금 뒤까지 있는 버스만 CSV 한 줄씩으로 변환."""
+def to_rows(route_name, route_id, dest_seq, items, now):
+    """서울 방향(출발점 ~ 서울 도착 지점)을 달리는 버스를 CSV 한 줄씩으로 변환.
+    서울 도착까지 기록해야 정류장 → 서울 이동시간도 데이터로 잴 수 있다."""
     rows = []
     for it in items:
         seq = int(it.get("stationSeq", 999))
-        if seq > board_seq + AFTER_SEQ:
+        if seq > dest_seq:   # 서울에서 돌아오는 방향은 제외
             continue
         rows.append({
             "collected_at": now.strftime("%Y-%m-%d %H:%M:%S"),
@@ -79,18 +80,22 @@ def save(rows):
 def collect_once(now):
     rows = []
     for name, r in ROUTES.items():
-        rows += to_rows(name, r["route_id"], r["board_seq"], fetch_buses(r["route_id"]), now)
+        rows += to_rows(name, r["route_id"], r["dest_seq"], fetch_buses(r["route_id"]), now)
     if rows:
         save(rows)
-    # 화면에는 탑승 정류소 기준 몇 정거장 전인지로 표시
-    def where(r):
-        n = ROUTES[r["route_name"]]["board_seq"] - r["station_seq"]
-        return f"{n}정거장전" if n > 0 else ("도착" if n == 0 else "지나감")
 
-    near = sorted(rows, key=lambda r: (r["route_name"], r["station_seq"]))
-    summary = ", ".join(f"{r['route_name']} {where(r)}(좌석{r['remain_seat']})"
-                        for r in near) or "대상 버스 없음"
-    print(f"[{now:%H:%M:%S}] {summary}")
+    # 화면에는 후보 정류장에 다가오는 버스만 "다음 후보 정류장까지 몇 정거장 전"으로 표시
+    def approaching(r):
+        ahead = sorted((seq, sid) for sid, seq in ROUTES[r["route_name"]]["stops"].items()
+                       if seq >= r["station_seq"])
+        if not ahead:
+            return None   # 후보 정류장을 모두 지나감
+        seq, sid = ahead[0]
+        n = seq - r["station_seq"]
+        return f"{r['route_name']} {STOPS[sid]['name']} {n}정거장전(좌석{r['remain_seat']})" if n else                f"{r['route_name']} {STOPS[sid]['name']} 도착(좌석{r['remain_seat']})"
+
+    near = [a for a in map(approaching, sorted(rows, key=lambda r: (r["route_name"], -r["station_seq"]))) if a]
+    print(f"[{now:%H:%M:%S}] 기록 {len(rows)}대 | " + (", ".join(near) or "후보 정류장에 다가오는 버스 없음"))
 
 
 def main():
