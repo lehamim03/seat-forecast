@@ -110,7 +110,7 @@ def main():
             kind = ("기다리기" if stop_id == MY_STOP else "걸어가기") if route == my_route else "다른 버스"
             options.append({"kind": kind, "route": route, "stop": STOPS[stop_id], "walk": walk,
                             "cands": cands, "board": expected, "total": total, "cfg": cfg,
-                            "transfer": legs[route]["transfer"]})
+                            "transfer": legs[route]["transfer"], "alts": legs[route].get("alts", [])})
 
     # 3) 선택지별 최선 + 전체 추천
     print(f"\n[{now:%H:%M} 기준 · 평소 {STOPS[MY_STOP]['name']}에서 {my_route}번]\n")
@@ -131,7 +131,10 @@ def main():
             print(f"     {i}번째 차: {c['eta']:.0f}분 후 · {seats} · 탑승 확률 {c['p']:.0%}{note}")
         if not o["cands"]:
             print("     다가오는 차량 없음 — 배차간격 기준으로 추정")
-        print(f"     환승: {o['transfer']}\n")
+        print(f"     환승: {o['transfer']}")
+        for alt in o["alts"][:1]:
+            print(f"     다른 환승: {alt['transfer']} ({alt['minutes']}분 · 환승 {alt['transfers']}회)")
+        print()
 
     if best_all:
         o = best_all

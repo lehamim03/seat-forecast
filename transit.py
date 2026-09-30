@@ -6,23 +6,27 @@
 # ==========================================================
 import json
 import os
+import re
 from datetime import date
 
 import requests
 
 import api_key
-from config import SERVICE_KEY, ROUTES, STOPS, MY_STOP, DEST_NAME, DEST_X, DEST_Y
+from config import (SERVICE_KEY, ROUTES, STOPS, MY_STOP, DEST_NAME, DEST_X, DEST_Y,
+                    TRANSFER_PENALTY_MIN)
 
 CACHE = "transit_cache.json"
+# 경로 고르는 기준이 바뀌면 저장된 결과를 다시 조회하도록 설정값을 함께 기록
+SIG = f"penalty={TRANSFER_PENALTY_MIN};" + ";".join(f"{r}={c.get('prefer_bus')}" for r, c in ROUTES.items())
 
 
 def _load_cache():
     if os.path.exists(CACHE):
         with open(CACHE, encoding="utf-8") as f:
             c = json.load(f)
-        if c.get("date") == date.today().isoformat():
+        if c.get("date") == date.today().isoformat() and c.get("sig") == SIG:
             return c
-    return {"date": date.today().isoformat()}
+    return {"date": date.today().isoformat(), "sig": SIG}
 
 
 def _save_cache(c):
@@ -40,23 +44,46 @@ def station_xy(route_id, seq):
     raise ValueError("정류장을 찾지 못함")
 
 
-def odsay_route(sx, sy, ex, ey):
-    """ODsay 대중교통 길찾기 → 가장 빠른 경로의 소요시간(분)과 한 줄 요약."""
+def _describe(path):
+    """ODsay 경로 하나를 '4호선(사당→길음) → 버스 163(...)' 같은 한 줄로."""
+    steps = []
+    for sp in path["subPath"]:
+        if sp["trafficType"] == 1:      # 지하철
+            steps.append(f"{sp['lane'][0]['name'].replace('수도권 ', '')}({sp['startName']}→{sp['endName']})")
+        elif sp["trafficType"] == 2:    # 버스 (같은 구간을 가는 버스가 여러 개면 3개까지)
+            nos = "/".join(re.sub(r"\(.*?\)", "", l["busNo"]) for l in sp["lane"][:3])
+            steps.append(f"버스 {nos}({sp['startName']}→{sp['endName']})")
+        elif sp.get("sectionTime", 0) >= 3:   # 3분 이상 걷는 구간만 표시
+            steps.append(f"도보 {sp['sectionTime']}분")
+    return " → ".join(steps)
+
+
+def odsay_routes(sx, sy, ex, ey):
+    """ODsay 대중교통 길찾기 → 후보 경로 전부 (소요시간, 환승 횟수, 탄 버스, 한 줄 요약)."""
     res = requests.get("https://api.odsay.com/v1/api/searchPubTransPathT", timeout=15,
                        params={"SX": sx, "SY": sy, "EX": ex, "EY": ey, "apiKey": api_key.ODSAY_KEY})
     data = res.json()
     if "error" in data:
         raise RuntimeError(str(data["error"])[:150])
-    path = min(data["result"]["path"], key=lambda p: p["info"]["totalTime"])
-    steps = []
-    for sp in path["subPath"]:
-        if sp["trafficType"] == 1:      # 지하철
-            steps.append(f"{sp['lane'][0]['name']}({sp['startName']}→{sp['endName']})")
-        elif sp["trafficType"] == 2:    # 버스
-            steps.append(f"버스 {sp['lane'][0]['busNo']}({sp['startName']}→{sp['endName']})")
-        elif sp.get("sectionTime", 0) >= 3:   # 3분 이상 걷는 구간만 표시
-            steps.append(f"도보 {sp['sectionTime']}분")
-    return {"minutes": path["info"]["totalTime"], "summary": " → ".join(steps)}
+    out = []
+    for p in data["result"]["path"]:
+        i = p["info"]
+        out.append({
+            "minutes": i["totalTime"],
+            "transfers": i["busTransitCount"] + i["subwayTransitCount"] - 1,
+            "buses": [re.sub(r"\(.*?\)", "", l["busNo"]) for sp in p["subPath"]
+                      if sp["trafficType"] == 2 for l in sp["lane"]],
+            "summary": _describe(p),
+        })
+    return out
+
+
+def rank(routes, prefer_bus=None):
+    """경로 순위: 소요시간 + 환승 1회당 벌점. prefer_bus 가 있으면 그 버스를 타는 경로를 우선."""
+    score = lambda r: r["minutes"] + TRANSFER_PENALTY_MIN * r["transfers"]
+    preferred = [r for r in routes if prefer_bus and prefer_bus in r["buses"]]
+    others = [r for r in routes if r not in preferred]
+    return sorted(preferred, key=score) + sorted(others, key=score)
 
 
 def tmap_walk_min(ax, ay, bx, by):
@@ -77,8 +104,12 @@ def get_legs():
         for route, cfg in ROUTES.items():
             try:
                 x, y, name = station_xy(cfg["route_id"], cfg["dest_seq"])
-                r = odsay_route(x, y, DEST_X, DEST_Y)
-                legs[route] = {"minutes": r["minutes"], "transfer": r["summary"], "from": name, "live": True}
+                ranked = rank(odsay_routes(x, y, DEST_X, DEST_Y), cfg.get("prefer_bus"))
+                best = ranked[0]
+                alts = [{"minutes": r["minutes"], "transfers": r["transfers"], "transfer": r["summary"]}
+                        for r in ranked[1:3]]
+                legs[route] = {"minutes": best["minutes"], "transfers": best["transfers"],
+                               "transfer": best["summary"], "from": name, "live": True, "alts": alts}
             except Exception as e:
                 print(f"  ! {route} 환승 경로 조회 실패 — 가정값 사용 ({e})")
                 legs[route] = {"minutes": cfg["to_kookmin_min"], "transfer": cfg["transfer"], "live": False}
@@ -121,7 +152,10 @@ if __name__ == "__main__":
     for route, leg in get_legs().items():
         src = leg.get("from", ROUTES[route]["dest"])
         tag = "" if leg["live"] else "  (가정값)"
-        print(f"  {route}번 {src}: 약 {leg['minutes']}분{tag}\n      {leg['transfer']}")
+        n = f" · 환승 {leg['transfers']}회" if "transfers" in leg else ""
+        print(f"  {route}번 {src}: 약 {leg['minutes']}분{n}{tag}\n      {leg['transfer']}")
+        for a in leg.get("alts", []):
+            print(f"      (다른 경로 {a['minutes']}분 · 환승 {a['transfers']}회) {a['transfer']}")
     print(f"\n[{STOPS[MY_STOP]['name']} → 후보 정류장 도보 시간]  (TMAP 보행자 경로)")
     for stop_id, m in get_walks().items():
         print(f"  {STOPS[stop_id]['name']}: {m}분")
