@@ -24,6 +24,7 @@ BASE = "https://apis.data.go.kr/6410000"
 LOOKAHEAD = 3        # 노선·정류장마다 다가오는 버스 몇 대까지 볼지
 BUFFER_MIN = 1       # 정류장에 버스보다 최소 1분 먼저 도착해야 탈 수 있다고 봄
 USE_MODEL = True     # False면 board_model.pkl 없이 config 기본값만 사용 (시연용)
+USE_TRANSIT = True   # False면 ODsay·TMAP 조회 없이 config 의 환승·도보 값 사용 (시연용)
 
 
 def get(path, **params):
@@ -54,6 +55,14 @@ def main():
     now = datetime.now()
     b = joblib.load("board_model.pkl") if USE_MODEL and os.path.exists("board_model.pkl") else {}
 
+    # 환승 경로(ODsay)와 도보 시간(TMAP) — 하루 한 번 조회해 저장, 실패하면 config 값
+    if USE_TRANSIT:
+        import transit
+        legs, walks = transit.get_legs(), transit.get_walks()
+    else:
+        legs = {r: {"minutes": c["to_kookmin_min"], "transfer": c["transfer"]} for r, c in ROUTES.items()}
+        walks = {s: abs(v["walk_min"] - STOPS[MY_STOP]["walk_min"]) for s, v in STOPS.items()}
+
     # 1) 노선마다 달리고 있는 모든 차량 (위치 · 현재 잔여 좌석)
     buses = {r: get("buslocationservice/v2/getBusLocationListv2", routeId=c["route_id"])
              for r, c in ROUTES.items()}
@@ -71,7 +80,7 @@ def main():
         per_stop = b.get("min_per_stop", {}).get(route, DEFAULT_MIN_PER_STOP)
         drop = b.get("drop", {}).get((route, now.hour), DEFAULT_DROP_PER_STOP)
         for stop_id, stop_seq in cfg["stops"].items():
-            walk = abs(STOPS[stop_id]["walk_min"] - STOPS[MY_STOP]["walk_min"])  # 평소 정류장에서 걸어가는 시간
+            walk = walks[stop_id]   # 평소 정류장에서 걸어가는 시간
             coming = sorted((stop_seq - int(x["stationSeq"]), x) for x in buses[route]
                             if int(x.get("stationSeq", 999)) < stop_seq)[:LOOKAHEAD]
             cands = []
@@ -96,11 +105,12 @@ def main():
             # 서울까지 이동시간: 실측값이 없으면, 앞 정류장에서 탈수록 더 오래 타는 만큼 더한다
             my_seq = cfg["stops"].get(MY_STOP, stop_seq)
             ride = b.get("ride", {}).get((route, stop_id), DEFAULT_RIDE_MIN + (my_seq - stop_seq) * per_stop)
-            total = expected + ride + cfg["to_kookmin_min"]
+            total = expected + ride + legs[route]["minutes"]
 
             kind = ("기다리기" if stop_id == MY_STOP else "걸어가기") if route == my_route else "다른 버스"
             options.append({"kind": kind, "route": route, "stop": STOPS[stop_id], "walk": walk,
-                            "cands": cands, "board": expected, "total": total, "cfg": cfg})
+                            "cands": cands, "board": expected, "total": total, "cfg": cfg,
+                            "transfer": legs[route]["transfer"]})
 
     # 3) 선택지별 최선 + 전체 추천
     print(f"\n[{now:%H:%M} 기준 · 평소 {STOPS[MY_STOP]['name']}에서 {my_route}번]\n")
@@ -121,7 +131,7 @@ def main():
             print(f"     {i}번째 차: {c['eta']:.0f}분 후 · {seats} · 탑승 확률 {c['p']:.0%}{note}")
         if not o["cands"]:
             print("     다가오는 차량 없음 — 배차간격 기준으로 추정")
-        print(f"     환승: {o['cfg']['transfer']}\n")
+        print(f"     환승: {o['transfer']}\n")
 
     if best_all:
         o = best_all

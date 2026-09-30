@@ -6,6 +6,7 @@
 import live_recommend as L
 
 L.USE_MODEL = False   # 학습 결과와 상관없이 항상 같은 결과가 나오도록 기본값 사용
+L.USE_TRANSIT = False # 환승·도보 시간도 config 값으로 고정
 
 R8800, R3007, R7001, R3008 = "200000205", "200000110", "200000119", "200000274"
 

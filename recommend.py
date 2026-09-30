@@ -33,10 +33,13 @@ def main():
     weekday = int(sys.argv[2]) if len(sys.argv) > 2 else leave.weekday()
 
     b = joblib.load("board_model.pkl")
+    # 환승 경로(ODsay)·도보 시간(TMAP) — 하루 한 번 조회, 실패하면 config 값
+    import transit
+    legs, walks = transit.get_legs(), transit.get_walks()
     options = []
     for route, cfg in ROUTES.items():
         for stop_id in cfg["stops"]:
-            stop = STOPS[stop_id]
+            stop = dict(STOPS[stop_id], walk_min=walks[stop_id])
             at_stop = leave + timedelta(minutes=stop["walk_min"])
             headway = b["headway"].get(route, DEFAULT_HEADWAY_MIN)
             x = pd.DataFrame([{
@@ -47,10 +50,11 @@ def main():
             p = b["model"].predict_proba(x)[0, 1]
             wait = expected_wait(headway, p)
             ride = b["ride"].get((route, stop_id), DEFAULT_RIDE_MIN)
-            total = stop["walk_min"] + wait + ride + cfg["to_kookmin_min"]
+            transfer = legs[route]["minutes"]
+            total = stop["walk_min"] + wait + ride + transfer
             # 비교용: 지도 앱처럼 '모든 버스를 탈 수 있다'고 가정한 시간
-            naive = stop["walk_min"] + headway / 2 + ride + cfg["to_kookmin_min"]
-            options.append((total, naive, p, wait, route, stop, cfg))
+            naive = stop["walk_min"] + headway / 2 + ride + transfer
+            options.append((total, naive, p, wait, route, stop, dict(cfg, transfer=legs[route]["transfer"])))
 
     options.sort(key=lambda o: o[0])
     day = "월화수목금토일"[weekday]
@@ -64,6 +68,7 @@ def main():
     best = options[0]
     print(f"\n→ 추천: {best[6]['dest']}행 {best[4]}번을 {best[5]['name']} 정류장에서 타세요 "
           f"(도보 {best[5]['walk_min']}분, 탑승 확률 {best[2]:.0%})")
+    print(f"  서울 도착 후: {best[6]['transfer']}")
 
 
 if __name__ == "__main__":
