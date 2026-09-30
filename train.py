@@ -114,13 +114,28 @@ print("[무엇이 중요했나]")
 for f, imp in sorted(zip(FEATURES, model.feature_importances_), key=lambda x: -x[1]):
     print(f"  {f:12s} {imp:.2f}")
 
-# ---------- 7. 전체 데이터로 다시 학습해 저장 ----------
+# ---------- 7. 실시간 추천용 실측값: 정류장 하나마다 줄어드는 좌석 · 걸리는 시간 ----------
+# 같은 운행에서 연달아 찍힌 두 기록을 비교한다 (후보 정류장 부근 구간만)
+t = df.copy()
+key = ["date", "route_name", "plate_no", "trip"]
+t["d_seq"] = t.groupby(key)["station_seq"].diff()
+t["d_seat"] = t.groupby(key)["remain_seat"].diff()
+t["d_min"] = t.groupby(key)["collected_at"].diff().dt.total_seconds() / 60
+near_max = {r: max(c["stops"].values()) for r, c in ROUTES.items()}
+t = t[(t["d_seq"] > 0) & (t["station_seq"] <= t["route_name"].map(near_max))]
+t["hour"] = t["collected_at"].dt.hour
+drop = (-t["d_seat"] / t["d_seq"]).clip(lower=0).groupby([t["route_name"], t["hour"]]).median().to_dict()
+min_per_stop = (t["d_min"] / t["d_seq"]).groupby(t["route_name"]).median().to_dict()
+
+# ---------- 8. 전체 데이터로 다시 학습해 저장 ----------
 model.fit(data[FEATURES], data["success"])
 bundle = {
     "model": model, "features": FEATURES, "route_map": route_map, "stop_map": stop_map,
     # 추천 계산에 쓰는 실측값: 노선별 배차간격, (노선, 정류장)별 서울까지 이동시간
     "headway": data.groupby("route_name")["headway_min"].median().to_dict(),
     "ride": data.dropna(subset=["ride_min"]).groupby(["route_name", "stop_id"])["ride_min"].median().to_dict(),
+    # 실시간 추천용: (노선, 시)별 정류장당 좌석 감소, 노선별 정류장당 이동 시간
+    "drop": drop, "min_per_stop": min_per_stop,
 }
 joblib.dump(bundle, "board_model.pkl")
 print("\n모델 저장 완료: board_model.pkl  →  python recommend.py 로 추천을 받아보세요")
