@@ -34,14 +34,25 @@ def _save_cache(c):
         json.dump(c, f, ensure_ascii=False, indent=1)
 
 
+def route_stations(route_id):
+    """노선의 정류장 목록 {순번: {name, x, y}} — 하루 한 번 조회해 저장."""
+    c = _load_cache()
+    stations = c.setdefault("stations", {})
+    if route_id not in stations:
+        res = requests.get("https://apis.data.go.kr/6410000/busrouteservice/v2/getBusRouteStationListv2",
+                           params={"serviceKey": SERVICE_KEY, "routeId": route_id, "format": "json"}, timeout=10)
+        stations[route_id] = {str(s["stationSeq"]): {"name": s["stationName"], "x": float(s["x"]), "y": float(s["y"])}
+                              for s in res.json()["response"]["msgBody"]["busRouteStationList"]}
+        _save_cache(c)
+    return {int(k): v for k, v in stations[route_id].items()}
+
+
 def station_xy(route_id, seq):
     """노선의 seq번째 정류장 좌표 (공공데이터포털 노선 API)."""
-    res = requests.get("https://apis.data.go.kr/6410000/busrouteservice/v2/getBusRouteStationListv2",
-                       params={"serviceKey": SERVICE_KEY, "routeId": route_id, "format": "json"}, timeout=10)
-    for s in res.json()["response"]["msgBody"]["busRouteStationList"]:
-        if int(s["stationSeq"]) == seq:
-            return float(s["x"]), float(s["y"]), s["stationName"]
-    raise ValueError("정류장을 찾지 못함")
+    s = route_stations(route_id).get(seq)
+    if s is None:
+        raise ValueError("정류장을 찾지 못함")
+    return s["x"], s["y"], s["name"]
 
 
 def _describe(path):
@@ -114,6 +125,7 @@ def get_legs():
                 print(f"  ! {route} 환승 경로 조회 실패 — 가정값 사용 ({e})")
                 legs[route] = {"minutes": cfg["to_kookmin_min"], "transfer": cfg["transfer"], "live": False}
         if all(l["live"] for l in legs.values()):
+            c = _load_cache()   # 조회 중 저장된 정류장 목록을 덮어쓰지 않도록 다시 읽음
             c["legs"] = legs
             _save_cache(c)
         return legs

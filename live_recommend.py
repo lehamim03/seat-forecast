@@ -25,6 +25,7 @@ LOOKAHEAD = 3        # 노선·정류장마다 다가오는 버스 몇 대까지
 BUFFER_MIN = 1       # 정류장에 버스보다 최소 1분 먼저 도착해야 탈 수 있다고 봄
 USE_MODEL = True     # False면 board_model.pkl 없이 config 기본값만 사용 (시연용)
 USE_TRANSIT = True   # False면 ODsay·TMAP 조회 없이 config 의 환승·도보 값 사용 (시연용)
+INCIDENT_RECENT = None  # 시연용: 돌발 감지에 쓸 최근 기록(DataFrame)을 직접 넣을 때
 
 
 def get(path, **params):
@@ -63,6 +64,10 @@ def main():
         legs = {r: {"minutes": c["to_kookmin_min"], "transfer": c["transfer"]} for r, c in ROUTES.items()}
         walks = {s: abs(v["walk_min"] - STOPS[MY_STOP]["walk_min"]) for s, v in STOPS.items()}
 
+    # 돌발상황 — 앞서 가는 같은 노선 버스들의 최근 움직임 (collect.py 기록 사용)
+    import incidents
+    inc = incidents.detect(now, b, INCIDENT_RECENT)
+
     # 1) 노선마다 달리고 있는 모든 차량 (위치 · 현재 잔여 좌석)
     buses = {r: get("buslocationservice/v2/getBusLocationListv2", routeId=c["route_id"])
              for r, c in ROUTES.items()}
@@ -90,6 +95,11 @@ def main():
                 seats_at_stop = seats_now - drop * n_stops if seats_now >= 0 else None
                 p = board_prob(seats_at_stop) if seats_at_stop is not None else 0.5
                 cands.append({"eta": eta, "seats": seats_at_stop, "p": p, "ok": eta >= walk + BUFFER_MIN})
+            # 우회로 이 정류장을 건너뛰는 중이면 여기서는 탈 수 없음
+            skipped = stop_id in inc[route]["skip_stops"]
+            if skipped:
+                for c in cands:
+                    c["p"], c["skip"] = 0.0, True
             reachable = [c for c in cands if c["ok"]]
 
             # 기대 탑승 시각: 첫 차부터 차례로 시도, 모두 놓치면 배차간격마다 한 대씩 더 기다림
@@ -105,15 +115,28 @@ def main():
             # 서울까지 이동시간: 실측값이 없으면, 앞 정류장에서 탈수록 더 오래 타는 만큼 더한다
             my_seq = cfg["stops"].get(MY_STOP, stop_seq)
             ride = b.get("ride", {}).get((route, stop_id), DEFAULT_RIDE_MIN + (my_seq - stop_seq) * per_stop)
-            total = expected + ride + legs[route]["minutes"]
+            delay = inc[route]["delay"]            # 돌발 지연(사고·정체·시위 등)
+            total = expected + ride + delay + legs[route]["minutes"]
+            if skipped:
+                total += 999                        # 사실상 선택 불가
 
             kind = ("기다리기" if stop_id == MY_STOP else "걸어가기") if route == my_route else "다른 버스"
             options.append({"kind": kind, "route": route, "stop": STOPS[stop_id], "walk": walk,
                             "cands": cands, "board": expected, "total": total, "cfg": cfg,
-                            "transfer": legs[route]["transfer"], "alts": legs[route].get("alts", [])})
+                            "transfer": legs[route]["transfer"], "alts": legs[route].get("alts", []),
+                            "delay": delay, "skipped": skipped})
 
     # 3) 선택지별 최선 + 전체 추천
     print(f"\n[{now:%H:%M} 기준 · 평소 {STOPS[MY_STOP]['name']}에서 {my_route}번]\n")
+    alerts = [(r, v) for r, v in inc.items() if v["delay"] or v["skip_stops"]]
+    if alerts:
+        print("[돌발상황 감지]")
+        for r, v in alerts:
+            head = f"+{v['delay']:.0f}분 지연 예상" if v["delay"] else "정류장 건너뜀"
+            print(f"  ⚠ {r}번 {head}")
+            for n in dict.fromkeys(v["notes"]):   # 같은 문구 중복 제거
+                print(f"      - {n}")
+        print()
     best_all = min(options, key=lambda o: o["total"]) if options else None
     for kind, icon in (("기다리기", "①"), ("걸어가기", "②"), ("다른 버스", "③")):
         group = sorted((o for o in options if o["kind"] == kind), key=lambda o: o["total"])
@@ -124,7 +147,11 @@ def main():
         eta = now + timedelta(minutes=o["total"])
         mark = "  ★ 추천" if o is best_all else ""
         where = f"{o['stop']['name']}" + (f" (도보 {o['walk']}분)" if o["walk"] else "")
-        print(f"{icon} {kind}: {o['route']}번 · {where} → {o['cfg']['dest']} → 국민대 {eta:%H:%M} 도착 예상{mark}")
+        if o["skipped"]:
+            print(f"{icon} {kind}: {o['route']}번 · {where} — 우회로 이 정류장을 건너뛰는 중이라 탈 수 없음\n")
+            continue
+        warn = f"  (돌발 지연 +{o['delay']:.0f}분 반영)" if o["delay"] else ""
+        print(f"{icon} {kind}: {o['route']}번 · {where} → {o['cfg']['dest']} → 국민대 {eta:%H:%M} 도착 예상{mark}{warn}")
         for i, c in enumerate(o["cands"], 1):
             seats = f"도착 때 약 {max(c['seats'], 0):.0f}석" if c["seats"] is not None else "좌석 정보 없음"
             note = "" if c["ok"] else " (걸어가는 동안 지나감)"
@@ -145,7 +172,11 @@ def main():
         elif o["kind"] == "걸어가기":
             tip = f" — 지금 {o['stop']['name']}(으)로 출발하면 좌석이 남은 차를 먼저 탈 수 있습니다"
         elif o["kind"] == "다른 버스":
-            tip = f" — {o['cfg']['dest']}에서 환승하는 경로가 더 빠릅니다"
+            mine = inc[my_route]
+            if mine["delay"] or mine["skip_stops"]:
+                tip = f" — {my_route}번 경로에 돌발상황이 있어 {o['cfg']['dest']} 경유로 돌아가는 게 빠릅니다"
+            else:
+                tip = f" — {o['cfg']['dest']}에서 환승하는 경로가 더 빠릅니다"
         print(f"→ 추천: {o['kind']} ({o['route']}번 · {o['stop']['name']}){tip}")
 
 

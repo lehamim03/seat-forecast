@@ -127,6 +127,14 @@ t["hour"] = t["collected_at"].dt.hour
 drop = (-t["d_seat"] / t["d_seq"]).clip(lower=0).groupby([t["route_name"], t["hour"]]).median().to_dict()
 min_per_stop = (t["d_min"] / t["d_seq"]).groupby(t["route_name"]).median().to_dict()
 
+# 돌발 감지용: 서울 도착까지 모든 구간의 '평소' 정류장당 이동 시간 (노선, 순번)
+s = df.copy()
+s["d_seq"] = s.groupby(key)["station_seq"].diff()
+s["d_min"] = s.groupby(key)["collected_at"].diff().dt.total_seconds() / 60
+s = s[(s["d_seq"] > 0) & (s["d_seq"] <= 3)]
+s["from_seq"] = s["station_seq"] - s["d_seq"]
+seg_min = (s["d_min"] / s["d_seq"]).groupby([s["route_name"], s["from_seq"].astype(int)]).median().to_dict()
+
 # ---------- 8. 전체 데이터로 다시 학습해 저장 ----------
 model.fit(data[FEATURES], data["success"])
 bundle = {
@@ -136,6 +144,8 @@ bundle = {
     "ride": data.dropna(subset=["ride_min"]).groupby(["route_name", "stop_id"])["ride_min"].median().to_dict(),
     # 실시간 추천용: (노선, 시)별 정류장당 좌석 감소, 노선별 정류장당 이동 시간
     "drop": drop, "min_per_stop": min_per_stop,
+    # 돌발 감지용: (노선, 순번)별 평소 정류장당 이동 시간
+    "seg_min": seg_min,
 }
 joblib.dump(bundle, "board_model.pkl")
 print("\n모델 저장 완료: board_model.pkl  →  python recommend.py 로 추천을 받아보세요")
