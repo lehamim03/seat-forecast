@@ -23,13 +23,16 @@ import requests
 
 import api_key
 import transit
-from config import CSV_FILE, ROUTES, STOPS, MY_STOP
+import daytype
+from config import CSV_FILE, ROUTES, STOPS, MY_STOP, DEFAULT_DROP_PER_STOP
 
 RECENT_MIN = 20        # 최근 몇 분의 기록을 볼지
 BASE_KMH = 30          # 실측값이 없을 때 쓰는 버스 평균 속도 (정차 포함)
 SLOW_RATIO = 1.8       # 평소보다 이 배 이상 오래 걸리면 '정체'
 STUCK_MIN = 8          # 한 구간에 평소 시간 + 이 분 이상 머물면 '정지'
 SKIP_JUMP = 3          # 2분 안에 순번이 이만큼 이상 뛰면 '건너뜀'
+SURGE_RATIO = 2.0      # 다가오는 버스의 좌석이 평소의 이 배 이상 빨리 줄면 '승객 쏠림'
+SURGE_EXTRA = 5        # … 그리고 평소보다 이 석 이상 더 줄었을 때 (행사 · 혼잡 의심)
 
 USE_ITS = True         # 국가교통정보센터 돌발상황정보 사용 여부
 NEAR_KM = 0.4          # 노선 경로에서 이 거리 안의 돌발상황만 반영
@@ -145,7 +148,8 @@ def detect(now=None, bundle=None, recent=None, events=None):
     """노선별 돌발 판단 → {노선: {"delay": 추가 지연(분), "notes": [...], "skip_stops": {정류장ID}}}"""
     now = now or datetime.now()
     recent = load_recent(now) if recent is None else recent
-    result = {r: {"delay": 0.0, "notes": [], "skip_stops": set(), "probes": 0} for r in ROUTES}
+    result = {r: {"delay": 0.0, "notes": [], "skip_stops": set(), "probes": 0, "drop_factor": 1.0}
+              for r in ROUTES}
 
     # 1) 공식 돌발상황(ITS): 노선 경로 위의 사고·통제·차로 차단 → 원인 안내 + 예상 지연
     events = fetch_events() if events is None else events
@@ -175,10 +179,24 @@ def detect(now=None, bundle=None, recent=None, events=None):
     for route, cfg in ROUTES.items():
         stations = transit.route_stations(cfg["route_id"])
         my_seq = cfg["stops"].get(MY_STOP, min(cfg["stops"].values()))
-        extras = []
+        extras, surges = [], []
+        # 오늘 · 지금 시간대의 평소 정류장당 좌석 감소 (평일 출퇴근 > 평일 > 주말 > 공휴일)
+        base_drop = (bundle or {}).get("drop", {}).get((route, now.hour), DEFAULT_DROP_PER_STOP) \
+            * daytype.factors(now.to_pydatetime() if hasattr(now, "to_pydatetime") else now)["drop"]
         for plate, t in recent[recent["route_name"] == route].groupby("plate_no"):
             t = t.sort_values("collected_at")
             seqs, times = t["station_seq"].tolist(), t["collected_at"].tolist()
+
+            # 승객 쏠림: 내 정류장으로 다가오는 버스의 좌석이 평소보다 훨씬 빨리 줄어듦 (행사 · 혼잡 의심)
+            if "remain_seat" in t and seqs[-1] <= max(cfg["stops"].values()) and seqs[-1] - seqs[0] >= 2:
+                seats = t["remain_seat"].tolist()
+                if seats[0] >= 0 and seats[-1] >= 0:
+                    dropped, usual = seats[0] - seats[-1], base_drop * (seqs[-1] - seqs[0])
+                    if dropped - usual >= SURGE_EXTRA and dropped >= SURGE_RATIO * max(usual, 1):
+                        surges.append(dropped / max(usual, 1))
+                        a, b = stations.get(seqs[0], {}).get("name", ""), stations.get(seqs[-1], {}).get("name", "")
+                        result[route]["notes"].append(
+                            f"다가오는 차가 {a}→{b}에서 {dropped:.0f}석 줄어듦 (평소 {usual:.0f}석) — 승객 쏠림 의심")
 
             # 건너뜀: 짧은 시간에 순번이 크게 뛰면서 후보 정류장을 지나침
             for (s0, t0), (s1, t1) in zip(zip(seqs, times), zip(seqs[1:], times[1:])):
@@ -212,6 +230,8 @@ def detect(now=None, bundle=None, recent=None, events=None):
                         f"앞차가 {start}→{where} 구간을 {took:.0f}분에 통과 (평소 {usual:.0f}분)")
         if extras:   # 앞차로 실제 지연이 확인되면 그 값을 우선 (공식 정보 추정치보다 정확)
             result[route]["delay"] = float(pd.Series(extras).median())
+        if surges:   # 뒤따라오는 버스도 좌석이 이만큼 빨리 줄 것으로 봄 (최대 3배)
+            result[route]["drop_factor"] = float(min(pd.Series(surges).median(), 3.0))
     return result
 
 
@@ -221,6 +241,8 @@ if __name__ == "__main__":
         print("최근 기록이 없습니다. collect.py 를 켜 두면 1분마다 기록되어 돌발 감지가 작동합니다.")
     for route, r in res.items():
         status = f"+{r['delay']:.0f}분 지연 예상" if r["delay"] else "특이사항 없음"
+        if r["drop_factor"] > 1:
+            status += f", 좌석이 평소의 {r['drop_factor']:.1f}배 속도로 줄어듦"
         print(f"{route}번: {status}  (앞차 {r['probes']}대 확인)")
         for n in r["notes"]:
             print(f"   ⚠ {n}")

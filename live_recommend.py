@@ -27,6 +27,8 @@ USE_MODEL = True     # False면 board_model.pkl 없이 config 기본값만 사�
 USE_TRANSIT = True   # False면 ODsay·TMAP 조회 없이 config 의 환승·도보 값 사용 (시연용)
 INCIDENT_RECENT = None  # 시연용: 돌발 감지에 쓸 최근 기록(DataFrame)을 직접 넣을 때
 INCIDENT_EVENTS = None  # 시연용: ITS 돌발상황 목록을 직접 넣을 때
+NOW_OVERRIDE = None     # 시연용: 특정 날짜·시각(datetime)으로 판단할 때
+LOCAL_EXTRA = None      # 시연용: 지역행사 목록을 직접 넣을 때 (config.LOCAL_EVENTS 형식)
 
 
 def get(path, **params):
@@ -54,8 +56,15 @@ def board_prob(seats_at_stop):
 
 def main():
     my_route = sys.argv[1] if len(sys.argv) > 1 else MY_ROUTE
-    now = datetime.now()
+    now = NOW_OVERRIDE or datetime.now()
     b = joblib.load("board_model.pkl") if USE_MODEL and os.path.exists("board_model.pkl") else {}
+
+    # 요일 · 공휴일 · 출퇴근 시간대 — 평일 출퇴근 대비 좌석 감소 속도, 배차간격 배율
+    import daytype
+    day = daytype.factors(now)
+    # 지역행사 — 행사장 근처 정류장의 승객 쏠림, 주변 정체
+    import events
+    ev = events.impact(now, LOCAL_EXTRA)
 
     # 환승 경로(ODsay)와 도보 시간(TMAP) — 하루 한 번 조회해 저장, 실패하면 config 값
     if USE_TRANSIT:
@@ -82,9 +91,11 @@ def main():
 
     options = []
     for route, cfg in ROUTES.items():
-        headway = b.get("headway", {}).get(route, DEFAULT_HEADWAY_MIN)
+        headway = b.get("headway", {}).get(route, DEFAULT_HEADWAY_MIN) * day["headway"]
         per_stop = b.get("min_per_stop", {}).get(route, DEFAULT_MIN_PER_STOP)
-        drop = b.get("drop", {}).get((route, now.hour), DEFAULT_DROP_PER_STOP)
+        # 정류장당 좌석 감소: 기본값 × 요일·시간대 배율 × 지금 감지된 승객 쏠림
+        drop = (b.get("drop", {}).get((route, now.hour), DEFAULT_DROP_PER_STOP)
+                * day["drop"] * inc[route].get("drop_factor", 1.0))
         for stop_id, stop_seq in cfg["stops"].items():
             walk = walks[stop_id]   # 평소 정류장에서 걸어가는 시간
             coming = sorted((stop_seq - int(x["stationSeq"]), x) for x in buses[route]
@@ -93,7 +104,9 @@ def main():
             for n_stops, x in coming:
                 eta = eta_exact.get((stop_id, x.get("plateNo")), n_stops * per_stop)
                 seats_now = num(x.get("remainSeatCnt"), -1)
-                seats_at_stop = seats_now - drop * n_stops if seats_now >= 0 else None
+                bus_seq = int(x["stationSeq"])
+                crowd = sum(n for seq, n in ev[route]["extra"].items() if bus_seq <= seq <= stop_seq)   # 행사 승객
+                seats_at_stop = seats_now - drop * n_stops - crowd if seats_now >= 0 else None
                 p = board_prob(seats_at_stop) if seats_at_stop is not None else 0.5
                 cands.append({"eta": eta, "seats": seats_at_stop, "p": p, "ok": eta >= walk + BUFFER_MIN})
             # 우회로 이 정류장을 건너뛰는 중이면 여기서는 탈 수 없음
@@ -116,7 +129,7 @@ def main():
             # 서울까지 이동시간: 실측값이 없으면, 앞 정류장에서 탈수록 더 오래 타는 만큼 더한다
             my_seq = cfg["stops"].get(MY_STOP, stop_seq)
             ride = b.get("ride", {}).get((route, stop_id), DEFAULT_RIDE_MIN + (my_seq - stop_seq) * per_stop)
-            delay = inc[route]["delay"]            # 돌발 지연(사고·정체·시위 등)
+            delay = inc[route]["delay"] + ev[route]["delay"]   # 돌발 지연(사고·정체·시위) + 행사 주변 정체
             total = expected + ride + delay + legs[route]["minutes"]
             if skipped:
                 total += 999                        # 사실상 선택 불가
@@ -128,12 +141,24 @@ def main():
                             "delay": delay, "skipped": skipped})
 
     # 3) 선택지별 최선 + 전체 추천
-    print(f"\n[{now:%H:%M} 기준 · 평소 {STOPS[MY_STOP]['name']}에서 {my_route}번]\n")
-    alerts = [(r, v) for r, v in inc.items() if v["delay"] or v["skip_stops"]]
+    wd = "월화수목금토일"[now.weekday()]
+    print(f"\n[{now:%m/%d}({wd}) {now:%H:%M} 기준 · {day['label']} · 평소 {STOPS[MY_STOP]['name']}에서 {my_route}번]")
+    if day["key"] != "평일 출퇴근":
+        print(f"  ※ 평일 출퇴근 시간대보다 한산해 좌석이 천천히 줄고(×{day['drop']}), 배차간격은 길어요(×{day['headway']})")
+    print()
+    ev_notes = [(r, v) for r, v in ev.items() if v["notes"]]
+    if ev_notes:
+        print("[지역행사]")
+        for r, v in ev_notes:
+            for n in v["notes"]:
+                print(f"  🎪 {r}번: {n}")
+        print()
+    alerts = [(r, v) for r, v in inc.items() if v["delay"] or v["skip_stops"] or v.get("drop_factor", 1) > 1]
     if alerts:
         print("[돌발상황 감지]")
         for r, v in alerts:
-            head = f"+{v['delay']:.0f}분 지연 예상" if v["delay"] else "정류장 건너뜀"
+            head = f"+{v['delay']:.0f}분 지연 예상" if v["delay"] else (
+                "정류장 건너뜀" if v["skip_stops"] else f"좌석이 평소의 {v['drop_factor']:.1f}배 속도로 줄어듦")
             print(f"  ⚠ {r}번 {head}")
             for n in dict.fromkeys(v["notes"]):   # 같은 문구 중복 제거
                 print(f"      - {n}")
@@ -170,11 +195,15 @@ def main():
         tip = ""
         if o["kind"] == "기다리기" and first and first["p"] < 0.5:
             tip = " — 첫 차는 만석 위험이 커서 보내고 다음 차를 타는 게 낫습니다"
+        elif o["kind"] == "기다리기" and first and day["key"] != "평일 출퇴근":
+            tip = f" — {day['label']}이라 한산해서 첫 차({first['eta']:.0f}분 후)도 탈 수 있어요"
         elif o["kind"] == "걸어가기":
             tip = f" — 지금 {o['stop']['name']}(으)로 출발하면 좌석이 남은 차를 먼저 탈 수 있습니다"
         elif o["kind"] == "다른 버스":
             mine = inc[my_route]
-            if mine["delay"] or mine["skip_stops"]:
+            if ev[my_route]["extra"] and not ev[o["route"]]["extra"]:
+                tip = f" — {my_route}번은 지역행사로 앞 정류장에서 승객이 몰려, 행사장을 거치지 않는 {o['route']}번이 낫습니다"
+            elif mine["delay"] or mine["skip_stops"]:
                 tip = f" — {my_route}번 경로에 돌발상황이 있어 {o['cfg']['dest']} 경유로 돌아가는 게 빠릅니다"
             else:
                 tip = f" — {o['cfg']['dest']}에서 환승하는 경로가 더 빠릅니다"

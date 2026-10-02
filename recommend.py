@@ -31,6 +31,14 @@ def main():
         hh, mm = map(int, sys.argv[1].split(":"))
         leave = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
     weekday = int(sys.argv[2]) if len(sys.argv) > 2 else leave.weekday()
+    # 날짜 종류(평일/토요일/일요일·공휴일)와 배차간격 배율 — 요일만 주면 그 요일 기준으로 판단
+    import daytype
+    if len(sys.argv) > 2:
+        day_type = 0 if weekday < 5 else (1 if weekday == 5 else 2)
+        day = {"day_type": day_type, "headway": 1.0 if weekday < 5 else (1.3 if weekday == 5 else 1.5),
+               "label": "월화수목금토일"[weekday] + "요일"}
+    else:
+        day = daytype.factors(leave)
 
     b = joblib.load("board_model.pkl")
     # 환승 경로(ODsay)·도보 시간(TMAP) — 하루 한 번 조회, 실패하면 config 값
@@ -41,10 +49,10 @@ def main():
         for stop_id in cfg["stops"]:
             stop = dict(STOPS[stop_id], walk_min=walks[stop_id])
             at_stop = leave + timedelta(minutes=stop["walk_min"])
-            headway = b["headway"].get(route, DEFAULT_HEADWAY_MIN)
+            headway = b["headway"].get(route, DEFAULT_HEADWAY_MIN) * day["headway"]
             x = pd.DataFrame([{
                 "route_code": b["route_map"][route], "stop_code": b["stop_map"][stop_id],
-                "weekday": weekday, "time_min": at_stop.hour * 60 + at_stop.minute,
+                "weekday": weekday, "day_type": day["day_type"], "time_min": at_stop.hour * 60 + at_stop.minute,
                 "headway_min": headway,
             }])[b["features"]]
             p = b["model"].predict_proba(x)[0, 1]
@@ -57,8 +65,8 @@ def main():
             options.append((total, naive, p, wait, route, stop, dict(cfg, transfer=legs[route]["transfer"])))
 
     options.sort(key=lambda o: o[0])
-    day = "월화수목금토일"[weekday]
-    print(f"\n[{day}요일 {leave:%H:%M} 집에서 출발 → 국민대]  기대 도착 시각이 빠른 순\n")
+    dayname = "월화수목금토일"[weekday]
+    print(f"\n[{dayname}요일 {leave:%H:%M} 집에서 출발 → 국민대 · {day['label']}]  기대 도착 시각이 빠른 순\n")
     print(f"{'순위':>2}  {'노선':>5}  {'정류장':<10} {'도보':>4} {'탑승확률':>6} {'기대대기':>6}  {'도착 예상':>6}  (지도 앱 기준)")
     for i, (total, naive, p, wait, route, stop, cfg) in enumerate(options, 1):
         eta, naive_eta = leave + timedelta(minutes=total), leave + timedelta(minutes=naive)

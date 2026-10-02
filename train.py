@@ -11,6 +11,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, roc_auc_score
 
+import daytype
 from config import CSV_FILE, ROUTES, STOPS
 
 # 정류장을 떠난 직후 잔여 좌석이 이 숫자 이상이면 '탑승 성공'.
@@ -55,6 +56,9 @@ if data.empty:
     sys.exit("분석할 운행 기록이 없습니다. 수집이 제대로 되었는지 CSV를 확인하세요.")
 
 data["time_min"] = data["depart_at"].dt.hour * 60 + data["depart_at"].dt.minute
+# 날짜 종류: 0 = 평일, 1 = 토요일, 2 = 일요일·공휴일 (대체공휴일 포함)
+kinds = {d: daytype.day_info(pd.Timestamp(d).date())["day_type"] for d in data["date"].unique()}
+data["day_type"] = data["date"].map(kinds)
 
 # 같은 정류장 · 같은 노선 앞차와의 간격(배차간격) — 간격이 길수록 사람이 많이 몰림
 data = data.sort_values("depart_at")
@@ -70,7 +74,7 @@ route_map = {r: i for i, r in enumerate(sorted(ROUTES))}
 stop_map = {s: i for i, s in enumerate(sorted(STOPS))}
 data["route_code"] = data["route_name"].map(route_map)
 data["stop_code"] = data["stop_id"].map(stop_map)
-FEATURES = ["route_code", "stop_code", "weekday", "time_min", "headway_min"]
+FEATURES = ["route_code", "stop_code", "weekday", "day_type", "time_min", "headway_min"]
 
 print(f"기록 {len(data)}건 (운행 × 정류장), 수집 일수 {data['date'].nunique()}일")
 print(f"전체 탑승 성공률(좌석 남기고 출발한 비율): {data['success'].mean():.1%}\n")
