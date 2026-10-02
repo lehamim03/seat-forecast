@@ -22,7 +22,10 @@ from config import (SERVICE_KEY, ROUTES, MY_STOP, EVENT_NEAR_KM, EVENT_EXTRA_SEA
 CACHE = "events_cache.json"
 USE_TOURAPI = True
 FESTIVAL_HOURS = ("10:00", "21:00")   # 축제 정보엔 시간이 없어 이 시간대에 열린다고 봄
-AREAS = {"1": "서울", "31": "경기"}
+AREAS = {"11": "서울", "41": "경기"}   # 법정동 시도 코드 (TourAPI KorService2)
+MAX_EVENT_DAYS = 7     # 이보다 오래 이어지는 행사(상시 공연·의식 등)는 평소 교통에 이미 포함된 것으로 보고 제외
+MAX_EVENT_DELAY = 10   # 노선당 행사 정체 지연 상한(분)
+MAX_EVENT_SEATS = 20   # 정류장당 행사 추가 승객 상한
 
 
 def _km(ax, ay, bx, by):
@@ -37,7 +40,7 @@ def festivals(day):
     if os.path.exists(CACHE):
         with open(CACHE, encoding="utf-8") as f:
             cache = json.load(f)
-    if cache.get("date") == day.isoformat():
+    if cache.get("date") == day.isoformat() and cache.get("max_days") == MAX_EVENT_DAYS:
         return cache["items"]
     items = []
     try:
@@ -45,19 +48,23 @@ def festivals(day):
             res = requests.get("https://apis.data.go.kr/B551011/KorService2/searchFestival2", timeout=15, params={
                 "serviceKey": SERVICE_KEY, "MobileOS": "ETC", "MobileApp": "seatforecast", "_type": "json",
                 "eventStartDate": (day - timedelta(days=90)).strftime("%Y%m%d"),
-                "areaCode": area, "numOfRows": 500})
+                "lDongRegnCd": area, "numOfRows": 500})
             body = res.json()["response"]["body"]["items"]
             rows = body.get("item", []) if isinstance(body, dict) else []
             for it in rows if isinstance(rows, list) else [rows]:
                 start, end = it.get("eventstartdate", ""), it.get("eventenddate", "")
-                if start <= day.strftime("%Y%m%d") <= end and it.get("mapx"):
-                    items.append({"name": it["title"], "date": day.isoformat(), "start": FESTIVAL_HOURS[0],
-                                  "end": FESTIVAL_HOURS[1], "x": float(it["mapx"]), "y": float(it["mapy"]),
-                                  "size": "중", "source": "관광공사"})
+                if not (start <= day.strftime("%Y%m%d") <= end and it.get("mapx")):
+                    continue
+                days = (datetime.strptime(end, "%Y%m%d") - datetime.strptime(start, "%Y%m%d")).days + 1
+                if days > MAX_EVENT_DAYS:   # 몇 주~몇 달씩 매일 열리는 상시 행사 제외
+                    continue
+                items.append({"name": it["title"], "date": day.isoformat(), "start": FESTIVAL_HOURS[0],
+                              "end": FESTIVAL_HOURS[1], "x": float(it["mapx"]), "y": float(it["mapy"]),
+                              "size": "중", "days": days, "source": "관광공사"})
     except Exception:
         return []   # 활용신청 전이거나 조회 실패 — 직접 넣은 행사만 사용
     with open(CACHE, "w", encoding="utf-8") as f:
-        json.dump({"date": day.isoformat(), "items": items}, f, ensure_ascii=False, indent=1)
+        json.dump({"date": day.isoformat(), "max_days": MAX_EVENT_DAYS, "items": items}, f, ensure_ascii=False, indent=1)
     return items
 
 
@@ -78,6 +85,7 @@ def impact(now=None, extra=None):
     """노선별 행사 영향 → {노선: {"extra": {순번: 추가 승객}, "delay": 분, "notes": [...]}}"""
     now = now or datetime.now()
     result = {r: {"extra": {}, "delay": 0.0, "notes": []} for r in ROUTES}
+    jammed = set()   # (노선, 정류장) — 같은 곳 주변 행사가 여러 개여도 정체는 한 번만
     for ev in active_events(now, extra):
         size = ev.get("size", "중")
         for route, cfg in ROUTES.items():
@@ -91,11 +99,13 @@ def impact(now=None, extra=None):
             ride = [(s, v) for s, v in near if s > my_seq]                         # 서울 쪽 이동 구간
             if board:
                 s, v = board[0]
-                result[route]["extra"][s] = result[route]["extra"].get(s, 0) + EVENT_EXTRA_SEATS[size]
+                result[route]["extra"][s] = min(result[route]["extra"].get(s, 0) + EVENT_EXTRA_SEATS[size],
+                                                MAX_EVENT_SEATS)
                 result[route]["notes"].append(
                     f"{ev['name']} — {v['name'].replace('(경유)', '')}에서 승객 약 {EVENT_EXTRA_SEATS[size]}명 추가 예상")
-            if ride:
-                result[route]["delay"] += EVENT_DELAY_MIN[size]
+            if ride and (route, ride[0][0]) not in jammed:
+                jammed.add((route, ride[0][0]))
+                result[route]["delay"] = min(result[route]["delay"] + EVENT_DELAY_MIN[size], MAX_EVENT_DELAY)
                 result[route]["notes"].append(
                     f"{ev['name']} — {ride[0][1]['name'].replace('(경유)', '')} 주변 정체 (+{EVENT_DELAY_MIN[size]}분)")
     return result
