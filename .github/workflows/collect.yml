@@ -27,9 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300     # 06:00~10:00 수집 + 여유 (GitHub 한도 6시간)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -45,7 +45,13 @@ jobs:
 
       - name: 연결 확인 (한 번만 조회)
         if: ${{ inputs.quick_test }}
-        run: python -c "import collect; collect.collect_once(collect.now_kst())"
+        run: |
+          python -c "import collect; collect.collect_once(collect.now_kst())"
+          # 버스를 한 대도 못 받았으면 실패로 표시 (해외 접속 차단 · 키 오류 등)
+          if [ ! -s bus_seats.csv ] || [ "$(wc -l < bus_seats.csv)" -lt 2 ]; then
+            echo "::error::버스 데이터를 받지 못했습니다 — 공공데이터포털 접속 또는 인증키를 확인하세요"; exit 1
+          fi
+          echo "받은 기록: $(( $(wc -l < bus_seats.csv) - 1 ))줄"
 
       - name: 수집 (한국 시간 06:00~10:00, 1분 간격)
         if: ${{ !inputs.quick_test }}
