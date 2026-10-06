@@ -4,6 +4,8 @@
 #  준비:  pip install pandas scikit-learn joblib
 #  실행:  python train.py   →  board_model.pkl 저장 (recommend.py 가 사용)
 # ==========================================================
+import glob
+import os
 import sys
 
 import joblib
@@ -20,7 +22,12 @@ from config import CSV_FILE, ROUTES, STOPS
 SEAT_MARGIN = 1
 
 # ---------- 1. 불러오기 ----------
-df = pd.read_csv(CSV_FILE, encoding="utf-8-sig", dtype={"route_name": str})
+# 노트북에서 모은 파일 + GitHub Actions 가 날마다 저장한 data/bus_seats_YYYY-MM-DD.csv
+files = ([CSV_FILE] if os.path.exists(CSV_FILE) else []) + sorted(glob.glob("data/bus_seats_*.csv"))
+if not files:
+    sys.exit("수집 데이터가 없습니다. collect.py 를 실행하거나 GitHub 의 data 폴더를 받아오세요 (git pull).")
+df = pd.concat([pd.read_csv(f, encoding="utf-8-sig", dtype={"route_name": str}) for f in files]).drop_duplicates()
+print(f"데이터 파일 {len(files)}개 사용")
 df["collected_at"] = pd.to_datetime(df["collected_at"])
 df = df[(df["remain_seat"] >= 0) & df["route_name"].isin(ROUTES)]   # -1(정보 없음) 제거
 df = df.sort_values(["plate_no", "collected_at"])

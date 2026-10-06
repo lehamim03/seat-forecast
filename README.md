@@ -158,6 +158,18 @@ python events.py
 python demo_scenarios.py
 ```
 
+## 자동 수집 (노트북을 켜 두지 않아도 됨)
+
+GitHub Actions 가 매일 한국 시간 06:00~10:00 에 1분마다 수집해 `data/bus_seats_날짜.csv` 로 저장소에 커밋합니다.
+
+1. 저장소 **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `SERVICE_KEY` / Secret: 공공데이터포털 인증키
+2. **Actions 탭 → collect-bus-seats → Run workflow** (`quick_test` 체크) 로 연결 확인
+3. 이후 매일 자동 실행 · 노트북에서는 `git pull` 로 데이터를 받아 `python train.py`
+
+- 예약 실행은 GitHub 사정에 따라 몇 분~수십 분 늦게 시작될 수 있습니다.
+- 저장소에 60일 동안 활동이 없으면 예약 실행이 멈추지만, 매일 데이터가 커밋되므로 계속 유지됩니다.
+
 ## 파일 구성
 
 | 파일 | 설명 |
@@ -166,6 +178,7 @@ python demo_scenarios.py
 | `find_ids.py` | 노선 ID와 정류장 순번 검색 도우미 |
 | `find_nearby.py` | 기준 정류장 주변(반경 700m)의 정류장과 서울행 광역버스·정류장 순번 조회 |
 | `collect.py` | 버스위치정보 API로 잔여 좌석을 1분마다 수집 |
+| `.github/workflows/collect.yml` | GitHub Actions 매일 자동 수집 (06:00~10:00 KST) |
 | `train.py` | 노선 × 정류장별 탑승 성공 여부를 Random Forest로 학습·평가, 이동시간·배차 실측 |
 | `recommend.py` | 출발 시각을 넣으면 정류장·노선 조합을 기대 도착 시각 순으로 추천 (출발 전 계획용) |
 | `live_recommend.py` | 실시간 버스 위치·좌석으로 기다리기 / 걸어가기 / 다른 버스 중 추천 |

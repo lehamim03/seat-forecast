@@ -1,0 +1,66 @@
+# 매일 아침 GitHub 서버에서 광역버스 잔여 좌석을 수집해 data/ 폴더에 저장합니다.
+# 노트북을 켜 둘 필요가 없습니다.
+#  - 인증키: 저장소 Settings → Secrets and variables → Actions 에 SERVICE_KEY 로 등록
+#  - 수동 실행: Actions 탭 → collect-bus-seats → Run workflow
+#    ('quick_test' 를 체크하면 시간과 상관없이 한 번만 조회해 보고 끝냄 — 연결 확인용)
+name: collect-bus-seats
+
+on:
+  schedule:
+    - cron: "40 20 * * *"   # 매일 05:40 (한국 시간) 시작 — GitHub 예약 실행은 몇 분~수십 분 늦게 시작될 수 있음
+  workflow_dispatch:         # Actions 탭에서 직접 실행
+    inputs:
+      quick_test:
+        description: "한 번만 조회해 보고 끝내기 (연결 확인용, 데이터 저장 안 함)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write            # 수집한 데이터를 저장소에 커밋하기 위해 필요
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300     # 06:00~10:00 수집 + 여유 (GitHub 한도 6시간)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 라이브러리 설치
+        run: pip install requests
+
+      - name: 인증키 파일 만들기 (Secrets 에서)
+        env:
+          SERVICE_KEY: ${{ secrets.SERVICE_KEY }}
+        run: |
+          if [ -z "$SERVICE_KEY" ]; then echo "SERVICE_KEY 시크릿이 없습니다"; exit 1; fi
+          echo "SERVICE_KEY = \"$SERVICE_KEY\"" > api_key.py
+
+      - name: 연결 확인 (한 번만 조회)
+        if: ${{ inputs.quick_test }}
+        run: python -c "import collect; collect.collect_once(collect.now_kst())"
+
+      - name: 수집 (한국 시간 06:00~10:00, 1분 간격)
+        if: ${{ !inputs.quick_test }}
+        run: python collect.py --once-today
+
+      - name: 데이터 저장 (data/bus_seats_날짜.csv)
+        if: ${{ !inputs.quick_test }}
+        run: |
+          if [ ! -f bus_seats.csv ]; then echo "오늘 수집된 데이터 없음"; exit 0; fi
+          day=$(TZ=Asia/Seoul date +%F)
+          mkdir -p data
+          mv bus_seats.csv "data/bus_seats_${day}.csv"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "data: ${day} 수집 ($(wc -l < data/bus_seats_${day}.csv)줄)"
+          git pull --rebase
+          git push

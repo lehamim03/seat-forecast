@@ -1,12 +1,14 @@
 # ==========================================================
 #  광역버스 잔여좌석 자동 수집기 ('경기도_버스위치정보 조회' API 사용)
-#  실행:  python collect.py      (멈추려면 Ctrl + C)
-#  설정은 config.py 에서 바꾸세요.
+#  실행:  python collect.py              (계속 실행, 멈추려면 Ctrl + C)
+#         python collect.py --once-today  (오늘 수집 시간이 끝나면 스스로 종료 — GitHub Actions 용)
+#  설정은 config.py 에서 바꾸세요. 시간은 어디서 실행하든 한국 시간(KST) 기준입니다.
 # ==========================================================
 import csv
 import os
+import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -14,6 +16,11 @@ from config import (SERVICE_KEY, ROUTES, STOPS, INTERVAL_SEC,
                     START_HOUR, END_HOUR, CSV_FILE)
 
 URL = "https://apis.data.go.kr/6410000/buslocationservice/v2/getBusLocationListv2"
+KST = timezone(timedelta(hours=9))   # GitHub 서버(UTC)에서 돌려도 한국 시간으로 판단
+
+
+def now_kst():
+    return datetime.now(KST).replace(tzinfo=None)
 
 COLUMNS = ["collected_at", "date", "weekday", "time", "route_name", "route_id",
            "plate_no", "station_seq", "station_id", "state", "remain_seat",
@@ -99,10 +106,14 @@ def collect_once(now):
 
 
 def main():
-    print(f"수집 시작: 노선 {list(ROUTES)}, {START_HOUR}시~{END_HOUR}시, {INTERVAL_SEC}초 간격")
-    print("멈추려면 Ctrl + C\n")
+    once = "--once-today" in sys.argv
+    print(f"수집 시작: 노선 {list(ROUTES)}, {START_HOUR}시~{END_HOUR}시(한국 시간), {INTERVAL_SEC}초 간격")
+    print("오늘 수집이 끝나면 종료합니다\n" if once else "멈추려면 Ctrl + C\n")
     while True:
-        now = datetime.now()
+        now = now_kst()
+        if once and now.hour >= END_HOUR:
+            print(f"[{now:%H:%M:%S}] 오늘 수집 시간 종료")
+            return
         if START_HOUR <= now.hour < END_HOUR:
             try:
                 collect_once(now)
