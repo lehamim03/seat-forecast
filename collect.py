@@ -2,8 +2,9 @@
 #  광역버스 잔여좌석 자동 수집기 ('경기도_버스위치정보 조회' API 사용)
 #  실행:  python collect.py                    (계속 실행, 멈추려면 Ctrl + C)
 #         python collect.py --max-minutes 340  (340분 뒤 스스로 종료 — GitHub Actions 이어달리기용)
-#  첫차 전(05:00)부터 막차가 서울에 닿을 때(01:30)까지 수집합니다.
-#  평일 출퇴근 시간대는 1분, 그 외는 3분 간격 (config.py 에서 변경).
+#         python collect.py --estimate         (하루 예상 API 호출 수만 계산)
+#  첫차 전(05:00)부터 막차가 서울에 닿을 때(01:30)까지, 노선별 운행 시간 안에서만 수집합니다.
+#  하루 호출 한도(개발계정 1,000회) 안에서 평일 출퇴근 2분 · 그 외 30분 · 주말 6분 간격 (config.py).
 #  시간은 어디서 실행하든 한국 시간(KST) 기준입니다.
 # ==========================================================
 import csv
@@ -15,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from config import (SERVICE_KEY, ROUTES, STOPS, INTERVAL_PEAK_SEC, INTERVAL_OFFPEAK_SEC,
+                    INTERVAL_WEEKEND_SEC, ROUTE_HOURS, DAILY_CALL_LIMIT,
                     PEAK_HOURS, COLLECT_START, COLLECT_END, CSV_FILE)
 
 URL = "https://apis.data.go.kr/6410000/buslocationservice/v2/getBusLocationListv2"
@@ -25,18 +27,53 @@ def now_kst():
     return datetime.now(KST).replace(tzinfo=None)
 
 
-def in_service(now):
-    """첫차 전 ~ 막차 도착 시간대인지 (자정을 넘어가는 구간 처리)."""
+def _within(now, start, end):
+    """now 가 start~end 사이인지 (자정을 넘어가는 구간 처리)."""
     hm = now.hour * 60 + now.minute
-    start, end = COLLECT_START[0] * 60 + COLLECT_START[1], COLLECT_END[0] * 60 + COLLECT_END[1]
-    return start <= hm or hm < end if end < start else start <= hm < end
+    a, b = start[0] * 60 + start[1], end[0] * 60 + end[1]
+    return a <= hm or hm < b if b < a else a <= hm < b
+
+
+def in_service(now):
+    """첫차 전 ~ 막차 도착 시간대인지."""
+    return _within(now, COLLECT_START, COLLECT_END)
+
+
+def route_active(route, now):
+    """노선별 운행 시간(첫차 10분 전 ~ 막차가 서울에 닿을 무렵) 안인지."""
+    start, end = ROUTE_HOURS.get(route, (COLLECT_START, COLLECT_END))
+    return _within(now, start, end)
+
+
+def _rest_day(now):
+    """토·일 또는 공휴일(대체공휴일 포함). 자정~03:00 은 전날 기준."""
+    day = (now - timedelta(hours=3)).date()
+    if day.weekday() >= 5:
+        return True
+    try:
+        import daytype
+        return daytype.day_info(day)["day_type"] == 2
+    except Exception:
+        return False
 
 
 def interval(now):
-    """평일 출퇴근 시간대는 촘촘히, 그 외(주말 포함)는 듬성듬성 조회."""
+    """평일 출퇴근 2분, 평일 그 외 30분, 주말·공휴일 6분 (config 값)."""
+    if _rest_day(now):
+        return INTERVAL_WEEKEND_SEC
     hm = now.hour * 60 + now.minute
-    peak = now.weekday() < 5 and any(a <= hm < b for a, b in PEAK_HOURS)
+    peak = any(a <= hm < b for a, b in PEAK_HOURS)
     return INTERVAL_PEAK_SEC if peak else INTERVAL_OFFPEAK_SEC
+
+
+def estimate(day):
+    """그날(05:00 ~ 다음 날 01:30) 예상 API 호출 수."""
+    t = datetime(day.year, day.month, day.day, COLLECT_START[0], COLLECT_START[1])
+    calls = 0
+    while in_service(t):
+        calls += sum(route_active(r, t) for r in ROUTES)
+        t += timedelta(seconds=interval(t))
+    return calls
 
 COLUMNS = ["collected_at", "date", "weekday", "time", "route_name", "route_id",
            "plate_no", "station_seq", "station_id", "state", "remain_seat",
@@ -103,6 +140,8 @@ def save(rows):
 def collect_once(now):
     rows = []
     for name, r in ROUTES.items():
+        if not route_active(name, now):   # 첫차 전 · 막차 후에는 호출하지 않음 (하루 한도 절약)
+            continue
         rows += to_rows(name, r["route_id"], r["dest_seq"], fetch_buses(r["route_id"]), now)
     if rows:
         save(rows)
@@ -122,13 +161,24 @@ def collect_once(now):
 
 
 def main():
+    if "--estimate" in sys.argv:
+        today = now_kst().date()
+        for d in [today + timedelta(days=i) for i in range(7)]:
+            n = estimate(d)
+            print(f"{d} ({'월화수목금토일'[d.weekday()]}) 예상 호출 {n}회"
+                  + ("  ⚠ 한도 초과" if n > DAILY_CALL_LIMIT else f"  (여유 {DAILY_CALL_LIMIT - n}회)"))
+        return
+    today_calls = estimate((now_kst() - timedelta(hours=3)).date())
+    print(f"오늘 예상 호출 {today_calls}회 / 하루 한도 {DAILY_CALL_LIMIT}회"
+          + ("  ⚠ 한도를 넘습니다 — config.py 의 간격을 늘리세요" if today_calls > DAILY_CALL_LIMIT else ""))
     limit = None
     if "--max-minutes" in sys.argv:
         limit = int(sys.argv[sys.argv.index("--max-minutes") + 1])
     began = time.time()
     print(f"수집 시작: 노선 {list(ROUTES)}, {COLLECT_START[0]:02d}:{COLLECT_START[1]:02d}~"
           f"{COLLECT_END[0]:02d}:{COLLECT_END[1]:02d}(한국 시간), "
-          f"출퇴근 {INTERVAL_PEAK_SEC}초 · 그 외 {INTERVAL_OFFPEAK_SEC}초 간격")
+          f"평일 출퇴근 {INTERVAL_PEAK_SEC // 60}분 · 평일 그 외 {INTERVAL_OFFPEAK_SEC // 60}분 · "
+          f"주말·공휴일 {INTERVAL_WEEKEND_SEC // 60}분 간격")
     print(f"{limit}분 뒤 종료합니다\n" if limit else "멈추려면 Ctrl + C\n")
     while True:
         now = now_kst()
