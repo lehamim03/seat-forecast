@@ -192,6 +192,7 @@ GitHub Actions 가 **첫차 전 05:00부터 막차가 서울에 닿는 다음 �
 | `incidents.py` | 앞서 가는 버스들의 최근 움직임으로 정지 · 정체 · 정류장 건너뜀 감지 |
 | `transit.py` | ODsay 환승 경로 · TMAP 도보 시간 조회 (하루 한 번 조회해 저장) |
 | `check_keys.py` | 지금 공인 IP 확인 + API 키 작동 점검 |
+| `map_data.py` | 앱 지도 화면용 GeoJSON (내 위치 · 도보 경로 · 노선 · 실시간 버스 · 돌발 · 환승 경로) + 미리보기 HTML |
 | `survey_form.gs` | 이용자 설문 구글폼 자동 생성 스크립트 (Google Apps Script) |
 
 ## 탑승 성공의 정의

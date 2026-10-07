@@ -20,3 +20,5 @@ nearby_stops.json
 transit_cache.json
 daytype_cache.json
 events_cache.json
+map_data.geojson
+map_preview.html
