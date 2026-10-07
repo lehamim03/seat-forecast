@@ -17,7 +17,7 @@ from config import (SERVICE_KEY, ROUTES, STOPS, MY_STOP, DEST_NAME, DEST_X, DEST
 
 CACHE = "transit_cache.json"
 # 경로 고르는 기준이 바뀌면 저장된 결과를 다시 조회하도록 설정값을 함께 기록
-SIG = f"penalty={TRANSFER_PENALTY_MIN};" + ";".join(f"{r}={c.get('prefer_bus')}" for r, c in ROUTES.items())
+SIG = f"penalty={TRANSFER_PENALTY_MIN};" + ";".join(f"{r}={c['dest_seq']},{c.get('prefer_bus')}" for r, c in ROUTES.items())
 
 
 def _load_cache():
