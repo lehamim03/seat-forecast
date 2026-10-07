@@ -1,8 +1,10 @@
 # ==========================================================
 #  광역버스 잔여좌석 자동 수집기 ('경기도_버스위치정보 조회' API 사용)
-#  실행:  python collect.py              (계속 실행, 멈추려면 Ctrl + C)
-#         python collect.py --once-today  (오늘 수집 시간이 끝나면 스스로 종료 — GitHub Actions 용)
-#  설정은 config.py 에서 바꾸세요. 시간은 어디서 실행하든 한국 시간(KST) 기준입니다.
+#  실행:  python collect.py                    (계속 실행, 멈추려면 Ctrl + C)
+#         python collect.py --max-minutes 340  (340분 뒤 스스로 종료 — GitHub Actions 이어달리기용)
+#  첫차 전(05:00)부터 막차가 서울에 닿을 때(01:30)까지 수집합니다.
+#  평일 출퇴근 시간대는 1분, 그 외는 3분 간격 (config.py 에서 변경).
+#  시간은 어디서 실행하든 한국 시간(KST) 기준입니다.
 # ==========================================================
 import csv
 import os
@@ -12,8 +14,8 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from config import (SERVICE_KEY, ROUTES, STOPS, INTERVAL_SEC,
-                    START_HOUR, END_HOUR, CSV_FILE)
+from config import (SERVICE_KEY, ROUTES, STOPS, INTERVAL_PEAK_SEC, INTERVAL_OFFPEAK_SEC,
+                    PEAK_HOURS, COLLECT_START, COLLECT_END, CSV_FILE)
 
 URL = "https://apis.data.go.kr/6410000/buslocationservice/v2/getBusLocationListv2"
 KST = timezone(timedelta(hours=9))   # GitHub 서버(UTC)에서 돌려도 한국 시간으로 판단
@@ -21,6 +23,20 @@ KST = timezone(timedelta(hours=9))   # GitHub 서버(UTC)에서 돌려도 한국
 
 def now_kst():
     return datetime.now(KST).replace(tzinfo=None)
+
+
+def in_service(now):
+    """첫차 전 ~ 막차 도착 시간대인지 (자정을 넘어가는 구간 처리)."""
+    hm = now.hour * 60 + now.minute
+    start, end = COLLECT_START[0] * 60 + COLLECT_START[1], COLLECT_END[0] * 60 + COLLECT_END[1]
+    return start <= hm or hm < end if end < start else start <= hm < end
+
+
+def interval(now):
+    """평일 출퇴근 시간대는 촘촘히, 그 외(주말 포함)는 듬성듬성 조회."""
+    hm = now.hour * 60 + now.minute
+    peak = now.weekday() < 5 and any(a <= hm < b for a, b in PEAK_HOURS)
+    return INTERVAL_PEAK_SEC if peak else INTERVAL_OFFPEAK_SEC
 
 COLUMNS = ["collected_at", "date", "weekday", "time", "route_name", "route_id",
            "plate_no", "station_seq", "station_id", "state", "remain_seat",
@@ -106,23 +122,32 @@ def collect_once(now):
 
 
 def main():
-    once = "--once-today" in sys.argv
-    print(f"수집 시작: 노선 {list(ROUTES)}, {START_HOUR}시~{END_HOUR}시(한국 시간), {INTERVAL_SEC}초 간격")
-    print("오늘 수집이 끝나면 종료합니다\n" if once else "멈추려면 Ctrl + C\n")
+    limit = None
+    if "--max-minutes" in sys.argv:
+        limit = int(sys.argv[sys.argv.index("--max-minutes") + 1])
+    began = time.time()
+    print(f"수집 시작: 노선 {list(ROUTES)}, {COLLECT_START[0]:02d}:{COLLECT_START[1]:02d}~"
+          f"{COLLECT_END[0]:02d}:{COLLECT_END[1]:02d}(한국 시간), "
+          f"출퇴근 {INTERVAL_PEAK_SEC}초 · 그 외 {INTERVAL_OFFPEAK_SEC}초 간격")
+    print(f"{limit}분 뒤 종료합니다\n" if limit else "멈추려면 Ctrl + C\n")
     while True:
         now = now_kst()
-        if once and now.hour >= END_HOUR:
-            print(f"[{now:%H:%M:%S}] 오늘 수집 시간 종료")
+        if limit and time.time() - began >= limit * 60:
+            print(f"[{now:%H:%M:%S}] {limit}분 수집 완료 — 종료 (다음 실행이 이어받음)")
             return
-        if START_HOUR <= now.hour < END_HOUR:
+        if in_service(now):
             try:
                 collect_once(now)
             except Exception as e:
                 # 인터넷 끊김 등 — 멈추지 말고 다음 차례에 다시 시도
                 print(f"[{now:%H:%M:%S}] 오류: {e}")
+            wait = interval(now)
+            if limit:   # 끝낼 시간이 가까우면 그만큼만 기다림
+                wait = max(1, min(wait, limit * 60 - (time.time() - began)))
+            time.sleep(wait)
         else:
-            print(f"[{now:%H:%M:%S}] 수집 시간이 아님 — 대기 중", end="\r")
-        time.sleep(INTERVAL_SEC)
+            print(f"[{now:%H:%M:%S}] 운행 시간 아님 (01:30~05:00) — 대기 중", end="\r")
+            time.sleep(60)
 
 
 if __name__ == "__main__":

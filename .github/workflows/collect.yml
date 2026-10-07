@@ -1,21 +1,20 @@
-# 매일 아침 GitHub 서버에서 광역버스 잔여 좌석을 수집해 data/ 폴더에 저장합니다.
-# 노트북을 켜 둘 필요가 없습니다.
+# 첫차(05:00)부터 막차 도착(다음 날 01:30)까지 GitHub 서버에서 광역버스 잔여 좌석을 수집해
+# data/ 폴더에 운행일별로 저장합니다. 노트북을 켜 둘 필요가 없습니다.
+#
+# GitHub 실행은 한 번에 최대 6시간이라 '이어달리기'로 수집합니다.
+#  - 실행 한 번은 340분(5시간 40분) 수집하고 저장한 뒤 끝남
+#  - 매시간 예약해 두고 동시에 하나만 돌게 해서(concurrency), 끝나면 대기 중인 다음 실행이 바로 이어받음
+#  - 예약 실행이 늦게 시작돼도(10/7: 3시간 지연) 대기 중인 실행이 있어 빈틈이 거의 없음
+#
 #  - 인증키: 저장소 Settings → Secrets and variables → Actions 에 SERVICE_KEY 로 등록
 #  - 수동 실행: Actions 탭 → collect-bus-seats → Run workflow
 #    ('quick_test' 를 체크하면 시간과 상관없이 한 번만 조회해 보고 끝냄 — 연결 확인용)
 name: collect-bus-seats
 
 on:
-  # GitHub 예약 실행은 서버가 붐비면 몇 시간씩 늦게 시작되기도 함 (10/7: 05:40 예약 → 09:07 시작).
-  # 그래서 여러 번 예약해 두고, 가장 먼저 시작된 실행이 06:00까지 기다렸다가 10:00까지 수집.
-  # 동시에 하나만 돌기 때문에(concurrency) 나머지는 10시 이후에 시작해 바로 끝남.
   schedule:
-    - cron: "10 19 * * *"   # 04:10 (한국 시간)
-    - cron: "10 20 * * *"   # 05:10
-    - cron: "40 20 * * *"   # 05:40
-    - cron: "10 21 * * *"   # 06:10
-    - cron: "10 22 * * *"   # 07:10
-  workflow_dispatch:         # Actions 탭에서 직접 실행
+    - cron: "0 * * * *"     # 매시간 정각 (다음 수집 실행을 대기열에 올려 둠)
+  workflow_dispatch:
     inputs:
       quick_test:
         description: "한 번만 조회해 보고 끝내기 (연결 확인용, 데이터 저장 안 함)"
@@ -27,12 +26,12 @@ permissions:
 
 concurrency:
   group: collect
-  cancel-in-progress: false
+  cancel-in-progress: false  # 돌고 있는 수집은 끊지 않고, 다음 실행은 끝날 때까지 대기
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 355     # 04:10에 시작하면 06:00까지 대기 + 10:00까지 수집 (GitHub 한도 6시간)
+    timeout-minutes: 355     # 340분 수집 + 준비·저장 (GitHub 한도 6시간)
     steps:
       - uses: actions/checkout@v5
 
@@ -60,23 +59,18 @@ jobs:
           fi
           echo "받은 기록: $(( $(wc -l < bus_seats.csv) - 1 ))줄"
 
-      - name: 수집 (한국 시간 06:00~10:00, 1분 간격)
+      - name: 수집 (최대 340분, 운행 시간 05:00~01:30만)
         if: ${{ !inputs.quick_test }}
-        run: python collect.py --once-today
+        run: python collect.py --max-minutes 340
 
-      - name: 데이터 저장 (data/bus_seats_날짜.csv)
-        if: ${{ !inputs.quick_test }}
+      - name: 데이터 저장 (data/bus_seats_운행일.csv 에 이어 붙임)
+        if: ${{ always() && !inputs.quick_test }}   # 수집 중 오류가 나도 모은 만큼은 저장
         run: |
-          if [ ! -f bus_seats.csv ]; then echo "오늘 수집된 데이터 없음"; exit 0; fi
-          day=$(TZ=Asia/Seoul date +%F)
-          f="data/bus_seats_${day}.csv"
-          mkdir -p data
-          git pull --rebase   # 같은 날 앞선 실행이 저장한 파일이 있으면 받아서
-          if [ -f "$f" ]; then tail -n +2 bus_seats.csv >> "$f"; rm bus_seats.csv   # 이어 붙임 (덮어쓰지 않음)
-          else mv bus_seats.csv "$f"; fi
+          if [ ! -f bus_seats.csv ]; then echo "이번 실행에서 수집된 데이터 없음"; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase                # 앞선 실행이 저장한 파일을 받은 뒤
+          python save_data.py              # 운행일별 파일에 이어 붙임
           git add data
-          git commit -m "data: ${day} 수집 ($(wc -l < "$f")줄)"
-          git pull --rebase
-          git push
+          git commit -m "data: $(TZ=Asia/Seoul date '+%m/%d %H:%M') 까지 수집" || exit 0
+          for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
