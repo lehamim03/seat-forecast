@@ -6,8 +6,15 @@
 name: collect-bus-seats
 
 on:
+  # GitHub 예약 실행은 서버가 붐비면 몇 시간씩 늦게 시작되기도 함 (10/7: 05:40 예약 → 09:07 시작).
+  # 그래서 여러 번 예약해 두고, 가장 먼저 시작된 실행이 06:00까지 기다렸다가 10:00까지 수집.
+  # 동시에 하나만 돌기 때문에(concurrency) 나머지는 10시 이후에 시작해 바로 끝남.
   schedule:
-    - cron: "40 20 * * *"   # 매일 05:40 (한국 시간) 시작 — GitHub 예약 실행은 몇 분~수십 분 늦게 시작될 수 있음
+    - cron: "10 19 * * *"   # 04:10 (한국 시간)
+    - cron: "10 20 * * *"   # 05:10
+    - cron: "40 20 * * *"   # 05:40
+    - cron: "10 21 * * *"   # 06:10
+    - cron: "10 22 * * *"   # 07:10
   workflow_dispatch:         # Actions 탭에서 직접 실행
     inputs:
       quick_test:
@@ -25,7 +32,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 300     # 06:00~10:00 수집 + 여유 (GitHub 한도 6시간)
+    timeout-minutes: 355     # 04:10에 시작하면 06:00까지 대기 + 10:00까지 수집 (GitHub 한도 6시간)
     steps:
       - uses: actions/checkout@v5
 
@@ -62,11 +69,14 @@ jobs:
         run: |
           if [ ! -f bus_seats.csv ]; then echo "오늘 수집된 데이터 없음"; exit 0; fi
           day=$(TZ=Asia/Seoul date +%F)
+          f="data/bus_seats_${day}.csv"
           mkdir -p data
-          mv bus_seats.csv "data/bus_seats_${day}.csv"
+          git pull --rebase   # 같은 날 앞선 실행이 저장한 파일이 있으면 받아서
+          if [ -f "$f" ]; then tail -n +2 bus_seats.csv >> "$f"; rm bus_seats.csv   # 이어 붙임 (덮어쓰지 않음)
+          else mv bus_seats.csv "$f"; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data
-          git commit -m "data: ${day} 수집 ($(wc -l < data/bus_seats_${day}.csv)줄)"
+          git commit -m "data: ${day} 수집 ($(wc -l < "$f")줄)"
           git pull --rebase
           git push
