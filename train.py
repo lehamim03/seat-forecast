@@ -14,6 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, roc_auc_score
 
 import daytype
+import transit
 from config import CSV_FILE, ROUTES, STOPS
 
 # 정류장을 떠난 직후 잔여 좌석이 이 숫자 이상이면 '탑승 성공'.
@@ -40,10 +41,12 @@ new_trip = (g["station_seq"].diff() < 0) | (g["collected_at"].diff() > pd.Timede
 df["trip"] = new_trip.astype(int).groupby([df["date"], df["route_name"], df["plate_no"]]).cumsum()
 
 # ---------- 3. 운행 1회 × 후보 정류장마다 한 줄 만들기 ----------
+# 버스 이동시간(ride)은 '서울 첫 정차 정류장'까지 — 거기서 하차 정류장까지는 transit.get_legs 가 더함
+SEOUL_FIRST = {r: transit.alight_candidates(r)[0] for r in ROUTES}
 rows = []
 for (date, route, plate, trip), t in df.groupby(["date", "route_name", "plate_no", "trip"]):
     cfg = ROUTES[route]
-    arrived = t[t["station_seq"] >= cfg["dest_seq"]]   # 서울 도착 지점에 닿은 기록
+    arrived = t[t["station_seq"] >= SEOUL_FIRST[route]]   # 서울 첫 정차 정류장에 닿은 기록
     for stop_id, seq in cfg["stops"].items():
         before, after = t[t["station_seq"] <= seq], t[t["station_seq"] > seq]
         if after.empty:

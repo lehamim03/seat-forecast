@@ -91,7 +91,7 @@ def impact(now=None, extra=None):
         for route, cfg in ROUTES.items():
             st = transit.route_stations(cfg["route_id"])
             near = [(s, v) for s, v in sorted(st.items())
-                    if s <= cfg["dest_seq"] and _km(ev["x"], ev["y"], v["x"], v["y"]) <= EVENT_NEAR_KM]
+                    if s <= transit.alight_seq(route) and _km(ev["x"], ev["y"], v["x"], v["y"]) <= EVENT_NEAR_KM]
             if not near:
                 continue
             my_seq = cfg["stops"].get(MY_STOP, max(cfg["stops"].values()))

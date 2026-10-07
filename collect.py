@@ -102,13 +102,28 @@ def fetch_buses(route_id):
     return items if isinstance(items, list) else [items]
 
 
-def to_rows(route_name, route_id, dest_seq, items, now):
-    """서울 방향(출발점 ~ 서울 도착 지점)을 달리는 버스를 CSV 한 줄씩으로 변환.
-    서울 도착까지 기록해야 정류장 → 서울 이동시간도 데이터로 잴 수 있다."""
+_TURN = {}
+
+
+def turn_seq(route_name):
+    """노선의 회차 정류장 순번 (노선 정류장 API) — 이 뒤는 수원으로 돌아가는 방향. 조회 실패 시 전부 저장."""
+    if route_name not in _TURN:
+        try:
+            import transit
+            _TURN[route_name] = transit.turn_seq(route_name)
+        except Exception as e:
+            print(f"  ! {route_name} 회차 정류장 조회 실패 — 전체 저장 ({e})")
+            return 999
+    return _TURN[route_name]
+
+
+def to_rows(route_name, route_id, turn, items, now):
+    """서울 방향(출발점 ~ 회차 정류장)을 달리는 버스를 CSV 한 줄씩으로 변환.
+    서울 안 정류장까지 기록해야 하차 정류장별 이동시간도 데이터로 잽니다."""
     rows = []
     for it in items:
         seq = int(it.get("stationSeq", 999))
-        if seq > dest_seq:   # 서울에서 돌아오는 방향은 제외
+        if seq > turn:   # 서울에서 돌아오는 방향은 제외
             continue
         rows.append({
             "collected_at": now.strftime("%Y-%m-%d %H:%M:%S"),
@@ -142,7 +157,7 @@ def collect_once(now):
     for name, r in ROUTES.items():
         if not route_active(name, now):   # 첫차 전 · 막차 후에는 호출하지 않음 (하루 한도 절약)
             continue
-        rows += to_rows(name, r["route_id"], r["dest_seq"], fetch_buses(r["route_id"]), now)
+        rows += to_rows(name, r["route_id"], turn_seq(name), fetch_buses(r["route_id"]), now)
     if rows:
         save(rows)
 

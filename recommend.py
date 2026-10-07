@@ -62,7 +62,7 @@ def main():
             total = stop["walk_min"] + wait + ride + transfer
             # 비교용: 지도 앱처럼 '모든 버스를 탈 수 있다'고 가정한 시간
             naive = stop["walk_min"] + headway / 2 + ride + transfer
-            options.append((total, naive, p, wait, route, stop, dict(cfg, transfer=legs[route]["transfer"])))
+            options.append((total, naive, p, wait, route, stop, dict(cfg, transfer=legs[route]["transfer"], dest=legs[route].get("from", "서울"))))
 
     options.sort(key=lambda o: o[0])
     dayname = "월화수목금토일"[weekday]

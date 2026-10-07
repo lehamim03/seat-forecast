@@ -71,7 +71,8 @@ def main():
         import transit
         legs, walks = transit.get_legs(), transit.get_walks()
     else:
-        legs = {r: {"minutes": c["to_kookmin_min"], "transfer": c["transfer"]} for r, c in ROUTES.items()}
+        import transit
+        legs = {r: transit.fallback_leg(r) for r in ROUTES}
         walks = {s: abs(v["walk_min"] - STOPS[MY_STOP]["walk_min"]) for s, v in STOPS.items()}
 
     # 돌발상황 — 앞서 가는 같은 노선 버스들의 최근 움직임 (collect.py 기록 사용)
@@ -136,7 +137,8 @@ def main():
 
             kind = ("기다리기" if stop_id == MY_STOP else "걸어가기") if route == my_route else "다른 버스"
             options.append({"kind": kind, "route": route, "stop": STOPS[stop_id], "walk": walk,
-                            "cands": cands, "board": expected, "total": total, "cfg": cfg,
+                            "cands": cands, "board": expected, "total": total,
+                            "cfg": dict(cfg, dest=legs[route].get("from", "서울")),
                             "transfer": legs[route]["transfer"], "alts": legs[route].get("alts", []),
                             "delay": delay, "skipped": skipped})
 

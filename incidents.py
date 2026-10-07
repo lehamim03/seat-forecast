@@ -114,7 +114,7 @@ def on_my_road(route, ev):
 
 
 def events_on_route(route, events):
-    """노선이 내 정류장 → 서울 도착 지점 사이에 지나는 길 위의 돌발상황."""
+    """노선이 내 정류장 → 서울 하차 정류장 사이에 지나는 길 위의 돌발상황."""
     cfg = ROUTES[route]
     st = transit.route_stations(cfg["route_id"])
     my_seq = cfg["stops"].get(MY_STOP, min(cfg["stops"].values()))
@@ -126,7 +126,7 @@ def events_on_route(route, events):
             p = {"x": float(ev["coordX"]), "y": float(ev["coordY"])}
         except (KeyError, TypeError, ValueError):
             continue
-        for s in range(my_seq, cfg["dest_seq"]):
+        for s in range(my_seq, transit.alight_seq(route)):
             if s in st and s + 1 in st and _seg_dist_km(p, st[s], st[s + 1]) <= NEAR_KM:
                 # 위치 안내는 구간 양 끝 중 더 가까운 정류장(경유지) 이름으로
                 near = s + 1 if _dist_km(p, st[s + 1]) < _dist_km(p, st[s]) else s
@@ -208,7 +208,7 @@ def detect(now=None, bundle=None, recent=None, events=None):
                                 f"{plate}이(가) {STOPS[stop_id]['name']}을(를) 건너뜀 (우회 의심)")
 
             # 내 정류장보다 앞서(서울 쪽) 가는 버스만 '탐침'으로 사용
-            if seqs[-1] <= my_seq or seqs[-1] > cfg["dest_seq"]:
+            if seqs[-1] <= my_seq or seqs[-1] > transit.alight_seq(route):
                 continue
             result[route]["probes"] += 1
             last_seq = seqs[-1]

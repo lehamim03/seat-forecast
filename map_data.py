@@ -7,10 +7,10 @@
 #   me        내 위치 (지금은 평소 정류장 위치 — 앱에서는 GPS 위치로 대체)
 #   stop      후보 정류장 (삼성1차아파트 · 자유총연맹 · 경기아트센터)
 #   walk      내 위치 → 후보 정류장 도보 경로 (TMAP 보행자 경로)
-#   route     노선 경로 (정류장 · 경유지 좌표를 이은 선, 서울 도착 지점까지)
+#   route     노선 경로 (정류장 · 경유지 좌표를 이은 선, 오늘 고른 서울 하차 정류장까지)
 #   bus       지금 다가오는 버스 위치 + 잔여 좌석 (버스위치정보)
 #   incident  노선 위 돌발상황 (국가교통정보센터)
-#   transfer  서울 도착 지점 → 국민대 환승 경로 모양 (ODsay)
+#   transfer  서울 하차 정류장 → 국민대 환승 경로 모양 (ODsay)
 #  나중에 FastAPI 예측 서버가 앱에 이 형식으로 넘겨주면, 앱은 그리기만 하면 됩니다.
 # ==========================================================
 import json
@@ -57,14 +57,16 @@ def walk_path(a, b):
 
 
 def transfer_shape(route):
-    """ODsay: 서울 도착 지점 → 국민대 추천 경로의 지도용 모양 (loadLane)."""
+    """ODsay: 오늘 고른 하차 정류장 → 국민대 추천 경로의 지도용 모양 (loadLane)."""
     cfg = ROUTES[route]
-    x, y, _ = transit.station_xy(cfg["route_id"], cfg["dest_seq"])
+    leg = transit.get_legs()[route]
+    x, y, _ = transit.station_xy(cfg["route_id"], transit.alight_seq(route))
     data = requests.get("https://api.odsay.com/v1/api/searchPubTransPathT", timeout=15,
                         params={"SX": x, "SY": y, "EX": DEST_X, "EY": DEST_Y, "apiKey": api_key.ODSAY_KEY}).json()
     paths = data["result"]["path"]
-    ranked = transit.rank([dict(r, _p=p) for r, p in zip(transit.odsay_routes(x, y, DEST_X, DEST_Y), paths)],
-                          cfg.get("prefer_bus"))
+    ranked = transit.rank([dict(r, _p=p) for r, p in zip(transit.odsay_routes(x, y, DEST_X, DEST_Y), paths)])
+    # get_legs 가 고른 경로와 같은 것을 우선 (없으면 1순위)
+    ranked.sort(key=lambda r: r["summary"] != leg["transfer"])
     best = ranked[0]
     lane = requests.get("https://api.odsay.com/v1/api/loadLane", timeout=15, params={
         "mapObject": f"0:0@{best['_p']['info']['mapObj']}", "apiKey": api_key.ODSAY_KEY}).json()
@@ -95,8 +97,9 @@ def build(live=True):
     # 노선 경로 (출발점 ~ 서울 도착 지점)
     for route, cfg in ROUTES.items():
         st = transit.route_stations(cfg["route_id"])
-        line = [[st[s]["x"], st[s]["y"]] for s in sorted(st) if s <= cfg["dest_seq"]]
-        feats.append(feature("route", "LineString", line, route=route, dest=cfg["dest"], color=ROUTE_COLORS[route]))
+        end = transit.alight_seq(route)
+        line = [[st[s]["x"], st[s]["y"]] for s in sorted(st) if s <= end]
+        feats.append(feature("route", "LineString", line, route=route, dest=st[end]["name"], color=ROUTE_COLORS[route]))
 
     if live:
         # 지금 다가오는 버스 (후보 정류장보다 앞에 있는 차량)
@@ -108,7 +111,7 @@ def build(live=True):
             items = (res.get("msgBody") or {}).get("busLocationList") or []
             for b in items if isinstance(items, list) else [items]:
                 seq = int(b["stationSeq"])
-                if seq <= cfg["dest_seq"] and seq in st:
+                if seq <= transit.alight_seq(route) and seq in st:
                     feats.append(feature("bus", "Point", [st[seq]["x"], st[seq]["y"]], route=route,
                                          plate=b.get("plateNo"), seq=seq, station=st[seq]["name"],
                                          remain_seat=b.get("remainSeatCnt"), color=ROUTE_COLORS[route]))
