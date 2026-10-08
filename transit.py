@@ -102,8 +102,11 @@ def seoul_bus_min(route, a, b):
     if route not in _SEG:
         _SEG[route] = None
         files = glob.glob("data/bus_seats_*.csv")
-        if files:
+        try:
             import pandas as pd
+        except ImportError:   # pandas 가 없는 환경에서는 거리로 추정
+            files = []
+        if files:
             df = pd.concat([pd.read_csv(f, usecols=["collected_at", "route_name", "plate_no", "station_seq"])
                             for f in files])
             df = df[df["route_name"].astype(str) == route]
