@@ -66,10 +66,10 @@ def main():
     import events
     ev = events.impact(now, LOCAL_EXTRA)
 
-    # 환승 경로(ODsay)와 도보 시간(TMAP) — 하루 한 번 조회해 저장, 실패하면 config 값
+    # 서울 하차 정류장 · 환승 경로(ODsay, 7일 저장)와 도보 시간(TMAP) — 출퇴근 여부에 맞춰 고름, 실패하면 config 값
     if USE_TRANSIT:
         import transit
-        legs, walks = transit.get_legs(), transit.get_walks()
+        legs, walks = transit.get_legs(now), transit.get_walks()
     else:
         import transit
         legs = {r: transit.fallback_leg(r) for r in ROUTES}

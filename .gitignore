@@ -18,6 +18,7 @@ venv/
 # 조회 결과
 nearby_stops.json
 transit_cache.json
+odsay_cache.json
 daytype_cache.json
 events_cache.json
 map_data.geojson

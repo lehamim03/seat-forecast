@@ -56,25 +56,18 @@ def walk_path(a, b):
     return coords, round(res["features"][0]["properties"]["totalTime"] / 60)
 
 
-def transfer_shape(route):
-    """ODsay: 오늘 고른 하차 정류장 → 국민대 추천 경로의 지도용 모양 (loadLane)."""
-    cfg = ROUTES[route]
-    leg = transit.get_legs()[route]
-    x, y, _ = transit.station_xy(cfg["route_id"], transit.alight_seq(route))
-    data = requests.get("https://api.odsay.com/v1/api/searchPubTransPathT", timeout=15,
-                        params={"SX": x, "SY": y, "EX": DEST_X, "EY": DEST_Y, "apiKey": api_key.ODSAY_KEY}).json()
-    paths = data["result"]["path"]
-    ranked = transit.rank([dict(r, _p=p) for r, p in zip(transit.odsay_routes(x, y, DEST_X, DEST_Y), paths)])
-    # get_legs 가 고른 경로와 같은 것을 우선 (없으면 1순위)
-    ranked.sort(key=lambda r: r["summary"] != leg["transfer"])
-    best = ranked[0]
+def transfer_shape(route, now=None):
+    """ODsay: 고른 하차 정류장 → 국민대 추천 경로의 지도용 모양 (loadLane — 저장해 둔 경로의 mapObj 사용)."""
+    leg = transit.get_legs(now)[route]
+    if not leg.get("map_obj"):
+        raise RuntimeError("추천 경로 정보 없음 (ODsay 조회 전)")
     lane = requests.get("https://api.odsay.com/v1/api/loadLane", timeout=15, params={
-        "mapObject": f"0:0@{best['_p']['info']['mapObj']}", "apiKey": api_key.ODSAY_KEY}).json()
+        "mapObject": f"0:0@{leg['map_obj']}", "apiKey": api_key.ODSAY_KEY}).json()
     lines = []
     for ln in lane["result"]["lane"]:
         for sec in ln["section"]:
             lines.append([[float(g["x"]), float(g["y"])] for g in sec["graphPos"]])
-    return lines, best["summary"]
+    return lines, f"{leg['from']} 하차 → {leg['transfer']}"
 
 
 def build(live=True):

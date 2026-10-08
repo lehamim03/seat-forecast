@@ -2,24 +2,27 @@
 #  환승 경로(ODsay) · 도보 시간(TMAP) 조회
 #  실행:  python transit.py     (노선별 최적 하차 정류장 → 국민대 경로와 정류장 간 도보 시간 출력)
 #  다른 코드에서는 get_legs(), get_walks() 를 불러 씁니다.
-#  결과는 transit_cache.json 에 하루 동안 저장해서 API 호출을 아낍니다.
+#  정류장 목록 · 도보 시간은 transit_cache.json 에 하루, ODsay 결과는 odsay_cache.json 에 7일 저장
+#  (ODsay 는 하루 호출 한도가 작고, 결과가 시간표 기반이라 매일 바뀌지 않음).
 # ==========================================================
 import glob
 import json
 import math
 import os
 import re
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import requests
 
 import api_key
 from config import (SERVICE_KEY, ROUTES, STOPS, MY_STOP, DEST_NAME, DEST_X, DEST_Y,
-                    TRANSFER_PENALTY_MIN)
+                    TRANSFER_PENALTY_MIN, WALK_WEIGHT, WAIT_WEIGHT, CITY_BUS_PEAK_FACTOR, PEAK_HOURS)
 
 CACHE = "transit_cache.json"
 # 경로 고르는 기준이 바뀌면 저장된 결과를 다시 조회하도록 설정값을 함께 기록
-SIG = f"v3;penalty={TRANSFER_PENALTY_MIN};" + ";".join(f"{r}={c['route_id']}" for r, c in ROUTES.items())
+SIG = "v4;" + ";".join(f"{r}={c['route_id']}" for r, c in ROUTES.items())
+ODSAY_CACHE = "odsay_cache.json"
+ODSAY_DAYS = 7
 SEOUL_BUS_KMH = 15   # 서울 구간 버스 속도 (실측 데이터가 없을 때만 사용)
 SKIP_WORDS = ("(경유)", "(미정차)")   # 정류장 이름에 붙으면 서지 않는 지점
 
@@ -75,10 +78,12 @@ def alight_candidates(route):
     return seqs or [turn]
 
 
-def alight_seq(route):
-    """오늘 고른 하차 정류장 순번 (get_legs 결과) — 아직 없으면 회차 정류장. API 를 새로 부르지 않음."""
-    leg = _load_cache().get("legs", {}).get(route, {})
-    return leg.get("seq") or turn_seq(route)
+def alight_seq(route, now=None):
+    """지금 고른 하차 정류장 순번 — 저장된 ODsay 결과로만 계산 (API 를 새로 부르지 않음). 없으면 회차 정류장."""
+    try:
+        return best_alight(route, now, fetch=False)["seq"]
+    except Exception:
+        return turn_seq(route)
 
 
 def _km(a, b):
@@ -131,37 +136,82 @@ def _describe(path):
     return " → ".join(steps)
 
 
-def odsay_routes(sx, sy, ex, ey):
-    """ODsay 대중교통 길찾기 → 후보 경로 전부 (소요시간, 환승 횟수, 탄 버스, 한 줄 요약)."""
-    res = requests.get("https://api.odsay.com/v1/api/searchPubTransPathT", timeout=15,
-                       params={"SX": sx, "SY": sy, "EX": ex, "EY": ey, "apiKey": api_key.ODSAY_KEY})
-    data = res.json()
-    if "error" in data:
-        raise RuntimeError(str(data["error"])[:150])
+def _parse(data):
+    """ODsay 응답 → 후보 경로 목록. 시간을 쪼개 둠 (탄 시간 · 걷기 · 시내버스 · 기다림)."""
     out = []
     for p in data["result"]["path"]:
-        i = p["info"]
+        legs = [sp for sp in p["subPath"] if sp["trafficType"] in (1, 2)]
+        lanes = [l for sp in legs if sp["trafficType"] == 2 for l in sp["lane"]]
         out.append({
-            "minutes": i["totalTime"],
-            "transfers": i["busTransitCount"] + i["subwayTransitCount"] - 1,
-            "buses": [re.sub(r"\(.*?\)", "", l["busNo"]) for sp in p["subPath"]
-                      if sp["trafficType"] == 2 for l in sp["lane"]],
-            # 심야버스(N…) · 예약버스는 출퇴근 시간에 탈 수 없으므로 표시해 두고 순위에서 뺌
-            "special": any(l["busNo"].startswith("N") or "예약" in l["busNo"]
-                           for sp in p["subPath"] if sp["trafficType"] == 2 for l in sp["lane"]),
+            "minutes": p["info"]["totalTime"],
+            "transfers": len(legs) - 1,
+            "walk": sum(sp.get("sectionTime", 0) for sp in p["subPath"] if sp["trafficType"] == 3),
+            "citybus": sum(sp["sectionTime"] for sp in legs if sp["trafficType"] == 2),
+            # 타는 곳마다 평균 배차간격의 절반을 기다림 (ODsay totalTime 에는 기다림이 없음)
+            "wait": sum(sp.get("intervalTime") or 10 for sp in legs) / 2,
+            "buses": [re.sub(r"\(.*?\)", "", l["busNo"]) for l in lanes],
+            # 심야버스(N…) · 예약버스는 출퇴근 시간에 탈 수 없으므로 순위에서 뺌
+            "special": any(l["busNo"].startswith("N") or "예약" in l["busNo"] for l in lanes),
+            "map_obj": p["info"].get("mapObj"),
             "summary": _describe(p),
         })
     return out
 
 
-def score(r):
-    """경로 점수(작을수록 좋음): 소요시간 + 환승 1회당 벌점."""
-    return r["minutes"] + TRANSFER_PENALTY_MIN * r["transfers"]
+def odsay_routes(sx, sy, ex=DEST_X, ey=DEST_Y, fetch=True):
+    """ODsay 대중교통 길찾기 → 후보 경로 전부. 같은 출발점은 7일 동안 저장해 둔 결과를 씀.
+    fetch=False 이면 저장된 것만 (없으면 None)."""
+    key = f"{sx},{sy}->{ex},{ey}"
+    cache = {}
+    if os.path.exists(ODSAY_CACHE):
+        with open(ODSAY_CACHE, encoding="utf-8") as f:
+            cache = json.load(f)
+    hit = cache.get(key)
+    if hit and date.fromisoformat(hit["date"]) > date.today() - timedelta(days=ODSAY_DAYS):
+        return hit["routes"]
+    if not fetch:
+        return None
+    res = requests.get("https://api.odsay.com/v1/api/searchPubTransPathT", timeout=15,
+                       params={"SX": sx, "SY": sy, "EX": ex, "EY": ey, "apiKey": api_key.ODSAY_KEY})
+    data = res.json()
+    if "error" in data:
+        raise RuntimeError(str(data["error"])[:150])
+    routes = _parse(data)
+    cache[key] = {"date": date.today().isoformat(), "routes": routes}
+    with open(ODSAY_CACHE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False)
+    return routes
 
 
-def rank(routes):
+def is_peak(now=None):
+    """평일 출퇴근 시간대인지 (공휴일 제외)."""
+    now = now or datetime.now()
+    try:
+        import daytype
+        return daytype.day_info(now)["peak"]
+    except Exception:
+        hm = now.hour * 60 + now.minute
+        return now.weekday() < 5 and any(a <= hm < b for a, b in PEAK_HOURS)
+
+
+def expected_min(r, peak=False):
+    """실제로 걸릴 것으로 보는 시간(분): ODsay 시간 + 기다림 (+ 출퇴근이면 시내버스 정체)."""
+    extra = (CITY_BUS_PEAK_FACTOR - 1) * r["citybus"] if peak else 0
+    return r["minutes"] + r["wait"] + extra
+
+
+def score(r, peak=False):
+    """경로 점수(작을수록 좋음) — 사람이 느끼는 부담 기준:
+    걷기 · 기다림은 차 안보다 무겁게, 환승 1회당 벌점, 출퇴근 시간 시내버스는 정체만큼 더."""
+    ride = r["minutes"] - r["walk"]
+    extra = (CITY_BUS_PEAK_FACTOR - 1) * r["citybus"] if peak else 0
+    return (ride + extra + WALK_WEIGHT * r["walk"] + WAIT_WEIGHT * r["wait"]
+            + TRANSFER_PENALTY_MIN * r["transfers"])
+
+
+def rank(routes, peak=False):
     """경로 순위 — 심야 · 예약버스 경로는 제외하고 점수순."""
-    return sorted((r for r in routes if not r.get("special")), key=score)
+    return sorted((r for r in routes if not r.get("special")), key=lambda r: score(r, peak))
 
 
 def tmap_walk_min(ax, ay, bx, by):
@@ -174,24 +224,34 @@ def tmap_walk_min(ax, ay, bx, by):
     return round(res.json()["features"][0]["properties"]["totalTime"] / 60)
 
 
-def best_alight(route):
-    """서울 안 하차 후보마다 '버스로 그 정류장까지 + ODsay 최단 경로'를 비교해 가장 빠른 곳을 고름.
-    minutes 는 서울 첫 정차 정류장 기준 (train.py 의 ride 가 그 정류장까지의 시간)."""
+def best_alight(route, now=None, fetch=True):
+    """서울 안 하차 후보마다 '버스로 그 정류장까지(실측) + 그 뒤 경로(ODsay)'를 비교해 가장 나은 곳을 고름.
+    minutes 는 서울 첫 정차 정류장 기준 예상 시간 (train.py 의 ride 가 그 정류장까지의 시간)."""
     cfg = ROUTES[route]
     st = route_stations(cfg["route_id"])
     cands = alight_candidates(route)
-    options = []
+    peak = is_peak(now)
+    options, errors = [], []
     for q in cands:
+        try:
+            routes = odsay_routes(st[q]["x"], st[q]["y"], fetch=fetch)
+        except Exception as e:
+            errors.append(f"{st[q]['name']}: {e}")
+            continue
+        if not routes:
+            continue
         bus = seoul_bus_min(route, cands[0], q)
-        for r in rank(odsay_routes(st[q]["x"], st[q]["y"], DEST_X, DEST_Y))[:3]:
-            options.append(dict(r, seq=q, name=st[q]["name"], bus=round(bus), total=round(bus) + r["minutes"]))
+        for r in rank(routes, peak)[:3]:
+            options.append(dict(r, seq=q, name=st[q]["name"], cost=bus + score(r, peak),
+                                total=round(bus + expected_min(r, peak))))
     if not options:
-        raise RuntimeError("후보 경로 없음")
-    options.sort(key=lambda o: o["bus"] + score(o))
+        raise RuntimeError("후보 경로 없음" + (f" ({errors[0]})" if errors else ""))
+    options.sort(key=lambda o: o["cost"])
     best = options[0]
     alts = [o for o in options[1:] if o["seq"] != best["seq"] or o["summary"] != best["summary"]][:2]
     return {"minutes": best["total"], "transfers": best["transfers"], "seq": best["seq"], "from": best["name"],
-            "transfer": best["summary"], "live": True,
+            "transfer": best["summary"], "map_obj": best.get("map_obj"), "live": True, "peak": peak,
+            "partial": bool(errors),
             "alts": [{"minutes": o["total"], "transfers": o["transfers"],
                       "transfer": f"{o['name']} 하차 → {o['summary']}"} for o in alts]}
 
@@ -204,23 +264,17 @@ def fallback_leg(route):
             "from": name if rest else "서울", "live": False}
 
 
-def get_legs():
-    """노선별 '서울 하차 정류장 → 국민대' 경로 (하차 정류장도 자동 선택). 실패하면 config 의 가정값."""
-    c = _load_cache()
-    if "legs" not in c:
-        legs = {}
-        for route, cfg in ROUTES.items():
-            try:
-                legs[route] = best_alight(route)
-            except Exception as e:
-                print(f"  ! {route} 환승 경로 조회 실패 — 가정값 사용 ({e})")
-                legs[route] = fallback_leg(route)
-        if all(l["live"] for l in legs.values()):
-            c = _load_cache()   # 조회 중 저장된 정류장 목록을 덮어쓰지 않도록 다시 읽음
-            c["legs"] = legs
-            _save_cache(c)
-        return legs
-    return c["legs"]
+def get_legs(now=None):
+    """노선별 '서울 하차 정류장 → 국민대' 경로 (하차 정류장도 자동 선택, 시각에 따라 출퇴근 기준 적용).
+    ODsay 결과는 odsay_cache.json 에 저장되어 있으면 API 를 다시 부르지 않음. 실패하면 config 의 가정값."""
+    legs = {}
+    for route in ROUTES:
+        try:
+            legs[route] = best_alight(route, now)
+        except Exception as e:
+            print(f"  ! {route} 환승 경로 조회 실패 — 가정값 사용 ({e})")
+            legs[route] = fallback_leg(route)
+    return legs
 
 
 def get_walks():
@@ -254,6 +308,8 @@ if __name__ == "__main__":
     print(f"[서울 하차 정류장 → {DEST_NAME}]  (후보 정류장마다 ODsay 대중교통 길찾기 · 가장 빠른 곳 선택)")
     for route, leg in get_legs().items():
         src = leg.get("from", "회차 정류장")
+        if leg.get("partial"):
+            src += " (일부 후보는 ODsay 한도로 아직 비교 못 함)"
         tag = "" if leg["live"] else "  (가정값)"
         n = f" · 환승 {leg['transfers']}회" if "transfers" in leg else ""
         print(f"  {route}번 {src}: 약 {leg['minutes']}분{n}{tag}\n      {leg['transfer']}")
