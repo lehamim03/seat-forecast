@@ -30,8 +30,18 @@ FALLBACK = {
 }
 
 
+_MEMO = {}   # 이번 실행 안에서 이미 구한 연도 (실패했을 때도 다시 묻지 않도록)
+
+
 def holidays(year):
-    """{'YYYY-MM-DD': 이름} — API 결과를 연도별로 저장해 두고 씀."""
+    """{'YYYY-MM-DD': 이름} — API 결과를 연도별로 저장해 두고 씀. 실패하면 FALLBACK 목록."""
+    if year in _MEMO:
+        return _MEMO[year]
+    _MEMO[year] = _holidays(year)
+    return _MEMO[year]
+
+
+def _holidays(year):
     cache = {}
     if os.path.exists(CACHE):
         with open(CACHE, encoding="utf-8") as f:

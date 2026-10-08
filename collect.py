@@ -176,6 +176,7 @@ def collect_once(now):
 
 
 def main():
+    began = time.time()   # 제한 시간은 프로그램 시작부터 (아래 준비 단계가 길어져도 제때 끝나도록)
     if "--estimate" in sys.argv:
         today = now_kst().date()
         for d in [today + timedelta(days=i) for i in range(7)]:
@@ -189,7 +190,6 @@ def main():
     limit = None
     if "--max-minutes" in sys.argv:
         limit = int(sys.argv[sys.argv.index("--max-minutes") + 1])
-    began = time.time()
     print(f"수집 시작: 노선 {list(ROUTES)}, {COLLECT_START[0]:02d}:{COLLECT_START[1]:02d}~"
           f"{COLLECT_END[0]:02d}:{COLLECT_END[1]:02d}(한국 시간), "
           f"평일 출퇴근 {INTERVAL_PEAK_SEC // 60}분 · 평일 그 외 {INTERVAL_OFFPEAK_SEC // 60}분 · "

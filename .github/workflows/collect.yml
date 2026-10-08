@@ -61,7 +61,8 @@ jobs:
 
       - name: 수집 (최대 340분, 운행 시간 05:00~01:30만)
         if: ${{ !inputs.quick_test }}
-        run: python collect.py --max-minutes 340
+        timeout-minutes: 345   # 멈춰도 이 단계만 끊고, 아래 저장 단계는 실행되도록
+        run: python -u collect.py --max-minutes 340   # -u: 로그를 바로바로 출력
 
       - name: 데이터 저장 (data/bus_seats_운행일.csv 에 이어 붙임)
         if: ${{ always() && !inputs.quick_test }}   # 수집 중 오류가 나도 모은 만큼은 저장
