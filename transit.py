@@ -70,11 +70,6 @@ def turn_seq(route):
     return next((q for q in sorted(st) if st[q]["turn"]), max(st))
 
 
-def short_name(name):
-    """화면용 짧은 정류장 이름: '양재역.서초문화예술회관(중)' → '양재역'."""
-    return re.sub(r"\(.*?\)", "", name).split(".")[0].strip()
-
-
 def alight_candidates(route):
     """서울에서 내릴 수 있는 정류장 순번 — 회차 전까지, 서울 지역, 실제로 서는 곳."""
     st = route_stations(ROUTES[route]["route_id"])
@@ -251,7 +246,7 @@ def best_alight(route, now=None, fetch=True):
             continue
         bus = seoul_bus_min(route, cands[0], q)
         for r in rank(routes, peak):
-            options.append(dict(r, seq=q, name=short_name(st[q]["name"]), cost=bus + score(r, peak),
+            options.append(dict(r, seq=q, name=st[q]["name"], cost=bus + score(r, peak),
                                 total=round(bus + expected_min(r, peak))))
     if not options:
         raise RuntimeError("후보 경로 없음" + (f" ({errors[0]})" if errors else ""))
