@@ -10,7 +10,7 @@
 #   route     노선 경로 (정류장 · 경유지 좌표를 이은 선, 오늘 고른 서울 하차 정류장까지)
 #   bus       지금 다가오는 버스 위치 + 잔여 좌석 (버스위치정보)
 #   incident  노선 위 돌발상황 (국가교통정보센터)
-#   transfer  서울 하차 정류장 → 국민대 환승 경로 모양 (ODsay)
+#   transfer  서울 하차 정류장 → 국민대 경로 여러 개의 모양 (ODsay) — main=추천, tags=추천·최단시간·최소환승
 #  나중에 FastAPI 예측 서버가 앱에 이 형식으로 넘겨주면, 앱은 그리기만 하면 됩니다.
 # ==========================================================
 import json
@@ -56,18 +56,24 @@ def walk_path(a, b):
     return coords, round(res["features"][0]["properties"]["totalTime"] / 60)
 
 
-def transfer_shape(route, now=None):
-    """ODsay: 고른 하차 정류장 → 국민대 추천 경로의 지도용 모양 (loadLane — 저장해 둔 경로의 mapObj 사용)."""
-    leg = transit.get_legs(now)[route]
-    if not leg.get("map_obj"):
-        raise RuntimeError("추천 경로 정보 없음 (ODsay 조회 전)")
+def lane_shape(map_obj):
+    """ODsay loadLane: 경로 하나(mapObj)의 지도용 선 모양."""
     lane = requests.get("https://api.odsay.com/v1/api/loadLane", timeout=15, params={
-        "mapObject": f"0:0@{leg['map_obj']}", "apiKey": api_key.ODSAY_KEY}).json()
-    lines = []
-    for ln in lane["result"]["lane"]:
-        for sec in ln["section"]:
-            lines.append([[float(g["x"]), float(g["y"])] for g in sec["graphPos"]])
-    return lines, f"{leg['from']} 하차 → {leg['transfer']}"
+        "mapObject": f"0:0@{map_obj}", "apiKey": api_key.ODSAY_KEY}).json()
+    return [[[float(g["x"]), float(g["y"])] for g in sec["graphPos"]]
+            for ln in lane["result"]["lane"] for sec in ln["section"]]
+
+
+def transfer_shapes(route, now=None):
+    """하차 정류장 → 국민대 경로 여러 개(추천 · 최단시간 · 최소환승 …)의 지도용 모양."""
+    leg = transit.get_legs(now)[route]
+    out = []
+    for i, ch in enumerate(leg.get("choices", [])):
+        if ch.get("map_obj"):
+            out.append((lane_shape(ch["map_obj"]), ch, i == 0))
+    if not out:
+        raise RuntimeError("추천 경로 정보 없음 (ODsay 조회 전)")
+    return out
 
 
 def build(live=True):
@@ -124,11 +130,13 @@ def build(live=True):
                                          message=(ev.get("message") or "").strip() or ev.get("eventDetailType")))
         except Exception as e:
             print(f"  ! 돌발정보 실패: {e}")
-        # 서울 도착 후 환승 경로 (평소 노선 8800 기준)
+        # 서울에서 내린 뒤 국민대까지 경로 여러 개 (평소 노선 8800 기준) — 지도 앱처럼 추천 · 최단시간 · 최소환승 표시
         try:
-            lines, summary = transfer_shape("8800")
-            for ln in lines:
-                feats.append(feature("transfer", "LineString", ln, route="8800", summary=summary))
+            for lines, ch, main in transfer_shapes("8800"):
+                for ln in lines:
+                    feats.append(feature("transfer", "LineString", ln, route="8800", main=main,
+                                         tags=" · ".join(ch["tags"]), minutes=ch["minutes"],
+                                         transfers=ch["transfers"], summary=f"{ch['from']} 하차 → {ch['transfer']}"))
         except Exception as e:
             print(f"  ! 환승 경로 모양 실패 (ODsay IP 등록 확인): {e}")
 
@@ -145,7 +153,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: 
 const layer = L.geoJSON(data, {
   style: f => ({ route: {color: f.properties.color, weight: 4, opacity: .7},
                  walk: {color: '#2563EB', weight: 4, dashArray: '6 6'},
-                 transfer: {color: '#7C3AED', weight: 4} }[f.properties.kind] || {}),
+                 transfer: f.properties.main ? {color: '#7C3AED', weight: 5} : {color: '#6B7280', weight: 3, dashArray: '4 6', opacity: .8} }[f.properties.kind] || {}),
   pointToLayer: (f, ll) => {
     const k = f.properties.kind;
     const c = {me: '#2563EB', stop: '#111827', bus: f.properties.color, incident: '#D99A00'}[k];

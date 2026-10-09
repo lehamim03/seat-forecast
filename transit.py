@@ -23,6 +23,7 @@ CACHE = "transit_cache.json"
 SIG = "v4;" + ";".join(f"{r}={c['route_id']}" for r, c in ROUTES.items())
 ODSAY_CACHE = "odsay_cache.json"
 ODSAY_DAYS = 7
+MAX_CHOICES = 4   # 노선마다 보여줄 경로 수 (지도 앱처럼 여러 개)
 SEOUL_BUS_KMH = 15   # 서울 구간 버스 속도 (실측 데이터가 없을 때만 사용)
 SKIP_WORDS = ("(경유)", "(미정차)")   # 정류장 이름에 붙으면 서지 않는 지점
 
@@ -67,6 +68,11 @@ def turn_seq(route):
     """노선이 서울에서 돌아 나오는 회차 정류장의 순번 — 이 뒤는 수원으로 돌아가는 방향."""
     st = route_stations(ROUTES[route]["route_id"])
     return next((q for q in sorted(st) if st[q]["turn"]), max(st))
+
+
+def short_name(name):
+    """화면용 짧은 정류장 이름: '양재역.서초문화예술회관(중)' → '양재역'."""
+    return re.sub(r"\(.*?\)", "", name).split(".")[0].strip()
 
 
 def alight_candidates(route):
@@ -244,8 +250,8 @@ def best_alight(route, now=None, fetch=True):
         if not routes:
             continue
         bus = seoul_bus_min(route, cands[0], q)
-        for r in rank(routes, peak)[:3]:
-            options.append(dict(r, seq=q, name=st[q]["name"], cost=bus + score(r, peak),
+        for r in rank(routes, peak):
+            options.append(dict(r, seq=q, name=short_name(st[q]["name"]), cost=bus + score(r, peak),
                                 total=round(bus + expected_min(r, peak))))
     if not options:
         raise RuntimeError("후보 경로 없음" + (f" ({errors[0]})" if errors else ""))
@@ -254,9 +260,33 @@ def best_alight(route, now=None, fetch=True):
     alts = [o for o in options[1:] if o["seq"] != best["seq"] or o["summary"] != best["summary"]][:2]
     return {"minutes": best["total"], "transfers": best["transfers"], "seq": best["seq"], "from": best["name"],
             "transfer": best["summary"], "map_obj": best.get("map_obj"), "live": True, "peak": peak,
-            "partial": bool(errors),
+            "partial": bool(errors), "choices": pick_choices(options),
             "alts": [{"minutes": o["total"], "transfers": o["transfers"],
                       "transfer": f"{o['name']} 하차 → {o['summary']}"} for o in alts]}
+
+
+def pick_choices(options, n=MAX_CHOICES):
+    """지도 앱처럼 보여줄 경로 여러 개 — 추천 · 최단시간 · 최소환승 표시를 붙이고 나머지는 추천순으로 채움.
+    options 는 점수(cost)순으로 정렬된 상태. transfers 는 광역버스에서 내린 뒤 갈아타는 횟수(광역버스 → 첫 수단 포함)."""
+    uniq, seen = [], set()
+    for o in options:
+        key = (o["seq"], o["summary"])
+        if key not in seen:
+            seen.add(key)
+            uniq.append(o)
+    picks = {"추천": uniq[0],
+             "최단시간": min(uniq, key=lambda o: (o["total"], o["cost"])),
+             "최소환승": min(uniq, key=lambda o: (o["transfers"], o["total"], o["cost"]))}
+    chosen = []
+    for o in [picks["추천"], picks["최단시간"], picks["최소환승"]] + uniq:
+        if o not in chosen:
+            chosen.append(o)
+        if len(chosen) >= n:
+            break
+    chosen.sort(key=lambda o: (o is not picks["추천"], o["total"]))   # 추천을 맨 위, 나머지는 빠른 순
+    return [{"minutes": o["total"], "transfers": o["transfers"] + 1, "walk": o["walk"], "seq": o["seq"],
+             "from": o["name"], "transfer": o["summary"], "map_obj": o.get("map_obj"),
+             "tags": [t for t in ("추천", "최단시간", "최소환승") if picks[t] is o]} for o in chosen]
 
 
 def fallback_leg(route):
@@ -267,15 +297,16 @@ def fallback_leg(route):
             "from": name if rest else "서울", "live": False}
 
 
-def get_legs(now=None):
+def get_legs(now=None, fetch=True):
     """노선별 '서울 하차 정류장 → 국민대' 경로 (하차 정류장도 자동 선택, 시각에 따라 출퇴근 기준 적용).
     ODsay 결과는 odsay_cache.json 에 저장되어 있으면 API 를 다시 부르지 않음. 실패하면 config 의 가정값."""
     legs = {}
     for route in ROUTES:
         try:
-            legs[route] = best_alight(route, now)
+            legs[route] = best_alight(route, now, fetch)
         except Exception as e:
-            print(f"  ! {route} 환승 경로 조회 실패 — 가정값 사용 ({e})")
+            if fetch:
+                print(f"  ! {route} 환승 경로 조회 실패 — 가정값 사용 ({e})")
             legs[route] = fallback_leg(route)
     return legs
 
@@ -316,8 +347,9 @@ if __name__ == "__main__":
         tag = "" if leg["live"] else "  (가정값)"
         n = f" · 환승 {leg['transfers']}회" if "transfers" in leg else ""
         print(f"  {route}번 {src}: 약 {leg['minutes']}분{n}{tag}\n      {leg['transfer']}")
-        for a in leg.get("alts", []):
-            print(f"      (다른 경로 {a['minutes']}분 · 환승 {a['transfers']}회) {a['transfer']}")
+        for ch in leg.get("choices", []):
+            tags = "".join(f"[{t}]" for t in ch["tags"]) or "      "
+            print(f"      {tags:<10} {ch['minutes']}분 · 환승 {ch['transfers']}회 | {ch['from']} 하차 → {ch['transfer']}")
     print(f"\n[{STOPS[MY_STOP]['name']} → 후보 정류장 도보 시간]  (TMAP 보행자 경로)")
     for stop_id, m in get_walks().items():
         print(f"  {STOPS[stop_id]['name']}: {m}분")

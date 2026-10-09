@@ -13,7 +13,7 @@ import transit
 from config import ROUTES
 
 L.USE_MODEL = False   # 학습 결과와 상관없이 항상 같은 결과가 나오도록 기본값 사용
-L.USE_TRANSIT = False # 환승·도보 시간도 config 값으로 고정
+L.USE_TRANSIT = "cache"  # 저장해 둔 ODsay 경로만 사용 (없으면 config 값) · 도보는 config 값
 WEEKDAY_RUSH = datetime(2026, 10, 7, 7, 40)   # 평일(수) 출근 시간대 — 상황 1~5, 7의 기준 시각
 HOLIDAY = datetime(2026, 10, 5, 7, 40)        # 개천절 대체공휴일(월) 아침 — 상황 6
 

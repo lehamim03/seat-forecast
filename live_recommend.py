@@ -25,6 +25,7 @@ LOOKAHEAD = 3        # 노선·정류장마다 다가오는 버스 몇 대까지
 BUFFER_MIN = 1       # 정류장에 버스보다 최소 1분 먼저 도착해야 탈 수 있다고 봄
 USE_MODEL = True     # False면 board_model.pkl 없이 config 기본값만 사용 (시연용)
 USE_TRANSIT = True   # False면 ODsay·TMAP 조회 없이 config 의 환승·도보 값 사용 (시연용)
+                     # "cache"면 저장해 둔 ODsay 결과만 사용(새로 조회 안 함) · 도보는 config 값
 INCIDENT_RECENT = None  # 시연용: 돌발 감지에 쓸 최근 기록(DataFrame)을 직접 넣을 때
 INCIDENT_EVENTS = None  # 시연용: ITS 돌발상황 목록을 직접 넣을 때
 NOW_OVERRIDE = None     # 시연용: 특정 날짜·시각(datetime)으로 판단할 때
@@ -67,7 +68,11 @@ def main():
     ev = events.impact(now, LOCAL_EXTRA)
 
     # 서울 하차 정류장 · 환승 경로(ODsay, 7일 저장)와 도보 시간(TMAP) — 출퇴근 여부에 맞춰 고름, 실패하면 config 값
-    if USE_TRANSIT:
+    if USE_TRANSIT == "cache":
+        import transit
+        legs = transit.get_legs(now, fetch=False)
+        walks = {s: abs(v["walk_min"] - STOPS[MY_STOP]["walk_min"]) for s, v in STOPS.items()}
+    elif USE_TRANSIT:
         import transit
         legs, walks = transit.get_legs(now), transit.get_walks()
     else:
@@ -140,6 +145,7 @@ def main():
                             "cands": cands, "board": expected, "total": total,
                             "cfg": dict(cfg, dest=legs[route].get("from", "서울")),
                             "transfer": legs[route]["transfer"], "alts": legs[route].get("alts", []),
+                            "leg_min": legs[route]["minutes"], "choices": legs[route].get("choices", []),
                             "delay": delay, "skipped": skipped})
 
     # 3) 선택지별 최선 + 전체 추천
@@ -186,9 +192,17 @@ def main():
             print(f"     {i}번째 차: {c['eta']:.0f}분 후 · {seats} · 탑승 확률 {c['p']:.0%}{note}")
         if not o["cands"]:
             print("     다가오는 차량 없음 — 배차간격 기준으로 추정")
-        print(f"     환승: {o['transfer']}")
-        for alt in o["alts"][:1]:
-            print(f"     다른 환승: {alt['transfer']} ({alt['minutes']}분 · 환승 {alt['transfers']}회)")
+        if o["choices"]:
+            # 지도 앱처럼 서울에서 국민대까지 경로 여러 개 — 추천 · 최단시간 · 최소환승 표시
+            print(f"     서울에서 국민대까지 경로 {len(o['choices'])}개")
+            for ch in o["choices"]:
+                arrive = eta + timedelta(minutes=ch["minutes"] - o["leg_min"])
+                tags = " ".join(f"[{t}]" for t in ch["tags"])
+                print(f"       {arrive:%H:%M} 도착 · 환승 {ch['transfers']}회 · 걷기 {ch['walk']}분"
+                      + (f"  {tags}" if tags else ""))
+                print(f"         {ch['from']} 하차 → {ch['transfer']}")
+        else:
+            print(f"     환승: {o['transfer']}")
         print()
 
     if best_all:
