@@ -86,7 +86,7 @@ SCENARIOS = [
         stalled("8800", "8800-P", "판교IC", 35) + stalled("3007", "3007-P", "판교IC", 35)
         + stalled("3008", "3008-P", "판교IC", 35) + moving("7001", "7001-P", "의왕톨게이트", 4)),
         [its_accident("8800", "판교IC", "서울방향 판교IC 부근 추돌사고")]),
-    ("상황 5 — 집회로 8800이 우회해 삼성1차아파트·경기아트센터를 건너뜀  →  다른 버스", {
+    ("상황 5 — 집회로 8800이 우회해 삼성1차아파트·매탄위브하늘채.경기아트센터를 건너뜀  →  다른 버스", {
         R8800: [{"plateNo": "8800-A", "stationSeq": 5, "remainSeatCnt": 30}],
         R3007: [{"plateNo": "3007-A", "stationSeq": 8, "remainSeatCnt": 10}],
         R7001: [{"plateNo": "7001-A", "stationSeq": 9, "remainSeatCnt": 3}],

@@ -11,7 +11,7 @@ from api_key import SERVICE_KEY
 STOPS = {
     "203000063": {"name": "삼성1차아파트", "mobile_no": "04007", "walk_min": 0},
     "203000161": {"name": "자유총연맹", "mobile_no": "04236", "walk_min": 3},
-    "203000162": {"name": "경기아트센터", "mobile_no": "04235", "walk_min": 7},  # 매탄위브하늘채.경기아트센터
+    "203000162": {"name": "매탄위브하늘채.경기아트센터", "mobile_no": "04235", "walk_min": 7},  # 노선 정류장 API 이름 그대로
 }
 
 # 3) 비교할 서울행 노선
