@@ -151,7 +151,9 @@ def main():
     # 3) 선택지별 최선 + 전체 추천
     wd = "월화수목금토일"[now.weekday()]
     print(f"\n[{now:%m/%d}({wd}) {now:%H:%M} 기준 · {day['label']} · 평소 {STOPS[MY_STOP]['name']}에서 {my_route}번]")
-    if day["key"] != "평일 출퇴근":
+    if day["key"] == "주말·공휴일 나들이":
+        print(f"  ※ 주말·공휴일 오전 나들이 시간대라 평일 출근길만큼 좌석이 빨리 줄어요 · 배차간격은 길어요(×{day['headway']})")
+    elif day["drop"] < 1.0:
         print(f"  ※ 평일 출퇴근 시간대보다 한산해 좌석이 천천히 줄고(×{day['drop']}), 배차간격은 길어요(×{day['headway']})")
     print()
     ev_notes = [(r, v) for r, v in ev.items() if v["notes"]]
@@ -211,7 +213,7 @@ def main():
         tip = ""
         if o["kind"] == "기다리기" and first and first["p"] < 0.5:
             tip = " — 첫 차는 만석 위험이 커서 보내고 다음 차를 타는 게 낫습니다"
-        elif o["kind"] == "기다리기" and first and day["key"] != "평일 출퇴근":
+        elif o["kind"] == "기다리기" and first and day["drop"] < 1.0:
             tip = f" — {day['label']}이라 한산해서 첫 차({first['eta']:.0f}분 후)도 탈 수 있어요"
         elif o["kind"] == "걸어가기":
             tip = f" — 지금 {o['stop']['name']}(으)로 출발하면 좌석이 남은 차를 먼저 탈 수 있습니다"

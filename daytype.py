@@ -7,6 +7,7 @@
 #  API를 쓸 수 없으면 아래 2026년 목록을 씁니다. 결과는 daytype_cache.json 에 연도별로 저장.
 #  평일 출퇴근 시간대에는 승객이 많아 좌석이 빨리 줄고, 주말·공휴일엔 한산하지만
 #  배차간격이 길어집니다 — 그 정도를 config.DAY_FACTORS 로 반영합니다.
+#  단, 주말·공휴일 오전 나들이 시간대(config.LEISURE_HOURS)엔 출근길처럼 붐빕니다 (실측).
 # ==========================================================
 import json
 import os
@@ -15,7 +16,7 @@ from datetime import date, datetime
 
 import requests
 
-from config import SERVICE_KEY, DAY_FACTORS, PEAK_HOURS
+from config import SERVICE_KEY, DAY_FACTORS, PEAK_HOURS, LEISURE_HOURS, LEISURE_DROP
 
 CACHE = "daytype_cache.json"
 
@@ -97,6 +98,13 @@ def factors(when):
     label = info["name"] or info["kind"]
     if info["peak"]:
         label += " 출퇴근 시간대"
+    # 주말·공휴일 오전 나들이 시간대 — 출근길처럼 좌석이 빨리 줄어듦 (실측)
+    if info["day_type"] in (1, 2) and isinstance(when, datetime):
+        hm = when.hour * 60 + when.minute
+        if any(a <= hm < b for a, b in LEISURE_HOURS):
+            key = "주말·공휴일 나들이"
+            f["drop"] = LEISURE_DROP
+            label += " 나들이 시간대"
     f.update(label=label, key=key, **info)
     return f
 
