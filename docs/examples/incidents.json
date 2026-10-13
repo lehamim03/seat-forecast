@@ -1,0 +1,243 @@
+{
+  "generated_at": "2026-10-07T07:40:00+09:00",
+  "incidents": [
+    {
+      "route": "8800",
+      "delay_min": 30,
+      "skip_stops": [],
+      "drop_factor": 1.0,
+      "notes": [
+        "[사고] 경부선 판교IC 부근 — 서울방향 판교IC 부근 추돌사고, 2개 차로 차단",
+        "앞차가 판교IC(경유) 부근에서 35분째 정지 (평소 5분)"
+      ]
+    },
+    {
+      "route": "3007",
+      "delay_min": 25,
+      "skip_stops": [],
+      "drop_factor": 1.0,
+      "notes": [
+        "[사고] 경부선 판교IC 부근 — 서울방향 판교IC 부근 추돌사고, 2개 차로 차단",
+        "앞차가 판교IC(경유) 부근에서 35분째 정지 (평소 10분)"
+      ]
+    },
+    {
+      "route": "3008",
+      "delay_min": 30,
+      "skip_stops": [],
+      "drop_factor": 1.0,
+      "notes": [
+        "[사고] 경부선 판교IC 부근 — 서울방향 판교IC 부근 추돌사고, 2개 차로 차단",
+        "앞차가 판교IC(경유) 부근에서 35분째 정지 (평소 5분)"
+      ]
+    }
+  ],
+  "recommendation": {
+    "kind": "다른 버스",
+    "route": "7001",
+    "stop_name": "삼성1차아파트",
+    "message": "다른 버스 (7001번 · 삼성1차아파트) — 8800번 경로에 돌발상황이 있어 남태령역(중) 경유로 돌아가는 게 빠릅니다"
+  },
+  "alternatives": {
+    "기다리기": {
+      "kind": "기다리기",
+      "route": "8800",
+      "stop": {
+        "id": "203000063",
+        "name": "삼성1차아파트",
+        "mobile_no": "04007"
+      },
+      "walk_min": 0,
+      "board_prob": 1.0,
+      "arrive_at": "10:11",
+      "total_min": 151,
+      "delay_min": 30,
+      "skipped": false,
+      "alight_stop": "서울시청",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 4,
+          "seats_at_stop": 21,
+          "board_prob": 1.0,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "10:11",
+          "transfers": 1,
+          "walk_min": 10,
+          "tags": [
+            "추천",
+            "최소환승"
+          ],
+          "alight_stop": "서울시청",
+          "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞) → 도보 4분"
+        },
+        {
+          "arrive_at": "10:03",
+          "transfers": 2,
+          "walk_min": 23,
+          "tags": [
+            "최단시간"
+          ],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→성신여대입구) → 우이신설경전철(성신여대입구→북한산보국문) → 도보 15분"
+        },
+        {
+          "arrive_at": "10:07",
+          "transfers": 2,
+          "walk_min": 10,
+          "tags": [],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→길음) → 버스 163(길음뉴타운→국민대학교앞) → 도보 3분"
+        },
+        {
+          "arrive_at": "10:13",
+          "transfers": 1,
+          "walk_min": 6,
+          "tags": [],
+          "alight_stop": "신한은행본점",
+          "summary": "버스 1711(소공동주민센터→국민대앞) → 도보 4분"
+        }
+      ]
+    },
+    "걸어가기": {
+      "kind": "걸어가기",
+      "route": "8800",
+      "stop": {
+        "id": "203000162",
+        "name": "매탄위브하늘채.경기아트센터",
+        "mobile_no": "04235"
+      },
+      "walk_min": 7,
+      "board_prob": 0.5,
+      "arrive_at": "10:46",
+      "total_min": 186,
+      "delay_min": 30,
+      "skipped": false,
+      "alight_stop": "서울시청",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 2,
+          "seats_at_stop": 23,
+          "board_prob": 1.0,
+          "reachable": false
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "10:46",
+          "transfers": 1,
+          "walk_min": 10,
+          "tags": [
+            "추천",
+            "최소환승"
+          ],
+          "alight_stop": "서울시청",
+          "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞) → 도보 4분"
+        },
+        {
+          "arrive_at": "10:38",
+          "transfers": 2,
+          "walk_min": 23,
+          "tags": [
+            "최단시간"
+          ],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→성신여대입구) → 우이신설경전철(성신여대입구→북한산보국문) → 도보 15분"
+        },
+        {
+          "arrive_at": "10:42",
+          "transfers": 2,
+          "walk_min": 10,
+          "tags": [],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→길음) → 버스 163(길음뉴타운→국민대학교앞) → 도보 3분"
+        },
+        {
+          "arrive_at": "10:48",
+          "transfers": 1,
+          "walk_min": 6,
+          "tags": [],
+          "alight_stop": "신한은행본점",
+          "summary": "버스 1711(소공동주민센터→국민대앞) → 도보 4분"
+        }
+      ]
+    },
+    "다른 버스": {
+      "kind": "다른 버스",
+      "route": "7001",
+      "stop": {
+        "id": "203000063",
+        "name": "삼성1차아파트",
+        "mobile_no": "04007"
+      },
+      "walk_min": 0,
+      "board_prob": 1.0,
+      "arrive_at": "09:49",
+      "total_min": 129,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "남태령역(중)",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 4,
+          "seats_at_stop": 16,
+          "board_prob": 1.0,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "09:49",
+          "transfers": 2,
+          "walk_min": 7,
+          "tags": [
+            "추천"
+          ],
+          "alight_stop": "남태령역(중)",
+          "summary": "도보 3분 → 4호선(남태령→길음) → 버스 163(길음뉴타운→국민대학교앞) → 도보 3분"
+        },
+        {
+          "arrive_at": "09:44",
+          "transfers": 2,
+          "walk_min": 20,
+          "tags": [
+            "최단시간",
+            "최소환승"
+          ],
+          "alight_stop": "남태령역(중)",
+          "summary": "도보 3분 → 4호선(남태령→성신여대입구) → 우이신설경전철(성신여대입구→북한산보국문) → 도보 15분"
+        },
+        {
+          "arrive_at": "09:50",
+          "transfers": 2,
+          "walk_min": 10,
+          "tags": [],
+          "alight_stop": "남태령역(중)",
+          "summary": "도보 3분 → 4호선(남태령→길음) → 버스 171/1213/7211(길음역3번출구B→청덕초등학교입구) → 도보 5분"
+        },
+        {
+          "arrive_at": "09:52",
+          "transfers": 2,
+          "walk_min": 8,
+          "tags": [],
+          "alight_stop": "사당역(중)",
+          "summary": "도보 4분 → 4호선(사당→길음) → 버스 163(길음뉴타운→국민대학교앞) → 도보 3분"
+        }
+      ]
+    }
+  },
+  "push": {
+    "title": "8800번 지연 · 7001번 추천",
+    "body": "8800번 경로에 돌발상황이 있어 남태령역(중) 경유로 돌아가는 게 빠릅니다",
+    "data": {
+      "screen": "alternatives",
+      "route": "7001"
+    }
+  }
+}

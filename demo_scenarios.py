@@ -113,6 +113,7 @@ SCENARIOS = [
 import events as E
 E.USE_TOURAPI = False   # 실제 축제 정보 대신 시연용 행사만
 
+RESULTS = []   # 시나리오별 앱 응답(JSON) — api_examples.py 가 사용
 for item in SCENARIOS:
     title, buses, incident, events, when, local = (list(item) + [WEEKDAY_RUSH, None])[:6]
     print("=" * 70 + "\n" + title + "\n" + "=" * 70)
@@ -121,5 +122,6 @@ for item in SCENARIOS:
     L.INCIDENT_EVENTS = events   # 실제 돌발정보 대신 시연용 목록
     L.NOW_OVERRIDE = when        # 평일 출근 시간대 / 공휴일 아침으로 고정
     L.LOCAL_EXTRA = local() if local else []
-    L.main()
+    res = L.main()
+    RESULTS.append((title, res))
     print()

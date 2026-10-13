@@ -1,0 +1,9 @@
+{
+  "uid": "firebase-uid-예시",
+  "date": "2026-10-07",
+  "route": "3007",
+  "stop_id": "203000161",
+  "boarded": true,
+  "predicted_prob": 1.0,
+  "memo": ""
+}

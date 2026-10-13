@@ -1,0 +1,228 @@
+{
+  "generated_at": "2026-10-07T07:40:00+09:00",
+  "my_route": "8800",
+  "home_stop": {
+    "id": "203000063",
+    "name": "삼성1차아파트"
+  },
+  "day": {
+    "label": "평일 출퇴근 시간대",
+    "kind": "평일 출퇴근",
+    "drop_factor": 1.0,
+    "headway_factor": 1.0
+  },
+  "recommendation": {
+    "kind": "다른 버스",
+    "route": "3007",
+    "stop_name": "자유총연맹",
+    "message": "다른 버스 (3007번 · 자유총연맹) — 양재역.서초문화예술회관(중)에서 환승하는 경로가 더 빠릅니다"
+  },
+  "alternatives": {
+    "기다리기": {
+      "kind": "기다리기",
+      "route": "8800",
+      "stop": {
+        "id": "203000063",
+        "name": "삼성1차아파트",
+        "mobile_no": "04007"
+      },
+      "walk_min": 0,
+      "board_prob": 0.02,
+      "arrive_at": "10:35",
+      "total_min": 176,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "서울시청",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 6,
+          "seats_at_stop": 0,
+          "board_prob": 0.02,
+          "reachable": true
+        },
+        {
+          "order": 2,
+          "eta_min": 12,
+          "seats_at_stop": 0,
+          "board_prob": 0.0,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "10:35",
+          "transfers": 1,
+          "walk_min": 10,
+          "tags": [
+            "추천",
+            "최소환승"
+          ],
+          "alight_stop": "서울시청",
+          "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞) → 도보 4분"
+        },
+        {
+          "arrive_at": "10:27",
+          "transfers": 2,
+          "walk_min": 23,
+          "tags": [
+            "최단시간"
+          ],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→성신여대입구) → 우이신설경전철(성신여대입구→북한산보국문) → 도보 15분"
+        },
+        {
+          "arrive_at": "10:31",
+          "transfers": 2,
+          "walk_min": 10,
+          "tags": [],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→길음) → 버스 163(길음뉴타운→국민대학교앞) → 도보 3분"
+        },
+        {
+          "arrive_at": "10:37",
+          "transfers": 1,
+          "walk_min": 6,
+          "tags": [],
+          "alight_stop": "신한은행본점",
+          "summary": "버스 1711(소공동주민센터→국민대앞) → 도보 4분"
+        }
+      ]
+    },
+    "걸어가기": {
+      "kind": "걸어가기",
+      "route": "8800",
+      "stop": {
+        "id": "203000162",
+        "name": "매탄위브하늘채.경기아트센터",
+        "mobile_no": "04235"
+      },
+      "walk_min": 7,
+      "board_prob": 0.01,
+      "arrive_at": "10:36",
+      "total_min": 177,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "서울시청",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 4,
+          "seats_at_stop": 0,
+          "board_prob": 0.06,
+          "reachable": false
+        },
+        {
+          "order": 2,
+          "eta_min": 10,
+          "seats_at_stop": 0,
+          "board_prob": 0.01,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "10:36",
+          "transfers": 1,
+          "walk_min": 10,
+          "tags": [
+            "추천",
+            "최소환승"
+          ],
+          "alight_stop": "서울시청",
+          "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞) → 도보 4분"
+        },
+        {
+          "arrive_at": "10:28",
+          "transfers": 2,
+          "walk_min": 23,
+          "tags": [
+            "최단시간"
+          ],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→성신여대입구) → 우이신설경전철(성신여대입구→북한산보국문) → 도보 15분"
+        },
+        {
+          "arrive_at": "10:32",
+          "transfers": 2,
+          "walk_min": 10,
+          "tags": [],
+          "alight_stop": "국가인권위.안중근활동터(중)",
+          "summary": "도보 6분 → 4호선(명동→길음) → 버스 163(길음뉴타운→국민대학교앞) → 도보 3분"
+        },
+        {
+          "arrive_at": "10:38",
+          "transfers": 1,
+          "walk_min": 6,
+          "tags": [],
+          "alight_stop": "신한은행본점",
+          "summary": "버스 1711(소공동주민센터→국민대앞) → 도보 4분"
+        }
+      ]
+    },
+    "다른 버스": {
+      "kind": "다른 버스",
+      "route": "3007",
+      "stop": {
+        "id": "203000161",
+        "name": "자유총연맹",
+        "mobile_no": "04236"
+      },
+      "walk_min": 3,
+      "board_prob": 1.0,
+      "arrive_at": "10:08",
+      "total_min": 148,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "양재역.서초문화예술회관(중)",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 4,
+          "seats_at_stop": 21,
+          "board_prob": 1.0,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "10:08",
+          "transfers": 2,
+          "walk_min": 12,
+          "tags": [
+            "추천",
+            "최소환승"
+          ],
+          "alight_stop": "양재역.서초문화예술회관(중)",
+          "summary": "도보 5분 → 3호선(양재→경복궁) → 도보 3분 → 버스 1711/8111/1020(경복궁역3번출구→국민대앞) → 도보 4분"
+        },
+        {
+          "arrive_at": "09:59",
+          "transfers": 4,
+          "walk_min": 24,
+          "tags": [
+            "최단시간"
+          ],
+          "alight_stop": "매헌시민의숲(중)",
+          "summary": "신분당선(양재시민의숲→신사) → 도보 3분 → 3호선(신사→약수) → 도보 3분 → 6호선(약수→보문) → 우이신설경전철(보문→북한산보국문) → 도보 15분"
+        },
+        {
+          "arrive_at": "10:03",
+          "transfers": 3,
+          "walk_min": 10,
+          "tags": [],
+          "alight_stop": "양재역.서초문화예술회관(중)",
+          "summary": "도보 5분 → 3호선(양재→충무로) → 4호선(충무로→길음) → 버스 163(길음뉴타운→국민대학교앞) → 도보 3분"
+        },
+        {
+          "arrive_at": "10:10",
+          "transfers": 2,
+          "walk_min": 11,
+          "tags": [],
+          "alight_stop": "뱅뱅사거리(중)",
+          "summary": "도보 4분 → 3호선(양재→경복궁) → 도보 3분 → 버스 1711/8111/1020(경복궁역3번출구→국민대앞) → 도보 4분"
+        }
+      ]
+    }
+  }
+}

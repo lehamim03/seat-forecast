@@ -227,6 +227,57 @@ def main():
                 tip = f" — {o['cfg']['dest']}에서 환승하는 경로가 더 빠릅니다"
         print(f"→ 추천: {o['kind']} ({o['route']}번 · {o['stop']['name']}){tip}")
 
+    return api_result(now, my_route, day, ev, inc, options, best_all, tip if best_all else "")
+
+
+def _stop_id(stop):
+    return next(k for k, v in STOPS.items() if v is stop)
+
+
+def api_result(now, my_route, day, ev, inc, options, best_all, tip):
+    """앱에 넘길 응답(JSON) — docs/api.md 의 /recommendations · /alternatives 형식."""
+    def option(o):
+        eta = now + timedelta(minutes=o["total"])
+        return {
+            "kind": o["kind"], "route": o["route"],
+            "stop": {"id": _stop_id(o["stop"]), "name": o["stop"]["name"], "mobile_no": o["stop"]["mobile_no"]},
+            "walk_min": o["walk"],
+            "board_prob": round(next((c["p"] for c in o["cands"] if c["ok"]), 0.5), 2),
+            "arrive_at": None if o["skipped"] else eta.strftime("%H:%M"),
+            "total_min": None if o["skipped"] else round(o["total"]),
+            "delay_min": round(o["delay"]),
+            "skipped": o["skipped"],
+            "alight_stop": o["cfg"]["dest"],
+            "buses": [{"order": i, "eta_min": round(c["eta"]),
+                       "seats_at_stop": None if c["seats"] is None else max(round(c["seats"]), 0),
+                       "board_prob": round(c["p"], 2), "reachable": c["ok"]}
+                      for i, c in enumerate(o["cands"], 1)],
+            "route_choices": [{"arrive_at": (eta + timedelta(minutes=ch["minutes"] - o["leg_min"])).strftime("%H:%M"),
+                               "transfers": ch["transfers"], "walk_min": ch["walk"], "tags": ch["tags"],
+                               "alight_stop": ch["from"], "summary": ch["transfer"]}
+                              for ch in o["choices"]] if not o["skipped"] else [],
+        }
+    ranked = sorted((o for o in options if not o["skipped"]), key=lambda o: o["total"])
+    best_by_kind = {}
+    for o in sorted(options, key=lambda o: o["total"]):
+        best_by_kind.setdefault(o["kind"], o)
+    return {
+        "generated_at": now.strftime("%Y-%m-%dT%H:%M:%S+09:00"),
+        "my_route": my_route,
+        "home_stop": {"id": MY_STOP, "name": STOPS[MY_STOP]["name"]},
+        "day": {"label": day["label"], "kind": day["key"], "drop_factor": day["drop"], "headway_factor": day["headway"]},
+        "recommendation": None if not best_all else {
+            "kind": best_all["kind"], "route": best_all["route"], "stop_name": best_all["stop"]["name"],
+            "message": f"{best_all['kind']} ({best_all['route']}번 · {best_all['stop']['name']}){tip}"},
+        "ranking": [option(o) for o in ranked],
+        "alternatives": {k: option(best_by_kind[k]) if k in best_by_kind else None
+                         for k in ("기다리기", "걸어가기", "다른 버스")},
+        "incidents": [{"route": r, "delay_min": round(v["delay"]), "skip_stops": sorted(v["skip_stops"]),
+                       "drop_factor": round(v.get("drop_factor", 1.0), 2), "notes": list(dict.fromkeys(v["notes"]))}
+                      for r, v in inc.items() if v["delay"] or v["skip_stops"] or v.get("drop_factor", 1) > 1],
+        "events": [{"route": r, "delay_min": round(v["delay"]), "notes": v["notes"]} for r, v in ev.items() if v["notes"]],
+    }
+
 
 if __name__ == "__main__":
     main()

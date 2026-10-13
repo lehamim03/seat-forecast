@@ -1,0 +1,21 @@
+{
+  "uid": "firebase-uid-예시",
+  "home_stop_id": "203000063",
+  "candidate_stop_ids": [
+    "203000063",
+    "203000161",
+    "203000162"
+  ],
+  "my_route": "8800",
+  "destination": {
+    "name": "국민대학교",
+    "x": 126.9971,
+    "y": 37.6108
+  },
+  "arrive_by": "09:00",
+  "notify": {
+    "departure": true,
+    "incident": true,
+    "minutes_before": 10
+  }
+}
