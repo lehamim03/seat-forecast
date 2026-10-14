@@ -112,6 +112,8 @@ SCENARIOS = [
 
 import events as E
 E.USE_TOURAPI = False   # 실제 축제 정보 대신 시연용 행사만
+import incidents as I
+I.USE_TRAFFIC = False   # 실제 도로 속도 대신 시연용 기록만 (결과가 매번 같도록)
 
 RESULTS = []   # 시나리오별 앱 응답(JSON) — api_examples.py 가 사용
 for item in SCENARIOS:

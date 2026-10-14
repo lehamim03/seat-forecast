@@ -102,6 +102,7 @@ def fetch_buses(route_id):
     return items if isinstance(items, list) else [items]
 
 
+TRAFFIC_EVERY_MIN = 5   # 도로 속도 기록 간격(분) — 0이면 끔
 _TURN = {}
 
 
@@ -195,6 +196,7 @@ def main():
           f"평일 출퇴근 {INTERVAL_PEAK_SEC // 60}분 · 평일 그 외 {INTERVAL_OFFPEAK_SEC // 60}분 · "
           f"주말·공휴일 {INTERVAL_WEEKEND_SEC // 60}분 간격")
     print(f"{limit}분 뒤 종료합니다\n" if limit else "멈추려면 Ctrl + C\n")
+    last_traffic = None
     while True:
         now = now_kst()
         if limit and time.time() - began >= limit * 60:
@@ -206,6 +208,16 @@ def main():
             except Exception as e:
                 # 인터넷 끊김 등 — 멈추지 말고 다음 차례에 다시 시도
                 print(f"[{now:%H:%M:%S}] 오류: {e}")
+            # 도로 속도(국가교통정보센터)는 5분마다 — 평소 속도 기록 (ITS 인증키가 있을 때만)
+            if TRAFFIC_EVERY_MIN and (last_traffic is None or now - last_traffic >= timedelta(minutes=TRAFFIC_EVERY_MIN)):
+                last_traffic = now
+                try:
+                    import traffic
+                    n = traffic.record(now.replace(tzinfo=None))
+                    if n:
+                        print(f"[{now:%H:%M:%S}] 도로 속도 {n}개 구간 기록")
+                except Exception as e:
+                    print(f"[{now:%H:%M:%S}] 도로 속도 오류: {e}")
             wait = interval(now)
             if limit:   # 끝낼 시간이 가까우면 그만큼만 기다림
                 wait = max(1, min(wait, limit * 60 - (time.time() - began)))
