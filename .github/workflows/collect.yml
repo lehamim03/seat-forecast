@@ -45,12 +45,9 @@ jobs:
       - name: 인증키 파일 만들기 (Secrets 에서)
         env:
           SERVICE_KEY: ${{ secrets.SERVICE_KEY }}
-          ITS_KEY: ${{ secrets.ITS_KEY }}
         run: |
           if [ -z "$SERVICE_KEY" ]; then echo "SERVICE_KEY 시크릿이 없습니다"; exit 1; fi
           echo "SERVICE_KEY = \"$SERVICE_KEY\"" > api_key.py
-          # 도로 속도(국가교통정보센터) 기록용 — 시크릿이 없으면 버스만 수집
-          if [ -n "$ITS_KEY" ]; then echo "ITS_KEY = \"$ITS_KEY\"" >> api_key.py; else echo "ITS_KEY 시크릿 없음 — 도로 속도는 기록하지 않음"; fi
 
       - name: 연결 확인 (한 번만 조회)
         if: ${{ inputs.quick_test }}
@@ -61,8 +58,6 @@ jobs:
             echo "::error::버스 데이터를 받지 못했습니다 — 공공데이터포털 접속 또는 인증키를 확인하세요"; exit 1
           fi
           echo "받은 기록: $(( $(wc -l < bus_seats.csv) - 1 ))줄"
-          # 도로 속도(국가교통정보센터)도 GitHub 서버에서 받아지는지 확인 (실패해도 수집은 계속)
-          python -c "import traffic, collect; print('도로 속도 구간:', traffic.record(collect.now_kst().replace(tzinfo=None)))" || echo "::warning::도로 속도를 받지 못했습니다 — ITS_KEY 시크릿 또는 해외 접속 제한 확인"
 
       - name: 수집 (최대 340분, 운행 시간 05:00~01:30만)
         if: ${{ !inputs.quick_test }}

@@ -4,7 +4,8 @@
 #
 #  탐침은 노선을 가리지 않습니다: 8800 · 3007 · 3008 은 경부고속도로를, 네 노선 모두 수원 시내 구간을
 #  함께 달리므로, 앞서 가는 버스가 멈춘 곳이 내 노선 경로 위(NEAR_KM 안)면 다른 노선 버스라도 반영합니다.
-#  국가교통정보센터 도로 속도(traffic.py)로 버스가 닿기 전의 정체도 미리 반영합니다.
+#  일반 차로 속도는 쓰지 않습니다 — 경부고속도로는 버스전용차로가 있어 도로가 막혀도 버스는 빠르게 달리기 때문.
+#  공식 돌발정보도 사고 · 통제만 지연으로 보고, 앞차가 그 지점을 정상 속도로 지나갔으면 지연을 반영하지 않습니다.
 #
 #  사고 · 출퇴근 정체 · 시위 등 원인이 무엇이든, 버스가 실제로 느려지거나 멈추거나
 #  정류장을 건너뛰면 수집 데이터(bus_seats.csv, collect.py 가 1분마다 기록)에 드러납니다.
@@ -39,12 +40,11 @@ SURGE_RATIO = 2.0      # 다가오는 버스의 좌석이 평소의 이 배 이�
 SURGE_EXTRA = 5        # … 그리고 평소보다 이 석 이상 더 줄었을 때 (행사 · 혼잡 의심)
 
 USE_ITS = True         # 국가교통정보센터 돌발상황정보 사용 여부
-USE_TRAFFIC = True     # 국가교통정보센터 도로 속도(traffic.py) 사용 여부
 NEAR_KM = 0.4          # 노선 경로에서 이 거리 안의 돌발상황만 반영
 MAX_ITS_DELAY = 15     # 공식 돌발정보로 더하는 지연의 상한(분)
 # 돌발 종류별 예상 지연(분) — 앞차 기록으로 실제 지연이 확인되면 그 값이 우선
-# (차로 일부만 막는 공사는 지연으로 치지 않음)
-EVENT_DELAY = {"사고": 12, "통제": 15, "정체": 4}
+# 사고 · 통제만 지연으로 봄: 일반 정체나 차로 일부만 막는 공사는 버스전용차로로 비켜 가므로 제외
+EVENT_DELAY = {"사고": 12, "통제": 15}
 # 서울로 가는 우리와 반대 방향 표시
 OPPOSITE = ("부산방향", "수원방향", "하행", "부산 방향", "수원 방향")
 
@@ -103,8 +103,6 @@ def event_delay(ev):
         return EVENT_DELAY["사고"]
     if "전면" in (ev.get("lanesBlocked") or "") or "전면통제" in text:
         return EVENT_DELAY["통제"]
-    if "정체" in text:
-        return EVENT_DELAY["정체"]
     return 0
 
 
@@ -156,35 +154,25 @@ def detect(now=None, bundle=None, recent=None, events=None):
     result = {r: {"delay": 0.0, "notes": [], "skip_stops": set(), "probes": 0, "drop_factor": 1.0}
               for r in ROUTES}
 
-    # 1) 공식 돌발상황(ITS): 노선 경로 위의 사고·통제·차로 차단 → 원인 안내 + 예상 지연
+    # 1) 공식 돌발상황(ITS): 노선 경로 위의 사고 · 통제 → 원인 안내 + 예상 지연
     events = fetch_events() if events is None else events
+    its_events = {}   # 노선 → [(정류장 순번, 예상 지연, 위치)] — 앞차가 정상 통과했는지 아래에서 확인
     for route in ROUTES:
         st = transit.route_stations(ROUTES[route]["route_id"])
-        its_delay, seen = 0, set()
+        its_events[route], seen = [], set()
         for s, ev in events_on_route(route, events):
             d = event_delay(ev)
             key = (ev.get("roadName"), ev.get("eventDetailType"), s)
             if not d or key in seen:   # 지연 없는 공사, 같은 곳 중복은 제외
                 continue
             seen.add(key)
-            its_delay += d
+            its_events[route].append((s, d, st[s]))
             near = st.get(s, {}).get("name", "").replace("(경유)", "")
             blocked = f", {ev['lanesBlocked']}" if ev.get("lanesBlocked") else ""
             result[route]["notes"].append(
                 f"[{ev.get('eventType', '돌발')}] {ev.get('roadName', '')} {near} 부근 — "
                 f"{(ev.get('message') or '').strip() or ev.get('eventDetailType', '')}{blocked}")
-        result[route]["delay"] = float(min(its_delay, MAX_ITS_DELAY))
-
-    # 1-2) 도로 속도: 버스가 닿기 전에도 평소보다 크게 느려진 구간 → 예상 지연
-    if USE_TRAFFIC:
-        try:
-            import traffic
-            for route, v in traffic.detect(now.to_pydatetime() if hasattr(now, "to_pydatetime") else now).items():
-                if v["delay"]:
-                    result[route]["notes"] += v["notes"]
-                    result[route]["delay"] = max(result[route]["delay"], v["delay"])
-        except Exception as e:
-            print(f"  ! 도로 속도 확인 실패: {e}")
+        result[route]["delay"] = float(min(sum(e[1] for e in its_events[route]), MAX_ITS_DELAY))
 
     # 2) 앞차 기록: 실제로 느려졌는지 · 멈췄는지 · 건너뛰었는지
     # 수집기가 멈춰 기록이 3분 넘게 끊겼으면 판단하지 않음 (오래된 기록으로 '정지'라고 오판 방지)
@@ -194,6 +182,7 @@ def detect(now=None, bundle=None, recent=None, events=None):
 
     findings = []   # 앞서 가는 버스의 정지 · 정체 (위치 포함) — 아래에서 경로가 겹치는 모든 노선에 나눠 줌
     probes = []     # 탐침 버스 위치
+    crossed = {}    # 노선 → [(처음 본 순번, 마지막 순번)] — 최근 20분 동안 지나간 구간
     for route, cfg in ROUTES.items():
         stations = transit.route_stations(cfg["route_id"])
         my_seq = cfg["stops"].get(MY_STOP, min(cfg["stops"].values()))
@@ -224,6 +213,9 @@ def detect(now=None, bundle=None, recent=None, events=None):
                             result[route]["notes"].append(
                                 f"{plate}이(가) {STOPS[stop_id]['name']}을(를) 건너뜀 (우회 의심)")
 
+            # 사고 지점을 최근에 지나간 버스 (정상 통과 여부 확인용)
+            crossed.setdefault(route, []).append((seqs[0], seqs[-1]))
+
             # 집 앞 정류장을 지나 서울 쪽으로 가는 버스만 '탐침'으로 사용
             if seqs[-1] <= my_seq or seqs[-1] > transit.alight_seq(route):
                 continue
@@ -250,6 +242,17 @@ def detect(now=None, bundle=None, recent=None, events=None):
         if surges:   # 뒤따라오는 버스도 좌석이 이만큼 빨리 줄 것으로 봄 (최대 3배)
             result[route]["drop_factor"] = float(min(pd.Series(surges).median(), 3.0))
 
+    def passed_ok(point):
+        """최근 20분 안에 어느 노선 버스든 이 지점을 지나갔고, 그 근처에서 멈춤 · 정체가 없었는지."""
+        if any(_dist_km(point, f["point"]) <= NEAR_KM * 3 for f in findings):
+            return False
+        for q, spans in crossed.items():
+            st_q = transit.route_stations(ROUTES[q]["route_id"])
+            near = [x for x in st_q if _dist_km(point, st_q[x]) <= NEAR_KM]
+            if near and any(a <= min(near) < b for a, b in spans):
+                return True
+        return False
+
     # 탐침 결과를 노선마다 나눠 줌: 멈춘 곳이 그 노선의 '집 앞 ~ 서울 하차' 경로 위에 있으면 반영
     for route, cfg in ROUTES.items():
         stations = transit.route_stations(cfg["route_id"])
@@ -264,8 +267,18 @@ def detect(now=None, bundle=None, recent=None, events=None):
                 extras.append(f["extra"])
                 who = "앞차가" if f["route"] == route else f"앞서 가는 {f['route']}번이"
                 result[route]["notes"].append(f"{who} {f['note']}")
-        if extras:   # 앞차로 실제 지연이 확인되면 그 값을 우선 (공식 정보 · 도로 속도 추정치보다 정확)
+        if extras:   # 앞차로 실제 지연이 확인되면 그 값을 우선 (공식 정보 추정치보다 정확)
             result[route]["delay"] = float(pd.Series(extras).median())
+        elif its_events.get(route):
+            # 사고가 났어도 앞서 간 버스(노선 무관)가 그 지점을 멈춤 없이 지나갔으면 버스전용차로로 비켜 간 것 → 지연 반영 안 함
+            left = []
+            for s, d, point in its_events[route]:
+                if passed_ok(point):
+                    where = stations.get(s, {}).get("name", "").replace("(경유)", "")
+                    result[route]["notes"].append(f"앞차가 {where} 부근을 정상 통과 — 버스는 영향 없음 (지연 반영 안 함)")
+                else:
+                    left.append(d)
+            result[route]["delay"] = float(min(sum(left), MAX_ITS_DELAY))
     return result
 
 
