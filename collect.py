@@ -102,6 +102,7 @@ def fetch_buses(route_id):
     return items if isinstance(items, list) else [items]
 
 
+GIVE_UP_MIN = 10   # GitHub 이어달리기(--max-minutes) 중 접속 실패가 이만큼 이어지면 실행 종료
 _TURN = {}
 
 
@@ -195,6 +196,7 @@ def main():
           f"평일 출퇴근 {INTERVAL_PEAK_SEC // 60}분 · 평일 그 외 {INTERVAL_OFFPEAK_SEC // 60}분 · "
           f"주말·공휴일 {INTERVAL_WEEKEND_SEC // 60}분 간격")
     print(f"{limit}분 뒤 종료합니다\n" if limit else "멈추려면 Ctrl + C\n")
+    fail_since = None   # 접속 실패가 처음 시작된 시각 (성공하면 초기화)
     while True:
         now = now_kst()
         if limit and time.time() - began >= limit * 60:
@@ -203,9 +205,16 @@ def main():
         if in_service(now):
             try:
                 collect_once(now)
+                fail_since = None
             except Exception as e:
                 # 인터넷 끊김 등 — 멈추지 말고 다음 차례에 다시 시도
                 print(f"[{now:%H:%M:%S}] 오류: {e}")
+                fail_since = fail_since or time.time()
+                # GitHub 이어달리기 중 접속 실패가 계속되면 이 서버에서 공공데이터포털이 막힌 것 →
+                # 빨리 끝내서 다른 서버에 배정되는 다음 실행이 이어받게 함 (모은 데이터는 저장 단계가 저장)
+                if limit and time.time() - fail_since >= GIVE_UP_MIN * 60:
+                    print(f"[{now:%H:%M:%S}] {GIVE_UP_MIN}분째 접속 실패 — 이 서버에서는 수집할 수 없어 종료 (다음 실행이 이어받음)")
+                    sys.exit(3)
             wait = interval(now)
             if limit:   # 끝낼 시간이 가까우면 그만큼만 기다림
                 wait = max(1, min(wait, limit * 60 - (time.time() - began)))
