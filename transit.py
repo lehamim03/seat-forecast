@@ -22,7 +22,7 @@ CACHE = "transit_cache.json"
 # 경로 고르는 기준이 바뀌면 저장된 결과를 다시 조회하도록 설정값을 함께 기록
 SIG = "v4;" + ";".join(f"{r}={c['route_id']}" for r, c in ROUTES.items())
 ODSAY_CACHE = "odsay_cache.json"
-ODSAY_DAYS = 7
+ODSAY_DAYS = 30   # 시간표 기반이라 거의 바뀌지 않음 — 이 기간이 지나면 다시 조회 (실패하면 지난 결과 계속 사용)
 MAX_CHOICES = 4   # 노선마다 보여줄 경로 수 (지도 앱처럼 여러 개)
 SEOUL_BUS_KMH = 15   # 서울 구간 버스 속도 (실측 데이터가 없을 때만 사용)
 SKIP_WORDS = ("(경유)", "(미정차)")   # 정류장 이름에 붙으면 서지 않는 지점
@@ -163,8 +163,9 @@ def _parse(data):
 
 
 def odsay_routes(sx, sy, ex=DEST_X, ey=DEST_Y, fetch=True):
-    """ODsay 대중교통 길찾기 → 후보 경로 전부. 같은 출발점은 7일 동안 저장해 둔 결과를 씀.
-    fetch=False 이면 저장된 것만 (없으면 None)."""
+    """ODsay 대중교통 길찾기 → 후보 경로 전부. 같은 출발점은 ODSAY_DAYS 동안 저장해 둔 결과를 씀.
+    기간이 지나 다시 조회하다 실패하면(IP 미등록 · 한도 초과 등) 지난 결과를 그대로 씀.
+    fetch=False 이면 저장된 것만 — 기간이 지난 것도 씀 (없으면 None)."""
     key = f"{sx},{sy}->{ex},{ey}"
     cache = {}
     if os.path.exists(ODSAY_CACHE):
@@ -174,12 +175,18 @@ def odsay_routes(sx, sy, ex=DEST_X, ey=DEST_Y, fetch=True):
     if hit and date.fromisoformat(hit["date"]) > date.today() - timedelta(days=ODSAY_DAYS):
         return hit["routes"]
     if not fetch:
-        return None
-    res = requests.get("https://api.odsay.com/v1/api/searchPubTransPathT", timeout=15,
-                       params={"SX": sx, "SY": sy, "EX": ex, "EY": ey, "apiKey": api_key.ODSAY_KEY})
-    data = res.json()
-    if "error" in data:
-        raise RuntimeError(str(data["error"])[:150])
+        return hit["routes"] if hit else None
+    try:
+        res = requests.get("https://api.odsay.com/v1/api/searchPubTransPathT", timeout=15,
+                           params={"SX": sx, "SY": sy, "EX": ex, "EY": ey, "apiKey": api_key.ODSAY_KEY})
+        data = res.json()
+        if "error" in data:
+            raise RuntimeError(str(data["error"])[:150])
+    except Exception as e:
+        if hit:   # 지난 결과라도 가정값보다 정확
+            print(f"  ! ODsay 다시 조회 실패 — {hit['date']} 결과 사용 ({e})")
+            return hit["routes"]
+        raise
     routes = _parse(data)
     cache[key] = {"date": date.today().isoformat(), "routes": routes}
     with open(ODSAY_CACHE, "w", encoding="utf-8") as f:
