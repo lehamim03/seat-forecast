@@ -9,18 +9,23 @@ import os
 import sys
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.metrics import brier_score_loss, f1_score, precision_score, recall_score, roc_auc_score
 
 import daytype
 import transit
-from config import CSV_FILE, ROUTES, STOPS
+from config import CSV_FILE, PEAK_HOURS, ROUTES, STOPS
+from live_recommend import board_prob
 
 # 정류장을 떠난 직후 잔여 좌석이 이 숫자 이상이면 '탑승 성공'.
 # 1석이라도 남기고 떠났다 = 그 정류장에 줄 선 사람이 전부 탔다는 뜻.
 # (더 보수적으로 보고 싶으면 2~3으로 올리세요)
 SEAT_MARGIN = 1
+
+# 실시간 모델: 후보 정류장 몇 정거장 앞까지의 버스 기록을 쓸지 (live_recommend 는 다가오는 버스 3대까지 봄)
+LIVE_MAX_STOPS = 10
 
 # ---------- 1. 불러오기 ----------
 # 노트북에서 모은 파일 + GitHub Actions 가 날마다 저장한 data/bus_seats_YYYY-MM-DD.csv
@@ -43,7 +48,7 @@ df["trip"] = new_trip.astype(int).groupby([df["date"], df["route_name"], df["pla
 # ---------- 3. 운행 1회 × 후보 정류장마다 한 줄 만들기 ----------
 # 버스 이동시간(ride)은 '서울 첫 정차 정류장'까지 — 거기서 하차 정류장까지는 transit.get_legs 가 더함
 SEOUL_FIRST = {r: transit.alight_candidates(r)[0] for r in ROUTES}
-rows = []
+rows, live_rows = [], []
 for (date, route, plate, trip), t in df.groupby(["date", "route_name", "plate_no", "trip"]):
     cfg = ROUTES[route]
     arrived = t[t["station_seq"] >= SEOUL_FIRST[route]]   # 서울 첫 정차 정류장에 닿은 기록
@@ -60,6 +65,14 @@ for (date, route, plate, trip), t in df.groupby(["date", "route_name", "plate_no
             "weekday": first_after["weekday"], "depart_at": dep,
             "seats_after": first_after["remain_seat"], "ride_min": ride,
         })
+        # 실시간 모델용: 정류장에 닿기 전 정거장마다 마지막으로 보인 잔여 좌석 → 이 정류장에서 탈 수 있었나
+        ahead = before[(before["station_seq"] < seq) & (before["station_seq"] >= seq - LIVE_MAX_STOPS)]
+        for _, o in ahead.groupby("station_seq").tail(1).iterrows():
+            live_rows.append({
+                "date": date, "route_name": route, "stop_id": stop_id, "seen_at": o["collected_at"],
+                "n_stops": seq - o["station_seq"], "seats_now": o["remain_seat"],
+                "success": int(first_after["remain_seat"] >= SEAT_MARGIN),
+            })
 
 data = pd.DataFrame(rows)
 if data.empty:
@@ -103,26 +116,59 @@ if len(dates) < 5:
 cut = dates[int(len(dates) * 0.8)]
 train, test = data[data["date"] < cut], data[data["date"] >= cut]
 
-model = RandomForestClassifier(n_estimators=300, min_samples_leaf=5,
-                               class_weight="balanced", random_state=42)
+# class_weight="balanced" 는 쓰지 않음 — 확률이 실제보다 낮게 나와 기대 대기시간이 부풀려짐
+model = RandomForestClassifier(n_estimators=300, min_samples_leaf=5, random_state=42)
 model.fit(train[FEATURES], train["success"])
 
 # ---------- 6. 평가 ----------
-prob = model.predict_proba(test[FEATURES])[:, 1]
-print("[모델 성능 — 학습에 안 쓴 최근 날짜로 시험]")
-print(classification_report(test["success"], (prob >= 0.5).astype(int),
-                            labels=[0, 1], target_names=["탑승실패", "탑승성공"],
-                            zero_division=0))
-if test["success"].nunique() == 2:
-    print(f"AUC: {roc_auc_score(test['success'], prob):.3f}  (0.5=찍기, 1.0=완벽)")
+# 추천은 확률 p를 그대로 기대 대기시간 공식에 넣으므로, '50% 기준으로 맞혔나'보다
+# 확률이 실제 비율과 맞는지(Brier · 구간별 비교)가 중요하다.
+def is_peak(frame):
+    """평일 출퇴근 시간대 — 탑승 실패가 거의 여기서만 생김"""
+    in_peak = sum((frame["time_min"] >= a) & (frame["time_min"] < b) for a, b in PEAK_HOURS) > 0
+    return in_peak & (frame["day_type"] == 0)
 
+
+def report(name, y, p):
+    y, p = np.asarray(y), np.asarray(p)
+    auc = f"{roc_auc_score(y, p):.3f}" if len(set(y)) == 2 else "  - "
+    print(f"  {name:<14} AUC {auc}  Brier {brier_score_loss(y, p, labels=[0, 1]):.4f}  "
+          f"평균 예측 {p.mean():.1%} (실제 {y.mean():.1%}, {len(y)}건 중 실패 {int((y == 0).sum())}건)")
+
+
+def calibration(y, p, edges=(0, 0.5, 0.8, 0.9, 0.95, 0.98, 1.0001)):
+    """예측 확률 구간마다 실제로 몇 %가 탔나 — 두 숫자가 비슷해야 확률을 믿을 수 있음"""
+    t = pd.DataFrame({"y": np.asarray(y), "p": np.asarray(p)})
+    t["구간"] = pd.cut(t["p"], edges, right=False)
+    g = t.groupby("구간", observed=True).agg(건수=("y", "size"), 예측=("p", "mean"), 실제=("y", "mean"))
+    for k, r in g.iterrows():
+        print(f"    {k.left:.0%}~{min(k.right, 1):.0%}  {int(r['건수']):>5}건  예측 {r['예측']:.1%}  실제 {r['실제']:.1%}")
+
+
+def pick_threshold(y, p):
+    """'만석 위험' 경고 기준: 탑승 실패를 경고로 잡는 F1 이 가장 큰 확률 (확률 자체는 건드리지 않음)"""
+    fail = 1 - np.asarray(y)
+    ths = np.round(np.arange(0.05, 0.96, 0.05), 2)
+    return max(ths, key=lambda th: f1_score(fail, (np.asarray(p) < th).astype(int), zero_division=0))
+
+
+prob = model.predict_proba(test[FEATURES])[:, 1]
 # 비교 기준(baseline): '노선 + 정류장 + 10분 단위 시간대'의 과거 평균 성공률
 keys = ["route_name", "stop_id", "slot"]
 slot_rate = train.assign(slot=train["time_min"] // 10).groupby(keys)["success"].mean()
-base = [slot_rate.get((r, s, t // 10), train["success"].mean())
-        for r, s, t in zip(test["route_name"], test["stop_id"], test["time_min"])]
-base_acc = ((pd.Series(base, index=test.index) >= 0.5).astype(int) == test["success"]).mean()
-print(f"단순 평균 방식 정확도: {base_acc:.1%}  ← 모델이 이것보다 나아야 의미 있음\n")
+base = np.array([slot_rate.get((r, s, t // 10), train["success"].mean())
+                 for r, s, t in zip(test["route_name"], test["stop_id"], test["time_min"])])
+peak = is_peak(test).to_numpy()
+print(f"[모델 성능 — 학습에 안 쓴 최근 날짜({cut} 부터)로 시험 · Brier 는 낮을수록 좋음]")
+print(" 전체")
+report("모델", test["success"], prob)
+report("단순 평균 방식", test["success"], base)
+print(" 평일 출퇴근 시간대만")
+report("모델", test["success"][peak], prob[peak])
+report("단순 평균 방식", test["success"][peak], base[peak])
+print(" 예측 확률 구간별 실제 탑승 비율 (모델)")
+calibration(test["success"], prob)
+print()
 
 print("[무엇이 중요했나]")
 for f, imp in sorted(zip(FEATURES, model.feature_importances_), key=lambda x: -x[1]):
@@ -149,8 +195,47 @@ s = s[(s["d_seq"] > 0) & (s["d_seq"] <= 3)]
 s["from_seq"] = s["station_seq"] - s["d_seq"]
 seg_min = (s["d_min"] / s["d_seq"]).groupby([s["route_name"], s["from_seq"].astype(int)]).median().to_dict()
 
+# ---------- 7-1. 실시간 탑승 확률 모델 (live_recommend 용) ----------
+# 시간표 모델은 '그날 실제로 얼마나 붐비는지'를 모른다.
+# 다가오는 버스의 지금 잔여 좌석 · 남은 정류장 수를 넣어 그 정류장에서 탈 수 있는지 예측한다.
+live = pd.DataFrame(live_rows)
+live["time_min"] = live["seen_at"].dt.hour * 60 + live["seen_at"].dt.minute
+live["day_type"] = live["date"].map(kinds)
+live["route_code"] = live["route_name"].map(route_map)
+live["stop_code"] = live["stop_id"].map(stop_map)
+LIVE_FEATURES = ["route_code", "stop_code", "n_stops", "seats_now", "time_min", "day_type"]
+live_train, live_test = live[live["date"] < cut], live[live["date"] >= cut]
+live_model = RandomForestClassifier(n_estimators=300, min_samples_leaf=5, random_state=42)
+live_model.fit(live_train[LIVE_FEATURES], live_train["success"])
+live_prob = live_model.predict_proba(live_test[LIVE_FEATURES])[:, 1]
+# 비교 기준: 지금까지 쓰던 공식 — (지금 좌석 − 정류장당 감소 × 남은 정류장) 을 board_prob 에 넣음
+formula = np.array([board_prob(sn - drop.get((r, ts.hour), 0) * n)
+                    for r, ts, sn, n in zip(live_test["route_name"], live_test["seen_at"],
+                                            live_test["seats_now"], live_test["n_stops"])])
+live_peak = is_peak(live_test).to_numpy()
+print(f"\n[실시간 모델 성능 — 다가오는 버스 {LIVE_MAX_STOPS}정거장 앞까지의 기록으로 시험]")
+print(" 전체")
+report("실시간 모델", live_test["success"], live_prob)
+report("기존 공식", live_test["success"], formula)
+print(" 평일 출퇴근 시간대만")
+report("실시간 모델", live_test["success"][live_peak], live_prob[live_peak])
+report("기존 공식", live_test["success"][live_peak], formula[live_peak])
+print(" 예측 확률 구간별 실제 탑승 비율 (실시간 모델)")
+calibration(live_test["success"], live_prob)
+
+# '만석 위험' 경고 기준 — 시험 기간 결과로 고름 (실패 사례가 적어 데이터가 쌓이면 바뀔 수 있음)
+risk_threshold = pick_threshold(live_test["success"], live_prob)
+fail = 1 - live_test["success"].to_numpy()
+print(f"\n[만석 위험 경고 기준] 탑승 확률 {risk_threshold:.0%} 미만이면 경고")
+for th in sorted({0.5, risk_threshold}):
+    warn = (live_prob < th).astype(int)
+    print(f"  {th:.0%} 기준: 실제 실패 {int(fail.sum())}건 중 {int((warn & fail).sum())}건 잡음 "
+          f"(재현율 {recall_score(fail, warn, zero_division=0):.0%}) · "
+          f"경고 {int(warn.sum())}건 중 실제 실패 {precision_score(fail, warn, zero_division=0):.0%}")
+
 # ---------- 8. 전체 데이터로 다시 학습해 저장 ----------
 model.fit(data[FEATURES], data["success"])
+live_model.fit(live[LIVE_FEATURES], live["success"])
 bundle = {
     "model": model, "features": FEATURES, "route_map": route_map, "stop_map": stop_map,
     # 추천 계산에 쓰는 실측값: 노선별 배차간격, (노선, 정류장)별 서울까지 이동시간
@@ -160,6 +245,8 @@ bundle = {
     "drop": drop, "min_per_stop": min_per_stop,
     # 돌발 감지용: (노선, 순번)별 평소 정류장당 이동 시간
     "seg_min": seg_min,
+    # 실시간 탑승 확률 모델과 '만석 위험' 경고 기준 (live_recommend 가 사용)
+    "live_model": live_model, "live_features": LIVE_FEATURES, "risk_threshold": risk_threshold,
 }
 joblib.dump(bundle, "board_model.pkl")
 print("\n모델 저장 완료: board_model.pkl  →  python recommend.py 로 추천을 받아보세요")

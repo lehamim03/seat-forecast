@@ -15,6 +15,7 @@ import sys
 from datetime import datetime, timedelta
 
 import joblib
+import pandas as pd
 import requests
 
 from config import (SERVICE_KEY, ROUTES, STOPS, MY_STOP, MY_ROUTE, DEFAULT_HEADWAY_MIN,
@@ -53,6 +54,14 @@ def board_prob(seats_at_stop):
     """정류장 도착 때 예상 잔여 좌석 → 탑승 확률 (좌석 1석이 경계, 부드럽게 변환).
     예상 3석이면 약 80%, 0석이면 약 35%, -2석이면 약 12%."""
     return 1 / (1 + math.exp(-(seats_at_stop - 1) / 1.5))
+
+
+def live_prob(b, route, stop_id, n_stops, seats_now, now, day_type):
+    """train.py 의 실시간 모델: 지금 잔여 좌석 · 남은 정류장 수 → 그 정류장에서 탈 확률"""
+    x = pd.DataFrame([{"route_code": b["route_map"][route], "stop_code": b["stop_map"][stop_id],
+                       "n_stops": n_stops, "seats_now": seats_now,
+                       "time_min": now.hour * 60 + now.minute, "day_type": day_type}])[b["live_features"]]
+    return b["live_model"].predict_proba(x)[0, 1]
 
 
 def main():
@@ -100,8 +109,8 @@ def main():
         headway = b.get("headway", {}).get(route, DEFAULT_HEADWAY_MIN) * day["headway"]
         per_stop = b.get("min_per_stop", {}).get(route, DEFAULT_MIN_PER_STOP)
         # 정류장당 좌석 감소: 기본값 × 요일·시간대 배율 × 지금 감지된 승객 쏠림
-        drop = (b.get("drop", {}).get((route, now.hour), DEFAULT_DROP_PER_STOP)
-                * day["drop"] * inc[route].get("drop_factor", 1.0))
+        base_drop = b.get("drop", {}).get((route, now.hour), DEFAULT_DROP_PER_STOP) * day["drop"]
+        drop = base_drop * inc[route].get("drop_factor", 1.0)
         for stop_id, stop_seq in cfg["stops"].items():
             walk = walks[stop_id]   # 평소 정류장에서 걸어가는 시간
             coming = sorted((stop_seq - int(x["stationSeq"]), x) for x in buses[route]
@@ -113,7 +122,14 @@ def main():
                 bus_seq = int(x["stationSeq"])
                 crowd = sum(n for seq, n in ev[route]["extra"].items() if bus_seq <= seq <= stop_seq)   # 행사 승객
                 seats_at_stop = seats_now - drop * n_stops - crowd if seats_now >= 0 else None
-                p = board_prob(seats_at_stop) if seats_at_stop is not None else 0.5
+                if seats_at_stop is None:
+                    p = 0.5
+                elif "live_model" in b:
+                    # 모델은 평소의 좌석 감소를 이미 배웠으므로, 평소와 다른 몫(행사 승객 · 돌발 쏠림)만 빼서 넣음
+                    unusual = crowd + (drop - base_drop) * n_stops
+                    p = live_prob(b, route, stop_id, n_stops, seats_now - unusual, now, day["day_type"])
+                else:
+                    p = board_prob(seats_at_stop)
                 cands.append({"eta": eta, "seats": seats_at_stop, "p": p, "ok": eta >= walk + BUFFER_MIN})
             # 우회로 이 정류장을 건너뛰는 중이면 여기서는 탈 수 없음
             skipped = stop_id in inc[route]["skip_stops"]
@@ -211,7 +227,7 @@ def main():
         o = best_all
         first = next((c for c in o["cands"] if c["ok"]), None)
         tip = ""
-        if o["kind"] == "기다리기" and first and first["p"] < 0.5:
+        if o["kind"] == "기다리기" and first and first["p"] < b.get("risk_threshold", 0.5):
             tip = " — 첫 차는 만석 위험이 커서 보내고 다음 차를 타는 게 낫습니다"
         elif o["kind"] == "기다리기" and first and day["drop"] < 1.0:
             tip = f" — {day['label']}이라 한산해서 첫 차({first['eta']:.0f}분 후)도 탈 수 있어요"
