@@ -159,8 +159,8 @@ def pick_schedule(leave, by_hour=False):
     return OPTIONS[int(np.argmin(totals))]
 
 
-def pick_live(snap, leave, by_hour=False):
-    """실시간 모델 (live_recommend.py 와 같은 계산) — 다가오는 버스의 지금 좌석을 봄"""
+def live_totals(snap, leave, by_hour=False):
+    """실시간 모델 (live_recommend.py 와 같은 계산) — 조합별 예상 소요시간(분). 다가오는 버스의 지금 좌석을 봄"""
     hm = leave.hour * 60 + leave.minute
     cands = {o: visible(snap, o[0], ROUTES[o[0]]["stops"][o[1]]) for o in OPTIONS}
     x = [{"route_code": route_map[r], "stop_code": stop_map[s], "n_stops": n, "seats_now": c,
@@ -179,11 +179,18 @@ def pick_live(snap, leave, by_hour=False):
         later = max(sum(q for _, q in reach) / len(reach), 0.2) if reach else 0.5
         expected += miss * (last + hw * min(1 / later, 4))
         totals[(r, s)] = expected + ride_at(r, s, leave, by_hour) + legs[r]
+    return totals
+
+
+def pick_live(snap, leave, by_hour=False):
+    totals = live_totals(snap, leave, by_hour)
     return min(totals, key=totals.get)
 
 
 # ---------- 4. 시험 날짜마다 5분 간격으로 돌려 보기 ----------
 BASE = "평소 (집 앞 8800)"
+# 지하철은 실측 기록이 없어 ODsay 시간표 기준 고정값 — 만석이 없으므로 항상 탈 수 있다고 봄
+subway = transit.subway_route(peak_time, fetch=False)
 results = []
 for d in test_dates:
     day, buses = data[data["date"] == d], df[df["date"] == d]
@@ -201,6 +208,15 @@ for d in test_dates:
         every = [v for v in (realize(day, *o, leave) for o in OPTIONS) if v is not None]
         outcome["사후 최선 (상한)"] = min(every)
         picks["사후 최선 (상한)"] = ("-", MY_STOP)
+        if subway:
+            outcome["지하철만 (시간표 기준)"] = (subway["minutes"], 0)
+            picks["지하철만 (시간표 기준)"] = ("지하철", MY_STOP)
+            totals = live_totals(snap, leave, True)
+            mix = "실시간 추천+지하철"
+            if subway["minutes"] < min(totals.values()):
+                outcome[mix], picks[mix] = (subway["minutes"], 0), ("지하철", MY_STOP)
+            else:
+                outcome[mix], picks[mix] = outcome["실시간 추천+시간대별 이동"], picks["실시간 추천+시간대별 이동"]
         for name, (mins, missed) in outcome.items():
             results.append({"date": d, "leave": m, "policy": name, "route": picks[name][0], "stop": picks[name][1],
                             "minutes": mins, "missed": missed})
@@ -220,9 +236,11 @@ for name, f in res.groupby("policy", sort=False):
     print(f"{name} | {f['minutes'].mean():.1f} | {f['minutes'].median():.1f} | {f['minutes'].quantile(.9):.1f} | "
           f"{(f['missed'] > 0).mean():.1%} | {gain.mean():+.1f}분 | {lo:+.1f} ~ {hi:+.1f}")
 
-subway = transit.subway_route(peak_time, fetch=False)
-print(f"\n지하철 경로: 평균 {subway['minutes']:.0f}분 · 환승 {subway['transfers']}회 · {subway['summary']}" if subway
+print(f"\n지하철 경로: 시간표 기준 {subway['minutes']:.0f}분 · 환승 {subway['transfers']}회 · {subway['summary']}" if subway
       else "\n지하철 경로: ODsay 저장값 없음 (비교 생략)")
+if subway:
+    mix = res[res["policy"] == "실시간 추천+지하철"]
+    print(f"실시간 추천+지하철이 지하철을 고른 비율: {(mix['route'] == '지하철').mean():.1%}")
 
 print("\n[출발 시간대별 평균 소요시간(분)]")
 res["slot"] = pd.cut(res["leave"], [389, 419, 449, 479, 509, 541], labels=["06:30", "07:00", "07:30", "08:00", "08:30"])
