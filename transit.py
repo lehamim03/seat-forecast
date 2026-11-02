@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta
 import requests
 
 import api_key
-from config import (SERVICE_KEY, ROUTES, STOPS, MY_STOP, DEST_NAME, DEST_X, DEST_Y,
+from config import (SERVICE_KEY, ROUTES, STOPS, MY_STOP, MY_ROUTE, DEST_NAME, DEST_X, DEST_Y,
                     TRANSFER_PENALTY_MIN, WALK_WEIGHT, WAIT_WEIGHT, CITY_BUS_PEAK_FACTOR, PEAK_HOURS)
 
 CACHE = "transit_cache.json"
@@ -289,6 +289,26 @@ def pick_choices(options, n=MAX_CHOICES):
     return [{"minutes": o["total"], "transfers": o["transfers"] + 1, "walk": o["walk"], "seq": o["seq"],
              "from": o["name"], "transfer": o["summary"], "map_obj": o.get("map_obj"),
              "tags": [t for t in ("추천", "최단시간", "최소환승") if picks[t] is o]} for o in chosen]
+
+
+def subway_route(now=None, fetch=True):
+    """집 → 국민대 지하철 경로 중 체감 시간이 가장 짧은 것. 좌석 제한이 있는 대상 노선은 타지 않는 길만 봄.
+    만석이 없어 탑승 확률은 100%로 봅니다. 없거나 조회에 실패하면 None."""
+    route = ROUTES[MY_ROUTE]
+    try:
+        x, y, _ = station_xy(route["route_id"], route["stops"][MY_STOP])
+        routes = odsay_routes(x, y, fetch=fetch) or []
+    except Exception as e:
+        if fetch:
+            print(f"  ! 지하철 경로 조회 실패 — 비교에서 뺌 ({e})")
+        return None
+    peak = is_peak(now)
+    subway = [r for r in rank(routes, peak)
+              if ("호선" in r["summary"] or "선(" in r["summary"]) and not set(r["buses"]) & set(ROUTES)]
+    if not subway:
+        return None
+    r = subway[0]
+    return {"minutes": expected_min(r, peak), "transfers": r["transfers"], "walk": r["walk"], "summary": r["summary"]}
 
 
 def fallback_leg(route):

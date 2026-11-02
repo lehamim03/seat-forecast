@@ -77,6 +77,7 @@
 |---|---|
 | `generated_at`, `my_route`, `home_stop`, `day`, `recommendation` | ②와 같음 |
 | `alternatives` | `{"기다리기": option, "걸어가기": option, "다른 버스": option}` — 해당 없으면 `null` |
+| `subway` | 지하철 경로 비교 `{arrive_at, total_min, transfers, walk_min, summary}` — 조회 실패면 `null` |
 
 화면: `recommendation.kind`와 같은 카드에 "추천" 표시, 각 카드에 `arrive_at` · `buses[0]` 정보.
 

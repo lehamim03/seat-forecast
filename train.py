@@ -234,6 +234,9 @@ for th in sorted({0.5, risk_threshold}):
           f"경고 {int(warn.sum())}건 중 실제 실패 {precision_score(fail, warn, zero_division=0):.0%}")
 
 # ---------- 8. 전체 데이터로 다시 학습해 저장 ----------
+weekday_rides = data[(data["day_type"] == 0) & (data["ride_min"] > 10)]
+ride_hour = (weekday_rides.groupby(["route_name", "stop_id", weekday_rides["depart_at"].dt.hour])["ride_min"]
+             .median().to_dict())
 model.fit(data[FEATURES], data["success"])
 live_model.fit(live[LIVE_FEATURES], live["success"])
 bundle = {
@@ -241,6 +244,8 @@ bundle = {
     # 추천 계산에 쓰는 실측값: 노선별 배차간격, (노선, 정류장)별 서울까지 이동시간
     "headway": data.groupby("route_name")["headway_min"].median().to_dict(),
     "ride": data.dropna(subset=["ride_min"]).groupby(["route_name", "stop_id"])["ride_min"].median().to_dict(),
+    # 평일 (노선, 정류장, 시)별 이동시간 — 출근 시간엔 하루 전체 값보다 15분 넘게 더 걸림
+    "ride_hour": ride_hour,
     # 실시간 추천용: (노선, 시)별 정류장당 좌석 감소, 노선별 정류장당 이동 시간
     "drop": drop, "min_per_stop": min_per_stop,
     # 돌발 감지용: (노선, 순번)별 평소 정류장당 이동 시간

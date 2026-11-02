@@ -151,6 +151,8 @@ def main():
             # 서울까지 이동시간: 실측값이 없으면, 앞 정류장에서 탈수록 더 오래 타는 만큼 더한다
             my_seq = cfg["stops"].get(MY_STOP, stop_seq)
             ride = b.get("ride", {}).get((route, stop_id), DEFAULT_RIDE_MIN + (my_seq - stop_seq) * per_stop)
+            if day["day_type"] == 0:   # 평일은 시간대별 실측값 — 출근 시간엔 하루 전체 값보다 오래 걸림
+                ride = b.get("ride_hour", {}).get((route, stop_id, now.hour), ride)
             delay = inc[route]["delay"] + ev[route]["delay"]   # 돌발 지연(사고·정체·시위) + 행사 주변 정체
             total = expected + ride + delay + legs[route]["minutes"]
             if skipped:
@@ -190,6 +192,8 @@ def main():
                 print(f"      - {n}")
         print()
     best_all = min(options, key=lambda o: o["total"]) if options else None
+    # 지하철은 만석이 없으니 탑승 확률 100% — 버스 선택지와 도착 시각만 비교 (ODsay 조회가 안 되면 생략)
+    subway = transit.subway_route(now) if USE_TRANSIT is True else None
     for kind, icon in (("기다리기", "①"), ("걸어가기", "②"), ("다른 버스", "③")):
         group = sorted((o for o in options if o["kind"] == kind), key=lambda o: o["total"])
         if not group:
@@ -223,6 +227,13 @@ def main():
             print(f"     환승: {o['transfer']}")
         print()
 
+    if subway:
+        faster = best_all is None or subway["minutes"] < best_all["total"]
+        arrive = now + timedelta(minutes=subway["minutes"])
+        print(f"④ 지하철: 국민대 {arrive:%H:%M} 도착 예상 · 환승 {subway['transfers']}회 · 걷기 {subway['walk']}분"
+              f"{'  ★ 추천' if faster else ''}")
+        print(f"     {subway['summary']}\n")
+
     if best_all:
         o = best_all
         first = next((c for c in o["cands"] if c["ok"]), None)
@@ -241,16 +252,19 @@ def main():
                 tip = f" — {my_route}번 경로에 돌발상황이 있어 {o['cfg']['dest']} 경유로 돌아가는 게 빠릅니다"
             else:
                 tip = f" — {o['cfg']['dest']}에서 환승하는 경로가 더 빠릅니다"
-        print(f"→ 추천: {o['kind']} ({o['route']}번 · {o['stop']['name']}){tip}")
+        if subway and subway["minutes"] < o["total"]:
+            print(f"→ 추천: 지하철 — 버스보다 {o['total'] - subway['minutes']:.0f}분 빠릅니다 (좌석 걱정 없음)")
+        else:
+            print(f"→ 추천: {o['kind']} ({o['route']}번 · {o['stop']['name']}){tip}")
 
-    return api_result(now, my_route, day, ev, inc, options, best_all, tip if best_all else "")
+    return api_result(now, my_route, day, ev, inc, options, best_all, tip if best_all else "", subway)
 
 
 def _stop_id(stop):
     return next(k for k, v in STOPS.items() if v is stop)
 
 
-def api_result(now, my_route, day, ev, inc, options, best_all, tip):
+def api_result(now, my_route, day, ev, inc, options, best_all, tip, subway=None):
     """앱에 넘길 응답(JSON) — docs/api.md 의 /recommendations · /alternatives 형식."""
     def option(o):
         eta = now + timedelta(minutes=o["total"])
@@ -292,6 +306,9 @@ def api_result(now, my_route, day, ev, inc, options, best_all, tip):
                        "drop_factor": round(v.get("drop_factor", 1.0), 2), "notes": list(dict.fromkeys(v["notes"]))}
                       for r, v in inc.items() if v["delay"] or v["skip_stops"] or v.get("drop_factor", 1) > 1],
         "events": [{"route": r, "delay_min": round(v["delay"]), "notes": v["notes"]} for r, v in ev.items() if v["notes"]],
+        "subway": None if not subway else {
+            "arrive_at": (now + timedelta(minutes=subway["minutes"])).strftime("%H:%M"), "total_min": round(subway["minutes"]),
+            "transfers": subway["transfers"], "walk_min": subway["walk"], "summary": subway["summary"]},
     }
 
 
