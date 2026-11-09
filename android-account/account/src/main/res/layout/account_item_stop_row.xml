@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 주변 정류장 한 줄: 핀 · 이름 · 번호와 노선 · 도보 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp">
+
+    <ImageView
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:contentDescription="@null"
+        android:src="@drawable/account_ic_pin"
+        app:tint="@color/account_primary" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/account_stop_name"
+            style="@style/AccountRowTitle"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/account_stop_sub"
+            style="@style/AccountRowSub" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/account_stop_walk"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/account_text"
+        android:textSize="13sp" />
+</LinearLayout>

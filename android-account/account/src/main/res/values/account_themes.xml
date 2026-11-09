@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Figma '좌석예보 앱 UI' 색 -->
+    <color name="account_primary">#C8102E</color>
+    <color name="account_primary_light">#FDEDEE</color>
+    <color name="account_background">#F2F3F5</color>
+    <color name="account_surface">#FFFFFF</color>
+    <color name="account_text">#1F2024</color>
+    <color name="account_muted">#8A8D93</color>
+    <color name="account_outline">#DCDEE2</color>
+    <color name="account_divider">#EEEFF1</color>
+    <color name="account_boarded">#1F9D55</color>
+    <color name="account_not_boarded">#C8102E</color>
+
+    <!-- 팀 앱 테마와 상관없이 D 화면이 같은 모양으로 보이도록 화면마다 지정 (디자인이 밝은 화면만 있어 Light 고정) -->
+    <style name="AccountTheme" parent="Theme.Material3.Light">
+        <item name="colorPrimary">@color/account_primary</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">@color/account_primary</item>
+        <item name="android:colorBackground">@color/account_background</item>
+        <item name="android:windowBackground">@color/account_background</item>
+        <item name="colorSurface">@color/account_surface</item>
+        <item name="colorOnSurface">@color/account_text</item>
+        <item name="android:statusBarColor">@color/account_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="materialButtonStyle">@style/AccountButton</item>
+        <item name="actionBarStyle">@style/AccountActionBar</item>
+    </style>
+
+    <style name="AccountTheme.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <!-- 로그인 · 회원가입 은 흰 바탕 -->
+    <style name="AccountTheme.White.NoActionBar" parent="AccountTheme.NoActionBar">
+        <item name="android:windowBackground">@color/account_surface</item>
+    </style>
+
+    <style name="AccountTheme.White" parent="AccountTheme">
+        <item name="android:windowBackground">@color/account_surface</item>
+    </style>
+
+    <!-- 하위 화면 상단바: 흰 바탕 (Material3 기본 보라 틴트 제거) -->
+    <style name="AccountActionBar" parent="Widget.Material3.ActionBar.Solid">
+        <item name="background">@color/account_surface</item>
+        <item name="elevation">0dp</item>
+    </style>
+
+    <style name="AccountButton" parent="Widget.Material3.Button">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="AccountButton.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textColor">@color/account_text</item>
+        <item name="strokeColor">@color/account_outline</item>
+    </style>
+
+    <style name="AccountTextLink" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/account_muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:minHeight">36dp</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+    </style>
+
+    <style name="AccountInput" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxCornerRadiusTopStart">10dp</item>
+        <item name="boxCornerRadiusTopEnd">10dp</item>
+        <item name="boxCornerRadiusBottomStart">10dp</item>
+        <item name="boxCornerRadiusBottomEnd">10dp</item>
+        <item name="boxStrokeColor">@color/account_primary</item>
+        <item name="hintEnabled">false</item>
+        <item name="startIconTint">@color/account_muted</item>
+        <item name="android:layout_marginTop">10dp</item>
+    </style>
+
+    <style name="AccountCard">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:background">@drawable/account_bg_card</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <style name="AccountSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/account_text</item>
+    </style>
+
+    <style name="AccountLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/account_muted</item>
+    </style>
+
+    <style name="AccountRowTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/account_text</item>
+    </style>
+
+    <style name="AccountRowSub">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/account_muted</item>
+    </style>
+</resources>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 마이페이지 > 즐겨찾기 경로 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/account_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            style="@style/AccountCard"
+            android:layout_marginTop="0dp"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="12dp">
+
+            <TextView
+                style="@style/AccountLabel"
+                android:text="@string/account_home_stop" />
+
+            <Spinner
+                android:id="@+id/account_home_stop"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <TextView
+                style="@style/AccountLabel"
+                android:text="@string/account_my_route" />
+
+            <Spinner
+                android:id="@+id/account_my_route"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            style="@style/AccountCard"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                style="@style/AccountLabel"
+                android:text="@string/account_candidate_stops" />
+
+            <LinearLayout
+                android:id="@+id/account_candidate_stops"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <LinearLayout
+            style="@style/AccountCard"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="16dp">
+
+            <TextView
+                style="@style/AccountLabel"
+                android:text="@string/account_destination" />
+
+            <TextView
+                android:id="@+id/account_destination"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingVertical="6dp"
+                android:textColor="@color/account_text"
+                android:textSize="16sp" />
+
+            <TextView
+                style="@style/AccountLabel"
+                android:text="@string/account_arrive_by" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/account_arrive_by"
+                style="@style/AccountButton.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:minWidth="120dp"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/account_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/account_save" />
+
+        <ProgressBar
+            android:id="@+id/account_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="@color/account_primary"
+            android:visibility="gone" />
+    </LinearLayout>
+</ScrollView>
