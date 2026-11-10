@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:icon="@drawable/map_demo_icon" android:label="@string/map_demo_title">
+        <meta-data android:name="kr.ac.kookmin.seatforecast.map.NATIVE_APP_KEY"
+            android:resource="@string/map_native_key" />
+        <activity android:name="kr.ac.kookmin.seatforecast.map.MapActivity" />
+        <activity-alias android:name=".MapLauncher" android:exported="true"
+            android:targetActivity="kr.ac.kookmin.seatforecast.map.MapActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+</manifest>

@@ -1,0 +1,20 @@
+<resources>
+    <string name="map_demo_title">좌석예보 지도</string>
+    <string name="map_title">원래 vs 대안 경로</string>
+    <string name="map_loading">지도를 불러오는 중입니다.</string>
+    <string name="map_missing_key">카카오 지도를 표시하려면 네이티브 앱 키를 설정해 주세요.</string>
+    <string name="map_failed">카카오 지도를 불러올 수 없습니다. 네트워크와 앱 키 등록 정보를 확인해 주세요.</string>
+    <string name="map_location_button">내 위치 권한 설정</string>
+    <string name="map_permission_initial">내 위치를 사용하려면 위치 권한을 허용해 주세요.</string>
+    <string name="map_permission_approximate">대략적인 위치를 사용할 수 있습니다.</string>
+    <string name="map_permission_precise">정확한 위치를 사용할 수 있습니다.</string>
+    <string name="map_permission_denied">위치 권한을 거부했습니다. 지도를 계속 볼 수 있습니다.</string>
+    <string name="map_permission_settings">앱 설정에서 위치 권한을 변경할 수 있습니다.</string>
+    <string name="map_settings">앱 설정 열기</string>
+    <style name="MapTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#B52B3C</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+    </style>
+</resources>
