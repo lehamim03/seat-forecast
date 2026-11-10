@@ -1,0 +1,24 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/map_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="16dp" android:text="@string/map_title" android:textStyle="bold"
+        android:textSize="20sp" android:textColor="#202124" />
+    <FrameLayout android:id="@+id/map_container" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1" android:background="#F5F5F4">
+        <TextView android:id="@+id/map_message" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_gravity="center"
+            android:gravity="center" android:padding="24dp" android:text="@string/map_loading"
+            android:textColor="#50545A" android:textSize="16sp" android:accessibilityLiveRegion="polite" />
+    </FrameLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="16dp">
+        <TextView android:id="@+id/map_permission_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textColor="#292C30"
+            android:textSize="16sp" android:accessibilityLiveRegion="polite" />
+        <Button android:id="@+id/map_permission_action" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp" android:text="@string/map_location_button" />
+    </LinearLayout>
+</LinearLayout>
