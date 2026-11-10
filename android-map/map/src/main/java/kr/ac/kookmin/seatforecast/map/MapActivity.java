@@ -76,7 +76,6 @@ public final class MapActivity extends Activity {
                 KakaoMapSdk.init(getApplicationContext(), key);
             }
             mapView = new MapView(this);
-            mapView.setFinishManually(true);
             FrameLayout container = findViewById(R.id.map_container);
             container.addView(mapView, 0);
             mapView.start(new MapLifeCycleCallback() {
@@ -91,7 +90,10 @@ public final class MapActivity extends Activity {
                 }
                 @Override public void onMapReady(KakaoMap map) {
                     runOnUiThread(() -> {
-                        if (mapView != null) mapMessage.setVisibility(View.GONE);
+                        if (mapView != null) {
+                            mapView.setFinishManually(true);
+                            mapMessage.setVisibility(View.GONE);
+                        }
                     });
                 }
             });
