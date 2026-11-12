@@ -1,0 +1,11 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+# Firebase 설정 파일은 각자 Firebase 콘솔에서 받기 (저장소에 올리지 않음)
+google-services.json
+firebase/*.log

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 팀 앱 테마와 상관없이 홈 화면이 같은 모양으로 보이도록 화면마다 지정 (디자인이 밝은 화면만 있어 Light 고정) -->
+    <style name="HomeTheme" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/home_primary</item>
+        <item name="colorOnPrimary">@color/home_on_primary</item>
+        <item name="colorSecondary">@color/home_primary</item>
+        <item name="android:colorBackground">@color/home_background</item>
+        <item name="android:windowBackground">@color/home_background</item>
+        <item name="colorSurface">@color/home_surface</item>
+        <item name="colorOnSurface">@color/home_text</item>
+        <item name="android:statusBarColor">@color/home_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="materialButtonStyle">@style/HomeButton</item>
+    </style>
+
+    <style name="HomeButton" parent="Widget.Material3.Button">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- 빨간 '우리집 → 국민대' 카드 안의 작은 칩 -->
+    <style name="HomeTripChip">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginEnd">6dp</item>
+        <item name="android:background">@drawable/home_bg_trip_chip</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingTop">3dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/home_on_primary</item>
+    </style>
+</resources>

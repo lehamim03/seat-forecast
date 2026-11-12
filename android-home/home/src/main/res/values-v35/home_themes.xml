@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 15(targetSdk 35)부터 화면이 상태바 밑까지 그려지므로, D 모듈과 같이 기존 방식대로 배치 -->
+    <style name="HomeTheme" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/home_primary</item>
+        <item name="colorOnPrimary">@color/home_on_primary</item>
+        <item name="colorSecondary">@color/home_primary</item>
+        <item name="android:colorBackground">@color/home_background</item>
+        <item name="android:windowBackground">@color/home_background</item>
+        <item name="colorSurface">@color/home_surface</item>
+        <item name="colorOnSurface">@color/home_text</item>
+        <item name="android:statusBarColor">@color/home_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="materialButtonStyle">@style/HomeButton</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+</resources>

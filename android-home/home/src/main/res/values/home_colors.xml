@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Figma '좌석예보 앱 UI' 색 (D 모듈 account_themes.xml 과 같은 값) -->
+    <color name="home_primary">#C8102E</color>
+    <color name="home_primary_light">#FDEDEE</color>
+    <color name="home_background">#F2F3F5</color>
+    <color name="home_surface">#FFFFFF</color>
+    <color name="home_text">#1F2024</color>
+    <color name="home_muted">#8A8D93</color>
+    <color name="home_on_primary">#FFFFFF</color>
+    <color name="home_on_primary_chip">#33FFFFFF</color>
+
+    <!-- 탑승 확률 배지 (11주차): 70% 이상 · 40~70% · 40% 미만 -->
+    <color name="home_badge_high">#1E9E5A</color>
+    <color name="home_badge_mid">#C98A00</color>
+    <color name="home_badge_low">#C8102E</color>
+</resources>
