@@ -1,0 +1,27 @@
+plugins { id 'com.android.application' }
+
+def local = new Properties()
+def localFile = rootProject.file("local.properties")
+if (localFile.exists()) {
+    localFile.withInputStream { local.load(it) }
+}
+
+android {
+    namespace 'kr.ac.kookmin.seatforecast.mapdemo'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'kr.ac.kookmin.seatforecast.mapdemo'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '0.1'
+        resValue 'string', 'map_native_key', providers.environmentVariable('KAKAO_NATIVE_APP_KEY')
+                .getOrElse(local.getProperty('KAKAO_NATIVE_APP_KEY', ''))
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies { implementation project(':map') }
