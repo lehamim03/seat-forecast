@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'kr.ac.kookmin.seatforecast.homedemo'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'kr.ac.kookmin.seatforecast.homedemo'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '0.1'
+        // 예측 서버 주소 (에뮬레이터에서 10.0.2.2 = 내 컴퓨터) — 13주차 서버 연결 때 사용
+        buildConfigField 'String', 'SERVER_BASE_URL', '"http://10.0.2.2:8000/"'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation project(':home')
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+}
