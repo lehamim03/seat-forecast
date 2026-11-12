@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// 사용자 문서는 본인만 읽고 쓸 수 있음.
+// 다른 화면(E 푸시 등)이 users/{uid} 에 필드를 더해도 이 규칙 그대로 동작합니다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // 탑승 피드백 기록 (서버 전송 여부 sent 포함)
+      match /feedback/{feedbackId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}

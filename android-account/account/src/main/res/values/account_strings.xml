@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_app_name">좌석예보</string>
+    <string name="account_tagline">탈 수 있는 버스만</string>
+    <string name="account_intro">지도 앱은 빠른 버스를,\n좌석예보는 탈 수 있는 버스를 알려줍니다.</string>
+    <string name="account_firebase_footer">Firebase Authentication으로 안전하게 로그인합니다</string>
+
+    <string name="account_email">이메일</string>
+    <string name="account_password">비밀번호</string>
+    <string name="account_password_confirm">비밀번호 확인</string>
+    <string name="account_password_helper">6자 이상</string>
+    <string name="account_nickname">닉네임</string>
+    <string name="account_sign_in">로그인</string>
+    <string name="account_sign_up">회원가입</string>
+    <string name="account_sign_up_title">좌석예보 시작하기</string>
+    <string name="account_sign_up_desc">이메일로 가입하면 평소 정류장 · 노선과 탑승 기록이 저장됩니다.</string>
+    <string name="account_sign_up_submit">가입하기</string>
+    <string name="account_no_account">계정이 없으신가요?</string>
+    <string name="account_keep_signed_in">로그인 상태 유지</string>
+    <string name="account_forgot_password">비밀번호 찾기</string>
+    <string name="account_reset_sent">비밀번호 재설정 메일을 보냈습니다.</string>
+    <string name="account_welcome">%1$s님, 환영합니다!</string>
+
+    <string name="account_my_page">마이페이지</string>
+    <string name="account_nickname_format">%1$s님</string>
+    <string name="account_joined">가입일 %1$s</string>
+    <string name="account_menu_favorite">즐겨찾기 경로</string>
+    <string name="account_menu_favorite_sub">%1$s → %2$s · %3$s 도착</string>
+    <string name="account_menu_notify">출발 알림 설정</string>
+    <string name="account_menu_notify_on">출발 %1$d분 전 알림 · 돌발 알림 %2$s</string>
+    <string name="account_menu_notify_off">출발 알림 꺼짐 · 돌발 알림 %1$s</string>
+    <string name="account_on">켜짐</string>
+    <string name="account_off">꺼짐</string>
+    <string name="account_menu_history">탑승 피드백 기록</string>
+    <string name="account_menu_history_sub">이번 달 %1$d회 · 탑승 성공 %2$d회</string>
+    <string name="account_menu_account">계정 관리</string>
+    <string name="account_menu_account_sub">이메일 · 비밀번호 · 로그아웃</string>
+    <string name="account_nearby_stops">주변 정류장</string>
+    <string name="account_nearby_stops_hint">정류소번호 · 도보</string>
+    <string name="account_walk_format">도보 %1$d분</string>
+    <string name="account_today_question">오늘 %1$s 탑승 결과는?</string>
+    <string name="account_today_desc">%1$s에서 탄 %2$s\n알려주시면 탑승 확률 예측이 더 정확해져요</string>
+
+    <string name="account_home_stop">평소 정류장</string>
+    <string name="account_my_route">평소 노선</string>
+    <string name="account_candidate_stops">함께 비교할 주변 정류장</string>
+    <string name="account_candidate_label">%1$s · 도보 %2$d분</string>
+    <string name="account_destination">목적지</string>
+    <string name="account_arrive_by">도착 목표 시각</string>
+    <string name="account_notify_departure">출발 알림 (집에서 나설 시각)</string>
+    <string name="account_notify_incident">돌발 알림 (사고 · 정체 · 우회)</string>
+    <string name="account_minutes_before">출발 몇 분 전에 알릴까요?</string>
+    <string name="account_minutes_format">%1$d분 전</string>
+    <string name="account_notify_hint_text">1순위 정류장 · 버스로 가려면 집에서 나서야 할 시각보다 미리 알려드려요.</string>
+    <string name="account_save">설정 저장</string>
+    <string name="account_saved">설정을 저장했습니다.</string>
+
+    <string name="account_feedback_title">탑승 피드백</string>
+    <string name="account_feedback_empty">아직 남긴 피드백이 없습니다.</string>
+    <string name="account_feedback_write">탑승 결과 남기기</string>
+    <string name="account_feedback_question">오늘 %1$s 탑승 결과는?</string>
+    <string name="account_feedback_why">알려주시면 탑승 확률 예측이 더 정확해져요.</string>
+    <string name="account_feedback_stop">탄 정류장</string>
+    <string name="account_feedback_route">노선</string>
+    <string name="account_feedback_prob">앱이 보여준 탑승 확률 %1$d%%</string>
+    <string name="account_feedback_memo">메모 (선택)</string>
+    <string name="account_feedback_pending_tag">전송 대기</string>
+    <string name="account_feedback_prob_tag">예측 %1$d%%</string>
+    <string name="account_boarded">탔어요</string>
+    <string name="account_not_boarded">못 탔어요</string>
+    <string name="account_feedback_thanks">고마워요! 예측을 더 정확하게 만드는 데 쓸게요.</string>
+    <string name="account_feedback_pending">기록은 저장했어요. 서버에 연결되면 다시 보낼게요.</string>
+    <string name="account_retried">전송 대기 중이던 피드백 %1$d건을 서버에 보냈습니다.</string>
+
+    <string name="account_reset_password">비밀번호 재설정 메일 보내기</string>
+    <string name="account_sign_out">로그아웃</string>
+    <string name="account_sign_out_confirm">로그아웃할까요?</string>
+    <string name="account_cancel">취소</string>
+</resources>

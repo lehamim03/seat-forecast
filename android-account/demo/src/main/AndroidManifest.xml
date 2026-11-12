@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 로컬 Firebase 에뮬레이터 · 테스트 서버(http://10.0.2.2) 접속용 — 시연 앱에서만 -->
+    <application
+        android:name=".DemoApp"
+        android:allowBackup="false"
+        android:label="@string/demo_app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AccountTheme"
+        android:usesCleartextTraffic="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

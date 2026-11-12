@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <activity
+            android:name=".ui.LoginActivity"
+            android:exported="false"
+            android:label="@string/account_app_name"
+            android:theme="@style/AccountTheme.White.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ui.SignUpActivity"
+            android:exported="false"
+            android:label="@string/account_sign_up"
+            android:parentActivityName=".ui.LoginActivity"
+            android:theme="@style/AccountTheme.White"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ui.MyPageActivity"
+            android:exported="false"
+            android:label="@string/account_my_page"
+            android:theme="@style/AccountTheme.NoActionBar" />
+        <activity
+            android:name=".ui.RouteSettingsActivity"
+            android:exported="false"
+            android:label="@string/account_menu_favorite"
+            android:theme="@style/AccountTheme" />
+        <activity
+            android:name=".ui.NotifySettingsActivity"
+            android:exported="false"
+            android:label="@string/account_menu_notify"
+            android:theme="@style/AccountTheme" />
+        <activity
+            android:name=".ui.FeedbackHistoryActivity"
+            android:exported="false"
+            android:label="@string/account_menu_history"
+            android:theme="@style/AccountTheme" />
+        <activity
+            android:name=".ui.FeedbackActivity"
+            android:exported="false"
+            android:label="@string/account_feedback_title"
+            android:theme="@style/AccountTheme"
+            android:windowSoftInputMode="adjustResize" />
+    </application>
+</manifest>
