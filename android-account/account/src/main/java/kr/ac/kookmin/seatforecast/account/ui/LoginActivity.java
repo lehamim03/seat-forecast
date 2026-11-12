@@ -71,6 +71,16 @@ public class LoginActivity extends AppCompatActivity {
         findViewById(R.id.account_go_sign_up).setOnClickListener(
                 v -> signUp.launch(new Intent(this, SignUpActivity.class)));
         findViewById(R.id.account_forgot).setOnClickListener(v -> sendReset());
+
+        // 시연 앱에서만: 로그인 없이 예시 사용자로 화면 둘러보기
+        View preview = findViewById(R.id.account_preview);
+        if (Account.isPreviewAllowed()) {
+            preview.setVisibility(View.VISIBLE);
+            preview.setOnClickListener(v -> {
+                Account.startPreview();
+                finishSignedIn();
+            });
+        }
     }
 
     private void attemptSignIn() {

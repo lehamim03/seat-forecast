@@ -158,6 +158,17 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- 시연 앱에서만 보임 (Account.setPreviewAllowed) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/account_preview"
+            style="@style/AccountTextLink"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="@string/account_preview"
+            android:textColor="@color/account_muted"
+            android:visibility="gone" />
+
         <ProgressBar
             android:id="@+id/account_progress"
             android:layout_width="wrap_content"

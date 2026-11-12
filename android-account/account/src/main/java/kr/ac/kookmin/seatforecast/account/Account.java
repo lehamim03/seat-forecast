@@ -62,24 +62,58 @@ public final class Account {
         return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    // ---------- 미리보기 (로그인 없이 둘러보기) ----------
+    // 시연 · 발표 영상용. 예시 사용자로 화면만 보여 주고, 설정 · 피드백은 Firebase 대신 앱 메모리에만 저장합니다.
+
+    public static final String PREVIEW_UID = "preview-user";
+    public static final String PREVIEW_EMAIL = "demo@kookmin.ac.kr";
+    public static final String PREVIEW_NICKNAME = "둘러보기";
+
+    private static boolean previewAllowed = false;
+    private static boolean preview = false;
+
+    /** 로그인 화면에 '로그인 없이 둘러보기' 버튼을 보일지 (기본 꺼짐, 시연 앱에서만 켬). */
+    public static void setPreviewAllowed(boolean allowed) {
+        previewAllowed = allowed;
+    }
+
+    public static boolean isPreviewAllowed() {
+        return previewAllowed;
+    }
+
+    /** 로그인 없이 예시 사용자로 둘러보기 시작. signOut() 하면 끝납니다. */
+    public static void startPreview() {
+        preview = true;
+    }
+
+    public static boolean isPreview() {
+        return preview;
+    }
+
     public static boolean isSignedIn() {
-        return FirebaseAuth.getInstance().getCurrentUser() != null;
+        return preview || FirebaseAuth.getInstance().getCurrentUser() != null;
     }
 
     @Nullable
     public static String currentUid() {
+        if (preview) return PREVIEW_UID;
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         return user == null ? null : user.getUid();
     }
 
     @Nullable
     public static String currentEmail() {
+        if (preview) return PREVIEW_EMAIL;
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         return user == null ? null : user.getEmail();
     }
 
     /** 서버 요청 헤더 {@code Authorization: Bearer <토큰>} 에 넣을 Firebase ID 토큰. */
     public static void getIdToken(Callback<String> callback) {
+        if (preview) {
+            callback.onError("둘러보기 중에는 서버에 보내지 않습니다.");
+            return;
+        }
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null) {
             callback.onError("로그인이 필요합니다.");
@@ -91,6 +125,7 @@ public final class Account {
     }
 
     public static void signOut() {
+        preview = false;
         FirebaseAuth.getInstance().signOut();
     }
 }

@@ -27,6 +27,7 @@ public class DemoApp extends Application {
             Account.useEmulator("10.0.2.2");
         }
         Account.setServerBaseUrl(BuildConfig.SERVER_BASE_URL);
+        Account.setPreviewAllowed(true);   // 로그인 화면에 '로그인 없이 둘러보기' (시연 · 영상용)
         Account.init(this);   // '로그인 상태 유지'를 끄고 로그인했으면 여기서 로그아웃
     }
 }

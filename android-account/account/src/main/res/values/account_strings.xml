@@ -17,6 +17,7 @@
     <string name="account_sign_up_submit">가입하기</string>
     <string name="account_no_account">계정이 없으신가요?</string>
     <string name="account_keep_signed_in">로그인 상태 유지</string>
+    <string name="account_preview">로그인 없이 둘러보기</string>
     <string name="account_forgot_password">비밀번호 찾기</string>
     <string name="account_reset_sent">비밀번호 재설정 메일을 보냈습니다.</string>
     <string name="account_welcome">%1$s님, 환영합니다!</string>

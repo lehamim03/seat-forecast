@@ -2,6 +2,7 @@ package kr.ac.kookmin.seatforecast.account.data;
 
 import androidx.annotation.NonNull;
 
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -11,6 +12,7 @@ import com.google.firebase.firestore.SetOptions;
 import java.util.HashMap;
 import java.util.Map;
 
+import kr.ac.kookmin.seatforecast.account.Account;
 import kr.ac.kookmin.seatforecast.account.Callback;
 
 /**
@@ -23,6 +25,9 @@ public class UserRepository {
     public static final String COLLECTION = "users";
 
     private final FirebaseFirestore db;
+
+    /** 둘러보기(Account.isPreview) 중 설정 — Firestore 대신 앱 메모리에만 둡니다. */
+    private static UserSettings previewSettings;
 
     public UserRepository() {
         this(FirebaseFirestore.getInstance());
@@ -50,6 +55,15 @@ public class UserRepository {
     }
 
     public void loadProfile(@NonNull String uid, Callback<UserProfile> callback) {
+        if (Account.isPreview()) {
+            UserProfile p = new UserProfile();
+            p.uid = uid;
+            p.email = Account.PREVIEW_EMAIL;
+            p.nickname = Account.PREVIEW_NICKNAME;
+            p.createdAt = Timestamp.now();
+            callback.onSuccess(p);
+            return;
+        }
         userDoc(uid).get()
                 .addOnSuccessListener(doc -> callback.onSuccess(toProfile(uid, doc)))
                 .addOnFailureListener(e -> callback.onError("회원 정보를 불러오지 못했습니다."));
@@ -57,6 +71,11 @@ public class UserRepository {
 
     /** 문서가 아직 없으면 기본 설정을 돌려줍니다. */
     public void loadSettings(@NonNull String uid, Callback<UserSettings> callback) {
+        if (Account.isPreview()) {
+            if (previewSettings == null) previewSettings = UserSettings.defaults();
+            callback.onSuccess(previewSettings);
+            return;
+        }
         userDoc(uid).get()
                 .addOnSuccessListener(doc -> callback.onSuccess(UserSettings.fromMap(doc.getData())))
                 .addOnFailureListener(e -> callback.onError("설정을 불러오지 못했습니다."));
@@ -66,6 +85,11 @@ public class UserRepository {
         String problem = settings.validate();
         if (problem != null) {
             callback.onError(problem);
+            return;
+        }
+        if (Account.isPreview()) {
+            previewSettings = settings;
+            callback.onSuccess(null);
             return;
         }
         Map<String, Object> data = new HashMap<>(settings.toMap());

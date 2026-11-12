@@ -10,9 +10,12 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 
 import kr.ac.kookmin.seatforecast.account.Account;
 import kr.ac.kookmin.seatforecast.account.Callback;
@@ -47,6 +50,9 @@ public class FeedbackRepository {
     private final FirebaseFirestore db;
     private final FeedbackApi api;
 
+    /** 둘러보기(Account.isPreview) 중 기록 — Firestore 대신 앱 메모리에만 둡니다 (최신순). */
+    private static List<FeedbackRecord> previewRecords;
+
     public FeedbackRepository() {
         this(FirebaseFirestore.getInstance(), FeedbackApi.create(Account.getServerBaseUrl()));
     }
@@ -72,6 +78,14 @@ public class FeedbackRepository {
             callback.onError(problem);
             return;
         }
+        if (Account.isPreview()) {
+            FeedbackRecord r = record("preview-" + System.currentTimeMillis(), request.date, request.route,
+                    request.stopId, request.boarded, request.predictedProb);
+            r.memo = request.memo;
+            previewRecords().add(0, r);
+            callback.onSuccess(new SubmitResult(r.id, true));
+            return;
+        }
         Map<String, Object> data = request.toMap();
         data.put(SENT, false);
         data.put(CREATED_AT, FieldValue.serverTimestamp());
@@ -89,6 +103,11 @@ public class FeedbackRepository {
             callback.onError("로그인이 필요합니다.");
             return;
         }
+        if (Account.isPreview()) {
+            List<FeedbackRecord> all = previewRecords();
+            callback.onSuccess(new ArrayList<>(all.subList(0, Math.min(limit, all.size()))));
+            return;
+        }
         records(uid).orderBy(CREATED_AT, Query.Direction.DESCENDING).limit(limit).get()
                 .addOnSuccessListener(snap -> {
                     List<FeedbackRecord> out = new ArrayList<>();
@@ -101,7 +120,7 @@ public class FeedbackRepository {
     /** 서버에 못 보낸 기록을 다시 보냅니다. 결과는 새로 보낸 개수. */
     public void retryPending(Callback<Integer> callback) {
         String uid = Account.currentUid();
-        if (uid == null) {
+        if (uid == null || Account.isPreview()) {
             callback.onSuccess(0);
             return;
         }
@@ -122,6 +141,38 @@ public class FeedbackRepository {
                     }
                 })
                 .addOnFailureListener(e -> callback.onError("피드백 기록을 불러오지 못했습니다."));
+    }
+
+    /** 둘러보기 첫 화면이 비어 보이지 않도록 지난 며칠 예시 기록을 넣어 둡니다. */
+    private static List<FeedbackRecord> previewRecords() {
+        if (previewRecords == null) {
+            previewRecords = new ArrayList<>();
+            previewRecords.add(record("preview-3", daysAgo(1), "3007", "203000161", true, 0.95));
+            previewRecords.add(record("preview-2", daysAgo(2), "8800", "203000063", false, 0.42));
+            previewRecords.add(record("preview-1", daysAgo(3), "3008", "203000162", true, 0.81));
+        }
+        return previewRecords;
+    }
+
+    private static FeedbackRecord record(String id, String date, String route, String stopId,
+                                         boolean boarded, Double prob) {
+        FeedbackRecord r = new FeedbackRecord();
+        r.id = id;
+        r.date = date;
+        r.route = route;
+        r.stopId = stopId;
+        r.boarded = boarded;
+        r.predictedProb = prob;
+        r.memo = "";
+        r.sent = true;
+        return r;
+    }
+
+    private static String daysAgo(int days) {
+        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"), Locale.KOREA);
+        c.add(Calendar.DAY_OF_MONTH, -days);
+        return String.format(Locale.US, "%04d-%02d-%02d",
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH));
     }
 
     private interface SentListener {

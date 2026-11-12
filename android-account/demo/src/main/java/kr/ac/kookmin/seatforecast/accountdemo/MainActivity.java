@@ -73,6 +73,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refresh() {
+        if (Account.isPreview()) {
+            status.setText("둘러보기 중 (로그인 없음 · 예시 사용자 " + Account.currentEmail() + ")"
+                    + "\n설정 · 피드백은 앱을 끄면 사라집니다.");
+            return;
+        }
         status.setText("로그인: " + Account.currentEmail()
                 + (BuildConfig.USE_FIREBASE_EMULATOR ? "\n(로컬 Firebase 에뮬레이터)" : ""));
     }
