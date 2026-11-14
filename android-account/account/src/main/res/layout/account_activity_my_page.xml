@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Figma '07 마이페이지' -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/account_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:text="@string/account_my_page"
+            android:textColor="@color/account_text"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <!-- 회원 정보 -->
+        <LinearLayout
+            android:id="@+id/account_profile"
+            style="@style/AccountCard"
+            android:layout_marginTop="14dp"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
+
+            <FrameLayout
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/account_bg_avatar">
+
+                <ImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/account_ic_person"
+                    app:tint="@color/account_primary" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/account_nickname"
+                    style="@style/AccountRowTitle"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/account_email"
+                    style="@style/AccountRowSub" />
+
+                <TextView
+                    android:id="@+id/account_joined"
+                    style="@style/AccountRowSub"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="@null"
+                android:src="@drawable/account_ic_chevron"
+                app:tint="@color/account_muted" />
+        </LinearLayout>
+
+        <!-- 오늘 탑승 결과 (탔어요 / 못 탔어요) -->
+        <LinearLayout
+            android:id="@+id/account_feedback_card"
+            style="@style/AccountCard"
+            android:background="@drawable/account_bg_card_accent"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/account_ic_chat"
+                    app:tint="@color/account_primary" />
+
+                <TextView
+                    android:id="@+id/account_feedback_question"
+                    style="@style/AccountRowTitle"
+                    android:layout_marginStart="8dp"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/account_feedback_desc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="2dp"
+                android:textColor="@color/account_muted"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/account_boarded"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="44dp"
+                    android:text="@string/account_boarded"
+                    android:textSize="14sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/account_not_boarded"
+                    style="@style/AccountButton.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="44dp"
+                    android:text="@string/account_not_boarded"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 메뉴 -->
+        <LinearLayout
+            style="@style/AccountCard"
+            android:divider="@drawable/account_divider"
+            android:dividerPadding="16dp"
+            android:showDividers="middle">
+
+            <include
+                android:id="@+id/account_row_favorite"
+                layout="@layout/account_item_menu_row" />
+
+            <include
+                android:id="@+id/account_row_notify"
+                layout="@layout/account_item_menu_row" />
+
+            <include
+                android:id="@+id/account_row_history"
+                layout="@layout/account_item_menu_row" />
+
+            <include
+                android:id="@+id/account_row_account"
+                layout="@layout/account_item_menu_row" />
+        </LinearLayout>
+
+        <!-- 주변 정류장 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1"
+                android:text="@string/account_nearby_stops"
+                android:textColor="@color/account_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/account_nearby_stops_hint"
+                android:textColor="@color/account_muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/account_stop_list"
+            style="@style/AccountCard"
+            android:divider="@drawable/account_divider"
+            android:dividerPadding="16dp"
+            android:showDividers="middle" />
+
+        <ProgressBar
+            android:id="@+id/account_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="@color/account_primary"
+            android:visibility="gone" />
+    </LinearLayout>
+</ScrollView>

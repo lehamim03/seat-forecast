@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 마이페이지 > 출발 알림 설정 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/account_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            style="@style/AccountCard"
+            android:layout_marginTop="0dp"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp">
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/account_notify_departure"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="56dp"
+                android:text="@string/account_notify_departure"
+                android:textColor="@color/account_text"
+                android:textSize="15sp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/account_notify_incident"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="56dp"
+                android:text="@string/account_notify_incident"
+                android:textColor="@color/account_text"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            style="@style/AccountCard"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="12dp">
+
+            <TextView
+                style="@style/AccountLabel"
+                android:text="@string/account_minutes_before" />
+
+            <Spinner
+                android:id="@+id/account_minutes_before"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <TextView
+                android:id="@+id/account_notify_hint"
+                style="@style/AccountRowSub"
+                android:layout_width="match_parent"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/account_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/account_save" />
+
+        <ProgressBar
+            android:id="@+id/account_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="@color/account_primary"
+            android:visibility="gone" />
+    </LinearLayout>
+</ScrollView>
