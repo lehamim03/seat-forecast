@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 노선 번호 칩 (경기 광역 빨강) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/alt_primary" />
+    <corners android:radius="5dp" />
+</shape>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 팀 앱 테마와 상관없이 대안 화면이 같은 모양으로 보이도록 화면마다 지정 (디자인이 밝은 화면만 있어 Light 고정) -->
+    <style name="AltTheme" parent="Theme.Material3.Light">
+        <item name="colorPrimary">@color/alt_primary</item>
+        <item name="colorOnPrimary">@color/alt_on_primary</item>
+        <item name="colorSecondary">@color/alt_primary</item>
+        <item name="android:colorBackground">@color/alt_background</item>
+        <item name="android:windowBackground">@color/alt_background</item>
+        <item name="colorSurface">@color/alt_surface</item>
+        <item name="colorOnSurface">@color/alt_text</item>
+        <item name="android:statusBarColor">@color/alt_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="materialButtonStyle">@style/AltButton</item>
+        <item name="actionBarStyle">@style/AltActionBar</item>
+    </style>
+
+    <!-- 상단바: 흰 바탕 (Material3 기본 보라 틴트 제거, D 하위 화면과 같음) -->
+    <style name="AltActionBar" parent="Widget.Material3.ActionBar.Solid">
+        <item name="background">@color/alt_surface</item>
+        <item name="elevation">0dp</item>
+    </style>
+
+    <style name="AltButton" parent="Widget.Material3.Button">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- 노선 번호 칩 (A 홈 HomeRouteChip 과 같음) -->
+    <style name="AltRouteChip">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/alt_bg_route_chip</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingEnd">6dp</item>
+        <item name="android:paddingTop">1dp</item>
+        <item name="android:paddingBottom">1dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/alt_on_primary</item>
+    </style>
+
+    <!-- 확률 · 상태 알약 (배경은 화면에서 단계별 drawable 로) -->
+    <style name="AltPill">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingTop">3dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="AltSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">20dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/alt_text</item>
+    </style>
+</resources>
