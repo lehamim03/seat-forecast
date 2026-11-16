@@ -44,7 +44,9 @@ public class HomeFragment extends Fragment {
     private boolean loaded;
 
     private TextView usualStop;
+    private TextView dateChip;
     private TextView dayLabel;
+    private TextView nowChip;
     private TextView summary;
     private RecyclerView list;
     private View state;
@@ -67,7 +69,9 @@ public class HomeFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         usualStop = v.findViewById(R.id.home_usual_stop);
+        dateChip = v.findViewById(R.id.home_chip_date);
         dayLabel = v.findViewById(R.id.home_day_label);
+        nowChip = v.findViewById(R.id.home_chip_now);
         summary = v.findViewById(R.id.home_summary);
         list = v.findViewById(R.id.home_list);
         state = v.findViewById(R.id.home_state);
@@ -79,6 +83,7 @@ public class HomeFragment extends Fragment {
         adapter = new OptionAdapter(o -> Home.host().onOptionClicked(requireContext(), o));
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         list.setAdapter(adapter);
+        v.findViewById(R.id.home_trip).setOnClickListener(t -> Home.host().onTripClicked(requireContext()));
         departureAlarm.setOnClickListener(b -> {
             if (first != null) Home.host().onDepartureAlarmClicked(requireContext(), first);
         });
@@ -163,7 +168,11 @@ public class HomeFragment extends Fragment {
         if (r.homeStop != null && r.homeStop.name != null) {
             usualStop.setText(getString(R.string.home_usual_stop, r.homeStop.name));
         }
-        setTextOrGone(dayLabel, r.day == null ? null : r.day.label);
+        // 칩 3개: 날짜 · 평일 출퇴근(day.kind) · 지금 HH:MM (generated_at 기준)
+        setTextOrGone(dateChip, TripFormat.dateChip(r.generatedAt));
+        setTextOrGone(dayLabel, TripFormat.dayChip(r.day));
+        String time = TripFormat.time(r.generatedAt);
+        setTextOrGone(nowChip, time == null ? null : getString(R.string.home_chip_now, time));
         setTextOrGone(summary, r.recommendation == null ? null : r.recommendation.message);
 
         List<Option> options = r.rankingOrEmpty();

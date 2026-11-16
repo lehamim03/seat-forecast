@@ -1,34 +1,142 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 10주차 임시 항목: 노선 칩 + 정류장 이름 (도착 시각 · 확률 배지 · 첫 차는 11주차) -->
+<!--
+  추천 카드 — Figma '02 홈' Rec/3007 (1순위) · Rec/3008.
+  1줄: 노선 칩 · 도착 HH:MM · 1순위 태그 · 탑승 확률 배지
+  2줄: 핀 · 정류장 이름 · 도보 N분
+  3줄: 시계 · 탈 수 있는 첫 차 (도착까지 분 · 도착 때 좌석) — 확률 단계 색
+  4줄: 돌발 · 행사 지연 / 우회로 건너뜀 (있을 때만)
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="12dp"
-    android:background="@drawable/home_bg_card"
+    android:background="@drawable/home_bg_option"
     android:foreground="?attr/selectableItemBackground"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:padding="17dp">
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/home_option_route"
+            style="@style/HomeRouteChip"
+            tools:text="3007" />
+
+        <TextView
+            android:id="@+id/home_option_arrive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="@color/home_text"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="도착 08:41" />
+
+        <TextView
+            android:id="@+id/home_option_first_tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/home_bg_tag"
+            android:paddingStart="7dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="7dp"
+            android:paddingBottom="2dp"
+            android:text="@string/home_first_tag"
+            android:textColor="@color/home_on_primary"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/home_option_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/home_bg_badge_high"
+            android:paddingStart="10dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="3dp"
+            android:textColor="@color/home_badge_high"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="95%" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/home_ic_pin" />
+
+        <TextView
+            android:id="@+id/home_option_stop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:textColor="@color/home_text_body"
+            android:textSize="13sp"
+            tools:text="매탄위브하늘채.경기아트센터 · 도보 7분" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/home_option_bus_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/home_option_bus_icon"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/home_ic_clock" />
+
+        <TextView
+            android:id="@+id/home_option_bus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:textColor="@color/home_badge_high"
+            android:textSize="12sp"
+            tools:text="4분 뒤 도착 · 도착 때 약 21석" />
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/home_option_route"
-        android:layout_width="wrap_content"
+        android:id="@+id/home_option_note"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/home_bg_route_chip"
-        android:paddingStart="6dp"
-        android:paddingTop="1dp"
-        android:paddingEnd="6dp"
-        android:paddingBottom="1dp"
-        android:textColor="@color/home_on_primary"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/home_badge_mid"
         android:textSize="12sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/home_option_stop"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
-        android:layout_weight="1"
-        android:textColor="@color/home_text"
-        android:textSize="15sp" />
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:text="돌발 · 행사로 +12분 지연 반영"
+        tools:visibility="visible" />
 </LinearLayout>
