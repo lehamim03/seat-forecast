@@ -13,6 +13,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import java.io.IOException;
+import org.json.JSONException;
 
 import com.kakao.vectormap.KakaoMap;
 import com.kakao.vectormap.KakaoMapReadyCallback;
@@ -29,6 +33,10 @@ public final class MapActivity extends Activity {
     private static final String COARSE = Manifest.permission.ACCESS_COARSE_LOCATION;
     private static final String FINE = Manifest.permission.ACCESS_FINE_LOCATION;
 
+    private MapOverlay overlay;
+    private DevicePosition position;
+    private boolean locateAfterGrant;
+    private String selectedNumber;
     private MapView mapView;
     private TextView mapMessage;
     private Button permissionButton;
@@ -50,6 +58,20 @@ public final class MapActivity extends Activity {
 
         mapMessage = findViewById(R.id.map_message);
         permissionButton = findViewById(R.id.map_permission_action);
+        if (state != null) selectedNumber = state.getString("selected_route");
+        position = new DevicePosition(this, location -> {
+            if (overlay != null && (allowed(COARSE) || allowed(FINE))) {
+                overlay.locate(LatLng.from(location.getLatitude(), location.getLongitude()));
+                locationStatus(R.string.map_location_found);
+            }
+        }, this::locationStatus);
+        findViewById(R.id.map_locate).setOnClickListener(v -> {
+            if (allowed(COARSE) || allowed(FINE)) position.request();
+            else {
+                locateAfterGrant = true;
+                permissionButton.performClick();
+            }
+        });
         startMap();
     }
 
@@ -85,14 +107,14 @@ public final class MapActivity extends Activity {
                 }
             }, new KakaoMapReadyCallback() {
                 @Override public LatLng getPosition() {
-                    // 기획서 예시 지역(수원 매탄동). 기기 위치는 다음 주차에 표시한다.
+                    // 기기 위치를 요청하기 전에는 예시 지역(수원 매탄동)에서 시작한다.
                     return LatLng.from(37.26602, 127.04102);
                 }
                 @Override public void onMapReady(KakaoMap map) {
                     runOnUiThread(() -> {
                         if (mapView != null) {
                             mapView.setFinishManually(true);
-                            mapMessage.setVisibility(View.GONE);
+                            showExample(map);
                         }
                     });
                 }
@@ -102,14 +124,59 @@ public final class MapActivity extends Activity {
         }
     }
 
+    private void showExample(KakaoMap map) {
+        try {
+            MapExample example = MapExample.load(getAssets());
+            overlay = new MapOverlay(map, getResources().getDisplayMetrics().density, example);
+            RadioGroup routes = findViewById(R.id.map_routes);
+            for (MapExample.Line route : example.routes.values()) {
+                RadioButton button = new RadioButton(this);
+                button.setId(View.generateViewId());
+                button.setText(route.name());
+                routes.addView(button);
+                if (selectedNumber == null || route.name().equals(selectedNumber)) {
+                    selectedNumber = route.name();
+                    button.setChecked(true);
+                    overlay.select(route, false);
+                }
+                button.setOnClickListener(v -> {
+                    selectedNumber = route.name();
+                    overlay.select(route, true);
+                });
+            }
+            View nearby = findViewById(R.id.map_nearby);
+            nearby.setOnClickListener(v -> overlay.showStops());
+            nearby.setVisibility(View.VISIBLE);
+            findViewById(R.id.map_legend).setVisibility(View.VISIBLE);
+            mapMessage.setVisibility(View.GONE);
+            refreshPermission();
+        } catch (IOException | JSONException | IllegalArgumentException e) {
+            mapMessage.setText(R.string.map_example_error);
+        }
+    }
+
+    private void locationStatus(int resource) {
+        ((TextView) findViewById(R.id.map_permission_status)).setText(resource);
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString("selected_route", selectedNumber);
+    }
+
     private void showMapFailure() {
         if (isDestroyed() || isFinishing()) return;
         closeMap();
+        findViewById(R.id.map_locate).setVisibility(View.GONE);
+        findViewById(R.id.map_legend).setVisibility(View.GONE);
+        findViewById(R.id.map_nearby).setVisibility(View.GONE);
+        ((RadioGroup) findViewById(R.id.map_routes)).removeAllViews();
         mapMessage.setText(R.string.map_failed);
         mapMessage.setVisibility(View.VISIBLE);
     }
 
     private void closeMap() {
+        overlay = null;
         if (mapView != null) {
             MapView old = mapView;
             mapView = null;
@@ -126,7 +193,7 @@ public final class MapActivity extends Activity {
         boolean precise = allowed(FINE);
         boolean approximate = allowed(COARSE);
         boolean denied = getPreferences(MODE_PRIVATE).getBoolean(DENIED, false);
-        boolean needsSettings = denied && !shouldShowRequestPermissionRationale(COARSE)
+        boolean needsSettings = !precise && !approximate && denied && !shouldShowRequestPermissionRationale(COARSE)
                 && !shouldShowRequestPermissionRationale(FINE);
         int message = R.string.map_permission_initial;
         if (precise || approximate) {
@@ -136,7 +203,9 @@ public final class MapActivity extends Activity {
             message = needsSettings ? R.string.map_permission_settings : R.string.map_permission_denied;
         }
 
-        ((TextView) findViewById(R.id.map_permission_status)).setText(message);
+        locationStatus(message);
+        if (overlay != null && !precise && !approximate) overlay.clearDevice();
+        findViewById(R.id.map_locate).setVisibility(overlay != null && !needsSettings ? View.VISIBLE : View.GONE);
         boolean openSettings = precise || approximate || needsSettings;
         permissionButton.setText(openSettings ? R.string.map_settings : R.string.map_location_button);
         permissionButton.setOnClickListener(v -> {
@@ -155,6 +224,8 @@ public final class MapActivity extends Activity {
         if (requestCode == REQUEST_LOCATION && results.length > 0) {
             getPreferences(MODE_PRIVATE).edit().putBoolean(DENIED, !allowed(COARSE) && !allowed(FINE)).apply();
             refreshPermission();
+            if (locateAfterGrant && (allowed(COARSE) || allowed(FINE))) position.request();
+            locateAfterGrant = false;
         }
     }
 
@@ -165,6 +236,7 @@ public final class MapActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        position.stop();
         if (mapView != null) mapView.pause();
         super.onPause();
     }

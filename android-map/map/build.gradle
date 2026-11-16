@@ -11,3 +11,27 @@ android {
 }
 
 dependencies { implementation 'com.kakao.maps.open:android:2.15.2' }
+
+// 지도 예시만 라이브러리 assets에 포함해 저장소의 원본 GeoJSON을 그대로 사용한다.
+abstract class PrepareMapExample extends DefaultTask {
+    @InputFile
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract RegularFileProperty getExample()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @TaskAction
+    void copyExample() {
+        java.nio.file.Files.copy(example.get().asFile.toPath(),
+                outputDir.file('map.geojson').get().asFile.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    }
+}
+
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    def mapAssets = tasks.register("prepare${variant.name.capitalize()}MapExample", PrepareMapExample) {
+        example.set(rootProject.layout.projectDirectory.file('../docs/examples/map.geojson'))
+    }
+    variant.sources.assets.addGeneratedSourceDirectory(mapAssets) { it.outputDir }
+}
