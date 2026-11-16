@@ -5,20 +5,38 @@
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
         android:padding="16dp" android:text="@string/map_title" android:textStyle="bold"
         android:textSize="20sp" android:textColor="#202124" />
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:scrollbars="none" android:fillViewport="true">
+        <RadioGroup android:id="@+id/map_routes" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:orientation="horizontal"
+            android:paddingLeft="8dp" android:paddingRight="8dp" />
+    </HorizontalScrollView>
     <FrameLayout android:id="@+id/map_container" android:layout_width="match_parent"
         android:layout_height="0dp" android:layout_weight="1" android:background="#F5F5F4">
         <TextView android:id="@+id/map_message" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_gravity="center"
             android:gravity="center" android:padding="24dp" android:text="@string/map_loading"
             android:textColor="#50545A" android:textSize="16sp" android:accessibilityLiveRegion="polite" />
+        <Button android:id="@+id/map_nearby" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_gravity="bottom|start"
+            android:layout_margin="8dp" android:visibility="gone" android:text="@string/map_nearby" />
     </FrameLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:padding="16dp">
+        <TextView android:id="@+id/map_legend" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/map_legend"
+            android:visibility="gone" android:textStyle="bold" android:paddingBottom="6dp" />
         <TextView android:id="@+id/map_permission_status" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:textColor="#292C30"
             android:textSize="16sp" android:accessibilityLiveRegion="polite" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center">
+        <Button android:id="@+id/map_locate" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:visibility="gone" android:text="@string/map_locate" />
         <Button android:id="@+id/map_permission_action" android:layout_width="wrap_content"
             android:layout_height="wrap_content" android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp" android:text="@string/map_location_button" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>
