@@ -5,13 +5,15 @@
 D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 라이브러리 모듈**로 만들었습니다.
 팀 앱 뼈대(app 모듈)가 생기면 이 모듈을 붙이기만 하면 됩니다. 저장소의 다른 파일은 고치지 않았습니다.
 
-**지금 상태: 10주차 (화면 구조 · Retrofit 준비).** 목록 칸은 노선 · 정류장 이름만 보이는 임시 항목입니다.
+**지금 상태: 11주차 (추천 목록 · 확률 배지).** 추천 카드와 '우리집 → 국민대' 카드를 Figma `02 홈` 값(글자 크기 · 간격 · 색)으로 만들었습니다.
+다음: 12주차 도착 시각 · 새로고침 완성 → 13주차 서버 연결.
 
 | 만든 것 | 위치 |
 |---|---|
-| 홈 화면 구조: 헤더 · 우리집 → 국민대(평소 정류장 · `day.label`) · 추천 요약(`recommendation.message`) · 추천 목록 · 출발 알림 버튼 | `ui/HomeFragment`, `res/layout/home_fragment_home.xml` |
-| 로딩 · 오류(다시 시도) · 빈 목록 · 로그인 필요 상태 화면 | `ui/HomeFragment` |
-| 추천 목록 (ranking 순서 그대로, 임시 항목: 노선 칩 + 정류장 이름) | `ui/OptionAdapter`, `res/layout/home_item_option.xml` |
+| 홈 화면 구조: 헤더 · 우리집 → 국민대 · 추천 요약(`recommendation.message`) · 추천 목록 · 출발 알림 버튼 | `ui/HomeFragment`, `res/layout/home_fragment_home.xml` |
+| 우리집 → 국민대 카드: 평소 정류장, 칩 3개(날짜 · `day.kind` · 지금 HH:MM — `generated_at` 기준), `>` 누르면 `HomeHost.onTripClicked` | `ui/HomeFragment`, `ui/TripFormat` |
+| 로딩 · 오류(다시 시도) · 빈 목록 · 로그인 필요 상태 화면 (11주차에 에뮬레이터에서 4종 모두 확인) | `ui/HomeFragment` |
+| 추천 카드 (ranking 순서 그대로, 아래 표) | `ui/OptionAdapter`, `ui/OptionFormat`, `res/layout/home_item_option.xml` |
 | 단독 화면 (시연 앱 · 하단 탭이 없을 때) | `ui/HomeActivity` |
 | `GET /api/v1/recommendations` 응답 모델 (Gson) | `model/*` |
 | 데이터 소스: 예시 JSON(지금) / 서버(13주차) | `data/RecommendationSource`, `AssetRecommendationSource`, `ApiRecommendationSource` |
@@ -19,8 +21,22 @@ D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 �
 | 단독 실행용 시연 앱 | `demo/` (팀 앱에 합칠 때는 필요 없음) |
 
 화면 구조는 Figma '좌석예보 앱 UI'의 `02 홈` 프레임을 따랐습니다 (빨강 `#C8102E`, 회색 바탕 `#F2F3F5`, 흰 카드).
-색 값은 `res/values/home_colors.xml` 한 곳에만 있습니다 (탑승 확률 배지 색 초록 `#1E9E5A` · 노랑 `#C98A00` · 빨강 `#C8102E` 포함, 11주차부터 사용).
-하단 탭(홈 · 지도 · 알림 · 마이)과 헤더의 새로고침 · 알림 아이콘은 넣지 않았습니다 (하단 탭은 팀 공통 앱 뼈대, 새로고침은 12주차).
+색 값은 `res/values/home_colors.xml` 한 곳에만 있습니다. 아이콘(핀 · 시계 · `>`)은 Figma 아이콘을 벡터로 옮겼습니다.
+하단 탭(홈 · 지도 · 알림 · 마이)과 헤더의 새로고침 · 알림 아이콘, 노란 '만석 위험' 배너는 넣지 않았습니다 (하단 탭은 팀 공통 앱 뼈대, 새로고침은 12주차).
+
+### 추천 카드 (Figma Rec/3007 · Rec/3008)
+
+| 줄 | 내용 | 규칙 |
+|---|---|---|
+| 1 | 노선 칩 · `도착 HH:MM`(`arrive_at`, 없으면 `도착 —`) · `1순위` 태그 · 탑승 확률 배지 | 1순위 = ranking 첫 항목(빨간 테두리). 배지 = `board_prob` 반올림 % |
+| 2 | 📍 정류장 이름 · 도보 N분 | 정류장 이름은 API 그대로 |
+| 3 | 🕒 탈 수 있는 첫 차: `N분 뒤 도착 · 도착 때 약 N석` (0석이면 `만석 예상`, `null`이면 `좌석 정보 없음`, 0분이면 `곧 도착`) | `board_prob` 이 "걸어가서 탈 수 있는 첫 차" 기준이라 `reachable: false` 차는 건너뜀 → `앞차는 놓치고 다음 차 N분 뒤`. 글자색 = 그 차의 확률 단계 |
+| 3 | 탈 수 있는 차가 없음 → `걸어가는 동안 다가오는 차가 모두 지나가요` (빨강) · `buses: []` → `다가오는 차 정보 없음 · 배차간격으로 예상` (회색) | 예시 11개 중 6개가 `buses: []` |
+| 4 | `delay_min > 0` → `돌발 · 행사로 +N분 지연 반영` (노랑) | |
+| 4 | `skipped` → `우회 중 · 이 정류장은 지나가서 탈 수 없어요` (빨강), 카드 흐리게 · 배지 · 1순위 · 3줄 숨김 | 건너뜀이 지연보다 우선 |
+
+탑승 확률 배지 (Figma ProbBadge): **70% 이상 초록** `#1E9E5A`/`#E6F4EC` · **40~70% 노랑** `#B45309`/`#FEF3C7` · **40% 미만 빨강** `#C8102E`/`#FBE9EC` (글자/바탕).
+노랑 글자는 10주차의 `#C98A00` 에서 Figma 값 `#B45309` 로 바꿨습니다 (연노랑 바탕 위에서 읽기 쉬움).
 
 ## 데이터 형식 (docs/api.md ② 그대로)
 
@@ -66,6 +82,9 @@ public class TeamHomeHost implements HomeHost {
     }
 
     public void onDepartureAlarmClicked(Context c, Option first) { /* E 출발 알림 */ }
+
+    // 11주차 추가 (기본 메서드라 구현하지 않아도 됨): '우리집 → 국민대' 카드 > → D 마이페이지 설정
+    public void onTripClicked(Context c) { c.startActivity(new Intent(c, MyPageActivity.class)); }
 }
 ```
 
@@ -109,6 +128,25 @@ cd android-home
 |---|---|
 | `RecommendationsParseTest` (8) | `recommendations.json` 읽기 (ranking 11개 · 순서 · 첫 항목 값), 정류장 이름 그대로, 빈 `buses[]` · 갈 수 없는 첫 차, null 필드(`arrive_at` · `total_min` · `seats_at_stop` · `recommendation`), 깨진 JSON, 시연 앱 assets 가 원본과 같은지 |
 | `ApiRecommendationSourceTest` (6) | 요청 주소 `/api/v1/recommendations` · 쿼리 `home_stop` · `route` · `Bearer` 헤더, 토큰 없을 때 헤더 없음, 주소 끝 `/` 처리, 오류 응답 `{"error":…}` · 본문 없는 500 · 서버 꺼짐 |
+| `ui.OptionFormatTest` (10) | 배지 경계(0.7 · 0.4) · % 반올림 · 0~100 자르기, 탈 수 있는 첫 차 고르기(`reachable: false` 건너뜀 · 모두 지나감 · 빈 `buses`), docs 예시 11개 · 시연 경우 모음 6개, 1순위 · 건너뜀 |
+| `ui.TripFormatTest` (4) | `generated_at` → `10/7(수)` · `07:40`, 형식이 다르면 칩 숨김, `day.kind` 우선 |
+
+### 시연 앱으로 상태 화면 확인
+
+`demo_mode` 를 넘겨 실행하면 상태 화면 · 카드 경우를 바로 볼 수 있습니다 (시연 앱에만 있는 기능).
+
+```bash
+adb shell am force-stop kr.ac.kookmin.seatforecast.homedemo
+adb shell am start -n kr.ac.kookmin.seatforecast.homedemo/kr.ac.kookmin.seatforecast.home.ui.HomeActivity --es demo_mode cases
+```
+
+| `demo_mode` | 화면 |
+|---|---|
+| (없음) | 보통 — `recommendations.json` (docs 예시) |
+| `cases` | 카드 경우 모음 `home_cases.json` — 지연 · 놓친 첫 차 · 정보 없음 · 곧 도착 · 좌석 모름 · 모두 지나감 · 건너뜀 |
+| `empty` · `error` · `signed_out` · `loading` | 빈 목록 · 오류(다시 시도) · 로그인 필요 · 로딩 |
+
+`loading` 은 10분 동안 응답하지 않으므로, 다른 모드로 바꿀 때는 위처럼 `force-stop` 을 먼저 하세요.
 
 **Windows 사용자 이름이 한글인 경우** (`C:\Users\홍길동`): 테스트 실행 중 `GradleWorkerMain` 을 찾지 못하는 오류가 나면
 Gradle 캐시를 영문 경로로 옮기세요 — 환경 변수 `GRADLE_USER_HOME=C:\gradle-home` (Android Studio: Settings → Build Tools → Gradle → Gradle user home).
