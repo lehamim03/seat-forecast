@@ -9,7 +9,7 @@ import kr.ac.kookmin.seatforecast.home.UsualTrip;
 import kr.ac.kookmin.seatforecast.home.model.Option;
 
 /**
- * 가짜 값으로 채운 HomeHost — 항상 로그인 상태, 평소 정류장 203000063(삼성1차아파트) · 노선 8800.
+ * 가짜 값으로 채운 HomeHost — 로그인 상태(demo_mode=signed_out 이면 로그아웃), 평소 정류장 203000063(삼성1차아파트) · 노선 8800.
  * 팀 앱에서는 D 의 Account · UserRepository 로 채웁니다 (android-home/README.md).
  */
 class DemoHomeHost implements HomeHost {
@@ -17,9 +17,11 @@ class DemoHomeHost implements HomeHost {
     static final String HOME_STOP_ID = "203000063";
     static final String ROUTE = "8800";
 
+    boolean signedIn = true;
+
     @Override
     public boolean isSignedIn() {
-        return true;
+        return signedIn;
     }
 
     @Override
@@ -47,5 +49,10 @@ class DemoHomeHost implements HomeHost {
     public void onDepartureAlarmClicked(Context context, Option first) {
         Toast.makeText(context, "출발 알림: " + first.route + " · " + first.stop.name + " (E 담당)",
                 Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onTripClicked(Context context) {
+        Toast.makeText(context, "평소 정류장 · 노선 설정 (D 마이페이지)", Toast.LENGTH_SHORT).show();
     }
 }
