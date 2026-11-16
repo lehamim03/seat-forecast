@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 탑승 확률 배지 바탕 (Figma ProbBadge) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/home_badge_low_bg" />
+    <corners android:radius="999dp" />
+</shape>

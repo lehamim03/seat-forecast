@@ -28,4 +28,12 @@ public interface HomeHost {
 
     /** 출발 알림 버튼 — 1순위 선택지 기준 (E 출발 알림) */
     void onDepartureAlarmClicked(Context context, Option first);
+
+    /**
+     * '우리집 → 국민대' 카드(오른쪽 &gt;)를 눌렀을 때 — 평소 정류장 · 노선 설정 (D 마이페이지).
+     * 11주차에 추가해 기본은 아무것도 하지 않음 (구현하지 않아도 기존 코드가 그대로 컴파일됨).
+     * 설정이 바뀌면 {@code HomeFragment.reload()} 로 다시 불러오세요.
+     */
+    default void onTripClicked(Context context) {
+    }
 }
