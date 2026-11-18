@@ -4,7 +4,12 @@
     <string name="home_trip_title">우리집 → 국민대</string>
     <string name="home_usual_stop">평소 정류장 · %1$s</string>
     <string name="home_section_title">추천 정류장 · 버스</string>
-    <string name="home_section_order">도착 빠른 순</string>
+    <!-- 정렬 메뉴 (OptionSort) -->
+    <string name="home_sort_arrival">도착 빠른 순</string>
+    <string name="home_sort_transfers">환승 적은 순</string>
+    <string name="home_sort_nearest">가까운 정류장 순</string>
+    <string name="home_sort_prob">탑승 확률 높은 순</string>
+    <string name="home_sort_desc">정렬 기준 바꾸기, 지금 %1$s</string>
     <string name="home_departure_alarm">출발 알림 받기</string>
 
     <string name="home_loading">추천을 계산하는 중…</string>

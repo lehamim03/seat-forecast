@@ -11,6 +11,7 @@ import android.widget.TextView;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -21,7 +22,7 @@ import kr.ac.kookmin.seatforecast.home.R;
 import kr.ac.kookmin.seatforecast.home.model.Bus;
 import kr.ac.kookmin.seatforecast.home.model.Option;
 
-/** 추천 목록 (ranking 순서 그대로) — Figma '02 홈' 추천 카드. 보여 줄 내용의 규칙은 {@link OptionFormat}. */
+/** 추천 목록 (정렬은 {@link OptionSort}) — Figma '02 홈' 추천 카드. 보여 줄 내용의 규칙은 {@link OptionFormat}. */
 class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
 
     interface OnOptionClick {
@@ -33,12 +34,16 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
 
     private final List<Option> items = new ArrayList<>();
     private final OnOptionClick onClick;
+    /** 서버 ranking 1순위 ('1순위' 태그) */
+    @Nullable
+    private Option recommended;
 
     OptionAdapter(OnOptionClick onClick) {
         this.onClick = onClick;
     }
 
-    void submit(List<Option> options) {
+    void submit(List<Option> options, @Nullable Option recommended) {
+        this.recommended = recommended;
         items.clear();
         items.addAll(options);
         notifyDataSetChanged();
@@ -55,7 +60,7 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
     public void onBindViewHolder(@NonNull Holder h, int position) {
         Option o = items.get(position);
         Context c = h.itemView.getContext();
-        boolean first = OptionFormat.isFirst(o, position);
+        boolean first = OptionFormat.isFirst(o, recommended);
 
         h.itemView.setBackgroundResource(first ? R.drawable.home_bg_option_first : R.drawable.home_bg_option);
         h.itemView.setAlpha(o.skipped ? SKIPPED_ALPHA : 1f);

@@ -150,10 +150,12 @@ public class OptionFormatTest {
     @Test
     public void firstTagOnlyForFirstBoardableOption() {
         Option o = new Option();
-        assertTrue(OptionFormat.isFirst(o, 0));
-        assertFalse(OptionFormat.isFirst(o, 1));
+        Option other = new Option();
+        assertTrue(OptionFormat.isFirst(o, o));
+        assertFalse(OptionFormat.isFirst(other, o));
+        assertFalse(OptionFormat.isFirst(o, null));
         o.skipped = true;
-        assertFalse(OptionFormat.isFirst(o, 0));
+        assertFalse(OptionFormat.isFirst(o, o));
         assertFalse(OptionFormat.showBadge(o));
     }
 

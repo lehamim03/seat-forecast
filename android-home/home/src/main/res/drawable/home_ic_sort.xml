@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 정렬 메뉴 열기 (아래 화살표, 16 × 16, 회색) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <path
+        android:pathData="M4,6L8,10L12,6"
+        android:strokeWidth="1.5"
+        android:strokeColor="@color/home_muted"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
