@@ -178,9 +178,25 @@ final class AltFormat {
         return rows;
     }
 
+    /**
+     * 12주차 상태 구분: {@code 0} = 만석, {@code null} 또는 음수 = 좌석 정보 없음.
+     * 경기도 버스 API 는 좌석을 모를 때 {@code -1} 을 주므로 만석(0)과 구분합니다.
+     */
     static Seats seats(Bus b) {
-        if (b.seatsAtStop == null) return Seats.UNKNOWN;
-        return b.seatsAtStop <= 0 ? Seats.FULL : Seats.SOME;
+        if (b.seatsAtStop == null || b.seatsAtStop < 0) return Seats.UNKNOWN;
+        return b.seatsAtStop == 0 ? Seats.FULL : Seats.SOME;
+    }
+
+    /**
+     * 다음 자동 갱신까지 남은 시간(밀리초). 마지막 갱신에서 interval 이 지났으면 0 (바로),
+     * interval 이 0 이하면 -1 (자동 갱신 끔).
+     */
+    static long nextRefreshDelay(long lastUpdatedAt, long now, long interval) {
+        if (interval <= 0) return -1;
+        if (lastUpdatedAt <= 0) return 0;
+        long elapsed = now - lastUpdatedAt;
+        if (elapsed < 0) return interval;   // 시계가 뒤로 감 → 한 번 기다림
+        return Math.max(0, interval - elapsed);
     }
 
     /**

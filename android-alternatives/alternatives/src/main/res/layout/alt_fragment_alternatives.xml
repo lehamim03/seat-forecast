@@ -36,6 +36,37 @@
                 android:textSize="13sp"
                 tools:text="삼성1차아파트 · 8800 · 07:40 기준" />
 
+            <!-- 12주차 1분 자동 갱신: 마지막 갱신 시각 · 지금 새로고침 (갱신 실패면 빨간 글씨로 이전 정보임을 표시) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/alt_updated"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/alt_muted"
+                    android:textSize="12sp"
+                    tools:text="07:41:05 갱신 · 1분마다 자동 갱신" />
+
+                <TextView
+                    android:id="@+id/alt_refresh"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:minHeight="36dp"
+                    android:gravity="center"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp"
+                    android:text="@string/alt_refresh"
+                    android:textColor="@color/alt_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
             <!-- 평소 버스 상태 (테두리 · 알약 색이 상태마다 바뀜) -->
             <LinearLayout
                 android:id="@+id/alt_banner"

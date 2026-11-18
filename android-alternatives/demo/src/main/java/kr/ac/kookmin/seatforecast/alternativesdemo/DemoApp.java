@@ -2,10 +2,15 @@ package kr.ac.kookmin.seatforecast.alternativesdemo;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 import kr.ac.kookmin.seatforecast.alternatives.Alternatives;
 import kr.ac.kookmin.seatforecast.alternatives.data.AlternativesSource;
@@ -23,12 +28,14 @@ import kr.ac.kookmin.seatforecast.alternatives.model.Option;
  * <pre>
  * adb shell am start -n kr.ac.kookmin.seatforecast.alternativesdemo/kr.ac.kookmin.seatforecast.alternatives.ui.AlternativesActivity --es demo_mode relaxed
  * </pre>
- * relaxed(여유) · risk(만석 위험) · cases(경우 모음 alt_cases.json) · empty(대안 없음) · error(오류) · signed_out(로그인 필요) · loading(조회 중).
- * 없으면 보통 화면 = docs 예시 (평소 8800 만석).
+ * relaxed(여유) · risk(만석 위험) · cases(경우 모음 alt_cases.json) · empty(대안 없음) · error(오류) · signed_out(로그인 필요) · loading(조회 중)
+ * · live(갱신마다 값이 바뀜) · flaky(첫 갱신 뒤 실패). 없으면 보통 화면 = docs 예시 (평소 8800 만석).
+ * 자동 갱신 간격은 {@code --ei demo_refresh_sec 10} 으로 줄일 수 있습니다 (기본 1분).
  */
 public class DemoApp extends Application {
 
     static final String EXTRA_MODE = "demo_mode";
+    static final String EXTRA_REFRESH_SEC = "demo_refresh_sec";
 
     private final DemoAltHost host = new DemoAltHost();
 
@@ -40,7 +47,7 @@ public class DemoApp extends Application {
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityCreated(@NonNull Activity a, @Nullable Bundle saved) {
-                apply(a.getIntent() == null ? null : a.getIntent().getStringExtra(EXTRA_MODE));
+                apply(a.getIntent());
             }
 
             @Override public void onActivityStarted(@NonNull Activity a) { }
@@ -52,10 +59,14 @@ public class DemoApp extends Application {
         });
     }
 
-    private void apply(@Nullable String mode) {
+    private void apply(@Nullable Intent intent) {
+        String mode = intent == null ? null : intent.getStringExtra(EXTRA_MODE);
         String m = mode == null ? "" : mode;
         host.signedIn = !m.equals("signed_out");
         Alternatives.init(host, source(m));
+        // 자동 갱신 간격 — 기본 1분, 시연 때 --ei demo_refresh_sec 10 처럼 줄여서 확인
+        int sec = intent == null ? 0 : intent.getIntExtra(EXTRA_REFRESH_SEC, 0);
+        Alternatives.setRefreshIntervalMs(sec > 0 ? sec * 1000L : Alternatives.DEFAULT_REFRESH_MS);
     }
 
     private AlternativesSource source(String mode) {
@@ -78,6 +89,44 @@ public class DemoApp extends Application {
                 return (stop, route, token) -> usualBus(example.load(stop, route, token), 3, 0.55, null);
             case "cases":
                 return new AssetAlternativesSource(this, "alt_cases.json");
+            case "live":
+                // 시연용 가상 값: 불러올 때마다 다가오는 차가 1분씩 가까워지고 좌석이 줄어듦 (자동 갱신 확인)
+                return new AlternativesSource() {
+                    private int n;
+
+                    @NonNull
+                    @Override
+                    public AlternativesResult load(@NonNull String stop, @NonNull String route, @Nullable String token)
+                            throws SourceException {
+                        AlternativesResult r = example.load(stop, route, token);
+                        int step = n++;
+                        r.generatedAt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.KOREA).format(new Date());
+                        for (Option o : r.options()) {
+                            for (Bus b : o.buses) b.etaMin = Math.max(0, b.etaMin - step);
+                        }
+                        Option other = r.alternatives == null ? null : r.alternatives.otherBus;
+                        if (other != null && !other.buses.isEmpty() && other.buses.get(0).seatsAtStop != null) {
+                            other.buses.get(0).seatsAtStop = Math.max(0, other.buses.get(0).seatsAtStop - 3 * step);
+                        }
+                        return r;
+                    }
+                };
+            case "flaky":
+                // 처음 한 번만 성공, 이후 갱신은 실패 → 이전 정보 유지 + '갱신하지 못했어요'
+                return new AlternativesSource() {
+                    private boolean first = true;
+
+                    @NonNull
+                    @Override
+                    public AlternativesResult load(@NonNull String stop, @NonNull String route, @Nullable String token)
+                            throws SourceException {
+                        if (first) {
+                            first = false;
+                            return example.load(stop, route, token);
+                        }
+                        throw new SourceException("서버에 연결할 수 없습니다. (시연: 갱신 실패)", null);
+                    }
+                };
             case "empty":
                 return (stop, route, token) -> {
                     AlternativesResult r = example.load(stop, route, token);

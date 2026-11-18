@@ -1,5 +1,5 @@
 {
-  "_comment": "시연용 가상 값 (docs/examples 아님) — 첫 차 보내고 다음 차 · 놓치는 첫 차 · 좌석 모름 · 돌발 지연 · 우회로 건너뜀 · 지하철 비교",
+  "_comment": "시연용 가상 값 (docs/examples 아님) — 첫 차 보내고 다음 차 · 놓치는 첫 차 · 만석(0)과 좌석 정보 없음(-1 · null) 구분 · 돌발 지연 · 우회로 건너뜀 · 지하철 비교",
   "generated_at": "2026-10-07T07:40:00+09:00",
   "my_route": "8800",
   "home_stop": {
@@ -48,6 +48,13 @@
           "seats_at_stop": 18,
           "board_prob": 0.9,
           "reachable": true
+        },
+        {
+          "order": 3,
+          "eta_min": 22,
+          "seats_at_stop": null,
+          "board_prob": 0.95,
+          "reachable": true
         }
       ],
       "route_choices": [
@@ -90,7 +97,7 @@
         {
           "order": 2,
           "eta_min": 10,
-          "seats_at_stop": null,
+          "seats_at_stop": -1,
           "board_prob": 0.5,
           "reachable": true
         }
