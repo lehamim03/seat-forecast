@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 흰 카드 (요약 · 지하철) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/alt_surface" />
+    <corners android:radius="14dp" />
+</shape>

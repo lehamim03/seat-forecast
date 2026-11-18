@@ -1,0 +1,138 @@
+{
+  "_comment": "시연용 가상 값 (docs/examples 아님) — 첫 차 보내고 다음 차 · 놓치는 첫 차 · 좌석 모름 · 돌발 지연 · 우회로 건너뜀 · 지하철 비교",
+  "generated_at": "2026-10-07T07:40:00+09:00",
+  "my_route": "8800",
+  "home_stop": {
+    "id": "203000063",
+    "name": "삼성1차아파트"
+  },
+  "day": {
+    "label": "평일 출퇴근 시간대",
+    "kind": "평일 출퇴근",
+    "drop_factor": 1.0,
+    "headway_factor": 1.0
+  },
+  "recommendation": {
+    "kind": "기다리기",
+    "route": "8800",
+    "stop_name": "삼성1차아파트",
+    "message": "기다리기 (8800번 · 삼성1차아파트) — 첫 차는 만석이라 보내고, 12분 뒤 다음 차를 타는 것이 가장 빠릅니다"
+  },
+  "alternatives": {
+    "기다리기": {
+      "kind": "기다리기",
+      "route": "8800",
+      "stop": {
+        "id": "203000063",
+        "name": "삼성1차아파트",
+        "mobile_no": "04007"
+      },
+      "walk_min": 0,
+      "board_prob": 0.05,
+      "arrive_at": "09:50",
+      "total_min": 130,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "서울시청",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 0,
+          "seats_at_stop": 0,
+          "board_prob": 0.05,
+          "reachable": true
+        },
+        {
+          "order": 2,
+          "eta_min": 12,
+          "seats_at_stop": 18,
+          "board_prob": 0.9,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "09:50",
+          "transfers": 1,
+          "walk_min": 10,
+          "tags": [
+            "추천",
+            "최소환승"
+          ],
+          "alight_stop": "서울시청",
+          "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞) → 도보 4분"
+        }
+      ]
+    },
+    "걸어가기": {
+      "kind": "걸어가기",
+      "route": "8800",
+      "stop": {
+        "id": "203000162",
+        "name": "매탄위브하늘채.경기아트센터",
+        "mobile_no": "04235"
+      },
+      "walk_min": 7,
+      "board_prob": 0.5,
+      "arrive_at": "10:03",
+      "total_min": 143,
+      "delay_min": 12,
+      "skipped": false,
+      "alight_stop": "서울시청",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 4,
+          "seats_at_stop": 0,
+          "board_prob": 0.06,
+          "reachable": false
+        },
+        {
+          "order": 2,
+          "eta_min": 10,
+          "seats_at_stop": null,
+          "board_prob": 0.5,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "10:03",
+          "transfers": 1,
+          "walk_min": 10,
+          "tags": [
+            "추천",
+            "최소환승"
+          ],
+          "alight_stop": "서울시청",
+          "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞) → 도보 4분"
+        }
+      ]
+    },
+    "다른 버스": {
+      "kind": "다른 버스",
+      "route": "3007",
+      "stop": {
+        "id": "203000161",
+        "name": "자유총연맹",
+        "mobile_no": "04236"
+      },
+      "walk_min": 3,
+      "board_prob": 1.0,
+      "arrive_at": null,
+      "total_min": null,
+      "delay_min": 0,
+      "skipped": true,
+      "alight_stop": "양재역.서초문화예술회관(중)",
+      "buses": [],
+      "route_choices": []
+    }
+  },
+  "subway": {
+    "arrive_at": "10:12",
+    "total_min": 152,
+    "transfers": 2,
+    "walk_min": 12,
+    "summary": "도보 9분 → 1호선(수원→서울역) → 4호선(서울역→성신여대입구) → 우이신설경전철(성신여대입구→북한산보국문) → 도보 3분"
+  }
+}

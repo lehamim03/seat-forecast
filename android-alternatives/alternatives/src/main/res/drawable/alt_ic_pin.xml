@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Figma Icon/pin (14 × 14) — A 홈 home_ic_pin 과 같은 모양 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="14dp"
+    android:height="14dp"
+    android:viewportWidth="14"
+    android:viewportHeight="14">
+    <path
+        android:pathData="M11.6667,5.83333C11.6667,8.74592 8.43558,11.7793 7.35058,12.7161C7.24951,12.7921 7.12647,12.8332 7,12.8332C6.87354,12.8332 6.75049,12.7921 6.64942,12.7161C5.56442,11.7793 2.33333,8.74592 2.33333,5.83333C2.33333,4.59566 2.825,3.40867 3.70017,2.5335C4.57534,1.65833 5.76232,1.16667 7,1.16667C8.23768,1.16667 9.42466,1.65833 10.2998,2.5335C11.175,3.40867 11.6667,4.59566 11.6667,5.83333Z"
+        android:strokeWidth="1.16667"
+        android:strokeColor="@color/alt_icon_muted"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M8.75,5.83333C8.75,6.79983 7.9665,7.58333 7,7.58333C6.0335,7.58333 5.25,6.79983 5.25,5.83333C5.25,4.86684 6.0335,4.08333 7,4.08333C7.9665,4.08333 8.75,4.86684 8.75,5.83333Z"
+        android:strokeWidth="1.16667"
+        android:strokeColor="@color/alt_icon_muted"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

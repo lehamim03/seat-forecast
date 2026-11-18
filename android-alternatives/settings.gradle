@@ -1,0 +1,18 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "seat-forecast-alternatives"
+include ':alternatives'   // B 담당: 실시간 대안 (라이브러리 모듈)
+include ':demo'           // alternatives 모듈만 단독으로 실행해 보는 시연용 앱

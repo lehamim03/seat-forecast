@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 탑승 확률 · 상태 알약 바탕 (high) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/alt_high_bg" />
+    <corners android:radius="999dp" />
+</shape>
