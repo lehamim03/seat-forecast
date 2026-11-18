@@ -81,8 +81,8 @@ final class OptionFormat {
         return !o.skipped;
     }
 
-    /** ranking 첫 항목이고 탈 수 있을 때만 '1순위' */
-    static boolean isFirst(Option o, int position) {
-        return position == 0 && !o.skipped;
+    /** 서버 ranking 첫 항목이고 탈 수 있을 때만 '1순위' — 정렬 메뉴를 바꿔도 같은 카드에 붙음 */
+    static boolean isFirst(Option o, @Nullable Option recommended) {
+        return o == recommended && !o.skipped;
     }
 }

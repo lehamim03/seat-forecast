@@ -1,21 +1,27 @@
 package kr.ac.kookmin.seatforecast.home.ui;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.Menu;
 import android.view.ViewGroup;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,6 +43,9 @@ import kr.ac.kookmin.seatforecast.home.model.Recommendations;
 public class HomeFragment extends Fragment {
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
+    /** 고른 정렬 기준은 앱을 다시 켜도 유지 */
+    private static final String PREFS = "home_prefs";
+    private static final String KEY_SORT = "sort";
 
     private final Handler main = new Handler(Looper.getMainLooper());
     /** 새 요청이 시작되면 이전 요청 결과는 버림 */
@@ -54,8 +63,13 @@ public class HomeFragment extends Fragment {
     private TextView stateMessage;
     private MaterialButton stateAction;
     private MaterialButton departureAlarm;
+    private TextView sortButton;
     private OptionAdapter adapter;
+    private OptionSort sort = OptionSort.ARRIVAL;
 
+    /** 서버 ranking 그대로 (정렬을 바꿀 때 다시 씀) */
+    private List<Option> ranking = new ArrayList<>();
+    /** 서버 ranking 1순위 — '1순위' 태그 · 출발 알림 기준 (정렬과 무관) */
     @Nullable
     private Option first;
 
@@ -79,6 +93,7 @@ public class HomeFragment extends Fragment {
         stateMessage = v.findViewById(R.id.home_state_message);
         stateAction = v.findViewById(R.id.home_state_action);
         departureAlarm = v.findViewById(R.id.home_departure_alarm);
+        sortButton = v.findViewById(R.id.home_sort);
 
         adapter = new OptionAdapter(o -> Home.host().onOptionClicked(requireContext(), o));
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -87,7 +102,62 @@ public class HomeFragment extends Fragment {
         departureAlarm.setOnClickListener(b -> {
             if (first != null) Home.host().onDepartureAlarmClicked(requireContext(), first);
         });
+        sort = loadSort();
+        showSortLabel();
+        sortButton.setOnClickListener(this::openSortMenu);
         loaded = false;
+    }
+
+    /** 정렬 메뉴: 도착 빠른 순 · 환승 적은 순 · 가까운 정류장 순 · 탑승 확률 높은 순 */
+    private void openSortMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(requireContext(), anchor);
+        OptionSort[] all = OptionSort.values();
+        for (int i = 0; i < all.length; i++) {
+            menu.getMenu().add(Menu.NONE, i, i, label(all[i])).setCheckable(true).setChecked(all[i] == sort);
+        }
+        menu.getMenu().setGroupCheckable(Menu.NONE, true, true);
+        menu.setOnMenuItemClickListener(item -> {
+            sort = all[item.getItemId()];
+            saveSort();
+            showSortLabel();
+            adapter.submit(sort.apply(ranking), first);
+            list.scrollToPosition(0);
+            return true;
+        });
+        menu.show();
+    }
+
+    @StringRes
+    private static int label(OptionSort s) {
+        switch (s) {
+            case FEWEST_TRANSFERS: return R.string.home_sort_transfers;
+            case NEAREST_STOP: return R.string.home_sort_nearest;
+            case BOARD_PROB: return R.string.home_sort_prob;
+            case ARRIVAL:
+            default: return R.string.home_sort_arrival;
+        }
+    }
+
+    private void showSortLabel() {
+        String text = getString(label(sort));
+        sortButton.setText(text);
+        sortButton.setContentDescription(getString(R.string.home_sort_desc, text));
+    }
+
+    private SharedPreferences prefs() {
+        return requireContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private OptionSort loadSort() {
+        try {
+            return OptionSort.valueOf(prefs().getString(KEY_SORT, OptionSort.ARRIVAL.name()));
+        } catch (IllegalArgumentException e) {
+            return OptionSort.ARRIVAL;
+        }
+    }
+
+    private void saveSort() {
+        prefs().edit().putString(KEY_SORT, sort.name()).apply();
     }
 
     @Override
@@ -176,8 +246,9 @@ public class HomeFragment extends Fragment {
         setTextOrGone(summary, r.recommendation == null ? null : r.recommendation.message);
 
         List<Option> options = r.rankingOrEmpty();
-        adapter.submit(options);
+        ranking = new ArrayList<>(options);
         first = options.isEmpty() ? null : options.get(0);
+        adapter.submit(sort.apply(ranking), first);
         departureAlarm.setEnabled(first != null);
 
         if (options.isEmpty()) {

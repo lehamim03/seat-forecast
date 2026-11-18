@@ -64,7 +64,10 @@ def main():
             naive = stop["walk_min"] + headway / 2 + ride + transfer
             options.append((total, naive, p, wait, route, stop, dict(cfg, transfer=legs[route]["transfer"], dest=legs[route].get("from", "서울"))))
 
-    options.sort(key=lambda o: o[0])
+    # 도착 예상 순 — 같은 노선 · 비슷한 확률 · 거의 같은 시간이면 가까운 정류장 먼저 (ranking.py)
+    import ranking
+    options = ranking.rank(options, total=lambda o: o[0], route=lambda o: o[4],
+                           walk=lambda o: o[5]["walk_min"], prob=lambda o: o[2])
     dayname = "월화수목금토일"[weekday]
     print(f"\n[{dayname}요일 {leave:%H:%M} 집에서 출발 → 국민대 · {day['label']}]  기대 도착 시각이 빠른 순\n")
     print(f"{'순위':>2}  {'노선':>5}  {'정류장':<10} {'도보':>4} {'탑승확률':>6} {'기대대기':>6}  {'도착 예상':>6}  (지도 앱 기준)")

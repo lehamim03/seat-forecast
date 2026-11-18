@@ -191,11 +191,12 @@ def main():
             for n in dict.fromkeys(v["notes"]):   # 같은 문구 중복 제거
                 print(f"      - {n}")
         print()
-    best_all = min(options, key=lambda o: o["total"]) if options else None
+    order = ranked(options)
+    best_all = order[0] if order else None
     # 지하철은 만석이 없으니 탑승 확률 100% — 버스 선택지와 도착 시각만 비교 (ODsay 조회가 안 되면 생략)
     subway = transit.subway_route(now) if USE_TRANSIT is True else None
     for kind, icon in (("기다리기", "①"), ("걸어가기", "②"), ("다른 버스", "③")):
-        group = sorted((o for o in options if o["kind"] == kind), key=lambda o: o["total"])
+        group = [o for o in order if o["kind"] == kind]
         if not group:
             print(f"{icon} {kind}: 해당 없음\n")
             continue
@@ -260,6 +261,18 @@ def main():
     return api_result(now, my_route, day, ev, inc, options, best_all, tip if best_all else "", subway)
 
 
+def first_prob(o):
+    """처음 탈 수 있는 차의 탑승 확률 (앱 카드 배지와 같은 값)"""
+    return next((c["p"] for c in o["cands"] if c["ok"]), 0.5)
+
+
+def ranked(options):
+    """도착 예상 순 — 같은 노선 · 비슷한 확률 · 거의 같은 시간이면 가까운 정류장 먼저 (ranking.py)"""
+    import ranking
+    return ranking.rank(options, total=lambda o: o["total"], route=lambda o: o["route"],
+                        walk=lambda o: o["walk"], prob=first_prob)
+
+
 def _stop_id(stop):
     return next(k for k, v in STOPS.items() if v is stop)
 
@@ -272,7 +285,7 @@ def api_result(now, my_route, day, ev, inc, options, best_all, tip, subway=None)
             "kind": o["kind"], "route": o["route"],
             "stop": {"id": _stop_id(o["stop"]), "name": o["stop"]["name"], "mobile_no": o["stop"]["mobile_no"]},
             "walk_min": o["walk"],
-            "board_prob": round(next((c["p"] for c in o["cands"] if c["ok"]), 0.5), 2),
+            "board_prob": round(first_prob(o), 2),
             "arrive_at": None if o["skipped"] else eta.strftime("%H:%M"),
             "total_min": None if o["skipped"] else round(o["total"]),
             "delay_min": round(o["delay"]),
@@ -287,9 +300,9 @@ def api_result(now, my_route, day, ev, inc, options, best_all, tip, subway=None)
                                "alight_stop": ch["from"], "summary": ch["transfer"]}
                               for ch in o["choices"]] if not o["skipped"] else [],
         }
-    ranked = sorted((o for o in options if not o["skipped"]), key=lambda o: o["total"])
+    order = ranked(options)
     best_by_kind = {}
-    for o in sorted(options, key=lambda o: o["total"]):
+    for o in order:
         best_by_kind.setdefault(o["kind"], o)
     return {
         "generated_at": now.strftime("%Y-%m-%dT%H:%M:%S+09:00"),
@@ -299,7 +312,7 @@ def api_result(now, my_route, day, ev, inc, options, best_all, tip, subway=None)
         "recommendation": None if not best_all else {
             "kind": best_all["kind"], "route": best_all["route"], "stop_name": best_all["stop"]["name"],
             "message": f"{best_all['kind']} ({best_all['route']}번 · {best_all['stop']['name']}){tip}"},
-        "ranking": [option(o) for o in ranked],
+        "ranking": [option(o) for o in order if not o["skipped"]],
         "alternatives": {k: option(best_by_kind[k]) if k in best_by_kind else None
                          for k in ("기다리기", "걸어가기", "다른 버스")},
         "incidents": [{"route": r, "delay_min": round(v["delay"]), "skip_stops": sorted(v["skip_stops"]),
