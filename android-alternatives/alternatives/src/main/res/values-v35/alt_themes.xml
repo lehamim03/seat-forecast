@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 15(targetSdk 35)부터 화면이 상태바 · 액션바 밑까지 그려지므로, A · D 모듈과 같이 기존 방식대로 배치 -->
+    <style name="AltTheme" parent="Theme.Material3.Light">
+        <item name="colorPrimary">@color/alt_primary</item>
+        <item name="colorOnPrimary">@color/alt_on_primary</item>
+        <item name="colorSecondary">@color/alt_primary</item>
+        <item name="android:colorBackground">@color/alt_background</item>
+        <item name="android:windowBackground">@color/alt_background</item>
+        <item name="colorSurface">@color/alt_surface</item>
+        <item name="colorOnSurface">@color/alt_text</item>
+        <item name="android:statusBarColor">@color/alt_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="materialButtonStyle">@style/AltButton</item>
+        <item name="actionBarStyle">@style/AltActionBar</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+</resources>

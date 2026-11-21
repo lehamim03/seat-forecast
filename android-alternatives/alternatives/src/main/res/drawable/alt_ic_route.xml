@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 서울 하차 후 경로 (14 × 14): 두 점을 잇는 선 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="14dp"
+    android:height="14dp"
+    android:viewportWidth="14"
+    android:viewportHeight="14">
+    <path
+        android:pathData="M3.5,2.33333C4.14433,2.33333 4.66667,2.85567 4.66667,3.5C4.66667,4.14433 4.14433,4.66667 3.5,4.66667C2.85567,4.66667 2.33333,4.14433 2.33333,3.5C2.33333,2.85567 2.85567,2.33333 3.5,2.33333Z"
+        android:strokeWidth="1.16667"
+        android:strokeColor="@color/alt_icon_muted" />
+    <path
+        android:pathData="M10.5,9.33333C11.1443,9.33333 11.6667,9.85567 11.6667,10.5C11.6667,11.1443 11.1443,11.6667 10.5,11.6667C9.85567,11.6667 9.33333,11.1443 9.33333,10.5C9.33333,9.85567 9.85567,9.33333 10.5,9.33333Z"
+        android:strokeWidth="1.16667"
+        android:strokeColor="@color/alt_icon_muted" />
+    <path
+        android:pathData="M4.66667,3.5H8.75C9.71649,3.5 10.5,4.28351 10.5,5.25C10.5,6.21649 9.71649,7 8.75,7H5.25C4.28351,7 3.5,7.78351 3.5,8.75C3.5,9.71649 4.28351,10.5 5.25,10.5H9.33333"
+        android:strokeWidth="1.16667"
+        android:strokeColor="@color/alt_icon_muted"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

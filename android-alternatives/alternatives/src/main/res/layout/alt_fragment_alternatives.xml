@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ③ 실시간 대안 (기획서 11쪽 화면 · Figma 공통 색).
+  위에서부터: 평소 정류장 · 노선 · 시각 → 평소 버스 상태 카드(여유 · 만석 위험 · 만석) → 추천 문장
+  → '이렇게 해보세요' 대안 카드 ① 기다리기 ② 걸어가기 ③ 다른 버스 (카드 안에 다가오는 차량별 좌석) → 지하철 비교.
+  조회 중 · 오류 · 로그인 필요 · 대안 없음은 alt_state 로 덮어서 보여 줌.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/alt_background">
+
+    <ScrollView
+        android:id="@+id/alt_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:id="@+id/alt_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/alt_muted"
+                android:textSize="13sp"
+                tools:text="삼성1차아파트 · 8800 · 07:40 기준" />
+
+            <!-- 12주차 1분 자동 갱신: 마지막 갱신 시각 · 지금 새로고침 (갱신 실패면 빨간 글씨로 이전 정보임을 표시) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/alt_updated"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/alt_muted"
+                    android:textSize="12sp"
+                    tools:text="07:41:05 갱신 · 1분마다 자동 갱신" />
+
+                <TextView
+                    android:id="@+id/alt_refresh"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:minHeight="36dp"
+                    android:gravity="center"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp"
+                    android:text="@string/alt_refresh"
+                    android:textColor="@color/alt_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- 평소 버스 상태 (테두리 · 알약 색이 상태마다 바뀜) -->
+            <LinearLayout
+                android:id="@+id/alt_banner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/alt_bg_banner_low"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="14dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/alt_status"
+                        style="@style/AltPill"
+                        android:background="@drawable/alt_bg_pill_low"
+                        android:textColor="@color/alt_low"
+                        tools:text="만석" />
+
+                    <Space
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/alt_banner_prob"
+                        style="@style/AltPill"
+                        android:background="@drawable/alt_bg_pill_low"
+                        android:textColor="@color/alt_low"
+                        android:textSize="15sp"
+                        tools:text="2%" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/alt_banner_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:textColor="@color/alt_text"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    tools:text="다가오는 8800 · 6분 후" />
+
+                <TextView
+                    android:id="@+id/alt_banner_sub"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/alt_text_body"
+                    android:textSize="14sp"
+                    tools:text="도착 때 만석 · 탑승 확률 2%" />
+
+                <TextView
+                    android:id="@+id/alt_advice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/alt_low"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    tools:text="만석 예상이에요. 이렇게 해보세요." />
+            </LinearLayout>
+
+            <!-- recommendation.message 그대로 -->
+            <TextView
+                android:id="@+id/alt_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/alt_bg_card"
+                android:lineSpacingExtra="2dp"
+                android:paddingStart="14dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
+                android:textColor="@color/alt_text_body"
+                android:textSize="13sp"
+                tools:text="다른 버스 (3007번 · 자유총연맹) — 양재역.서초문화예술회관(중)에서 환승하는 경로가 더 빠릅니다" />
+
+            <TextView
+                android:id="@+id/alt_section_title"
+                style="@style/AltSectionTitle"
+                tools:text="이렇게 해보세요" />
+
+            <!-- 대안 카드가 들어가는 곳 (alt_item_option) -->
+            <LinearLayout
+                android:id="@+id/alt_cards"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <!-- 지하철 비교 (subway 가 있을 때만) -->
+            <LinearLayout
+                android:id="@+id/alt_subway"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/alt_bg_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="12dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/alt_subway_title"
+                    android:textColor="@color/alt_muted"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/alt_subway_line"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/alt_text"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    tools:text="도착 10:12 · 환승 2회 · 도보 12분" />
+
+                <TextView
+                    android:id="@+id/alt_subway_summary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/alt_muted"
+                    android:textSize="12sp"
+                    tools:text="수원 → 1호선 → 4호선 → 성신여대입구 → 버스 1213" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 조회 중 · 오류(다시 시도) · 로그인 필요 · 대안 없음 -->
+    <LinearLayout
+        android:id="@+id/alt_state"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp">
+
+        <ProgressBar
+            android:id="@+id/alt_progress"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:indeterminateTint="@color/alt_primary" />
+
+        <TextView
+            android:id="@+id/alt_state_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:textColor="@color/alt_text_body"
+            android:textSize="15sp"
+            tools:text="실시간 대안을 계산하는 중…" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/alt_state_action"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:paddingStart="28dp"
+            android:paddingEnd="28dp"
+            android:visibility="gone"
+            tools:text="다시 시도"
+            tools:visibility="visible" />
+    </LinearLayout>
+</FrameLayout>

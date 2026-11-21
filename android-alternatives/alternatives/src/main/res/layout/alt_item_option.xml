@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  대안 카드 (기획서 11쪽 '① 기다리기 ★ 도착 09:50 / 다음 8800 · 12분 후 · 약 18석').
+  1줄: ① 기다리기 · ★ 추천 · 탑승 확률 배지
+  2줄: 노선 칩 · 도착 HH:MM · 가장 빨라요 / +N분
+  3줄: 핀 · 어떻게 타는지 (정류장 · 도보 · 첫 차 보내기)
+  4줄: 서울 하차 정류장 · 국민대까지 추천 경로
+  5줄: 돌발 지연 / 우회로 건너뜀 (있을 때만)
+  아래: 다가오는 차량별 좌석 (alt_item_bus)
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    android:background="@drawable/alt_bg_option"
+    android:foreground="?attr/selectableItemBackground"
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/alt_option_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/alt_text"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            tools:text="③ 다른 버스" />
+
+        <TextView
+            android:id="@+id/alt_option_tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/alt_bg_tag"
+            android:paddingStart="7dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="7dp"
+            android:paddingBottom="2dp"
+            android:text="@string/alt_recommend_tag"
+            android:textColor="@color/alt_on_primary"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/alt_option_badge"
+            style="@style/AltPill"
+            android:background="@drawable/alt_bg_pill_high"
+            android:textColor="@color/alt_high"
+            android:textSize="14sp"
+            tools:text="100%" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/alt_option_route"
+            style="@style/AltRouteChip"
+            tools:text="3007" />
+
+        <TextView
+            android:id="@+id/alt_option_arrive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="@color/alt_text"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="도착 10:08" />
+
+        <TextView
+            android:id="@+id/alt_option_compare"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="@color/alt_high"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="가장 빨라요" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/alt_ic_pin" />
+
+        <TextView
+            android:id="@+id/alt_option_plan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:textColor="@color/alt_text_body"
+            android:textSize="13sp"
+            tools:text="자유총연맹 · 도보 3분" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/alt_option_seoul_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="top"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_marginTop="2dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/alt_ic_route" />
+
+        <TextView
+            android:id="@+id/alt_option_seoul"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/alt_muted"
+            android:textSize="12sp"
+            tools:text="양재역.서초문화예술회관(중) 하차 · 도보 5분 → 3호선(양재→경복궁) → 도보 3분 → 버스 1711/8111/1020(경복궁역3번출구→국민대앞) → 도보 4분" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/alt_option_note"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/alt_mid"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:text="돌발 · 행사로 +12분 지연 반영"
+        tools:visibility="visible" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="10dp"
+        android:background="@color/alt_divider" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/alt_buses_title"
+        android:textColor="@color/alt_muted"
+        android:textSize="12sp" />
+
+    <!-- 다가오는 차량별 좌석 (alt_item_bus) -->
+    <LinearLayout
+        android:id="@+id/alt_option_buses"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+    <TextView
+        android:id="@+id/alt_option_buses_none"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/alt_buses_none"
+        android:textColor="@color/alt_muted"
+        android:textSize="13sp"
+        android:visibility="gone" />
+</LinearLayout>

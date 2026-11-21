@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alt_title">실시간 대안</string>
+    <!-- 평소 정류장 · 평소 노선 · 계산 시각 -->
+    <string name="alt_header">%1$s · %2$s · %3$s 기준</string>
+    <string name="alt_header_no_time">%1$s · %2$s</string>
+
+    <!-- 맨 위 평소 버스 상태 (10주차 상태별 화면: 여유 · 만석 위험 · 만석) -->
+    <string name="alt_status_relaxed">여유</string>
+    <string name="alt_status_risk">만석 위험</string>
+    <string name="alt_status_full">만석</string>
+    <string name="alt_status_skipped">우회 중</string>
+    <string name="alt_status_unknown">정보 없음</string>
+    <string name="alt_banner_title">다가오는 %1$s · %2$s</string>
+    <string name="alt_banner_title_none">다가오는 %1$s 정보 없음</string>
+    <string name="alt_banner_sub">도착 때 %1$s · 탑승 확률 %2$s</string>
+    <string name="alt_advice_relaxed">자리가 있어요. 평소처럼 타세요.</string>
+    <string name="alt_advice_risk">만석일 수 있어요. 아래 대안도 함께 보세요.</string>
+    <string name="alt_advice_full">만석 예상이에요. 이렇게 해보세요.</string>
+    <string name="alt_advice_skipped">우회로 평소 정류장을 지나가요. 다른 방법으로 가세요.</string>
+    <string name="alt_advice_unknown">평소 버스 정보가 없어 대안만 보여 드려요.</string>
+
+    <string name="alt_section_try">이렇게 해보세요</string>
+    <string name="alt_section_others">다른 선택지</string>
+
+    <!-- 대안 카드 (11주차 1차) -->
+    <string name="alt_card_title">%1$s %2$s</string>
+    <string name="alt_recommend_tag">★ 추천</string>
+    <string name="alt_arrive">도착 %1$s</string>
+    <string name="alt_arrive_none">도착 —</string>
+    <string name="alt_fastest">가장 빨라요</string>
+    <string name="alt_slower">+%1$d분</string>
+    <string name="alt_plan_wait">%1$s에서 그대로 기다리기</string>
+    <string name="alt_plan_wait_next">첫 차 보내고 다음 %1$s 타기 · %2$s · %3$s</string>
+    <string name="alt_plan_walk">%1$s까지 도보 %2$d분</string>
+    <string name="alt_plan_other">%1$s · 도보 %2$d분</string>
+    <string name="alt_plan_other_here">%1$s에서 바로</string>
+    <string name="alt_seoul">%1$s 하차 · %2$s</string>
+    <string name="alt_seoul_stop_only">%1$s 하차</string>
+    <string name="alt_delay">돌발 · 행사로 +%1$d분 지연 반영</string>
+    <string name="alt_skipped">우회 중 · 이 정류장은 지나가서 탈 수 없어요</string>
+
+    <!-- 다가오는 차량별 좌석 (11주차 2차) -->
+    <string name="alt_buses_title">다가오는 차</string>
+    <string name="alt_bus_order">%1$d번째</string>
+    <string name="alt_bus_eta">%1$d분 후</string>
+    <string name="alt_bus_now">곧 도착</string>
+    <string name="alt_seats_some">약 %1$d석</string>
+    <string name="alt_seats_full">만석</string>
+    <string name="alt_seats_unknown">좌석 정보 없음</string>
+    <string name="alt_bus_missed">걸어가는 동안 지나가요</string>
+    <string name="alt_bus_first">탈 차</string>
+    <string name="alt_buses_none">다가오는 차 정보 없음 · 배차간격으로 예상</string>
+
+    <string name="alt_subway_title">지하철로 가면</string>
+    <string name="alt_subway_line">도착 %1$s · 환승 %2$d회 · 도보 %3$d분</string>
+
+    <!-- 1분 자동 갱신 (12주차 1차) -->
+    <string name="alt_refresh">새로고침</string>
+    <string name="alt_refreshing">갱신 중…</string>
+    <string name="alt_updated">%1$s 갱신 · %2$s</string>
+    <string name="alt_auto_every_min">%1$d분마다 자동 갱신</string>
+    <string name="alt_auto_every_sec">%1$d초마다 자동 갱신</string>
+    <string name="alt_auto_off">자동 갱신 꺼짐</string>
+    <string name="alt_stale">갱신하지 못했어요 · %1$s 정보예요</string>
+
+    <!-- 상태 화면 (10주차 2차: 조회 중 · 오류) -->
+    <string name="alt_loading">실시간 대안을 계산하는 중…</string>
+    <string name="alt_error_default">실시간 대안을 불러오지 못했습니다.</string>
+    <string name="alt_retry">다시 시도</string>
+    <string name="alt_signed_out">로그인하면 평소 버스 기준으로 대안을 보여 드려요.</string>
+    <string name="alt_sign_in">로그인</string>
+    <string name="alt_empty">지금은 비교할 대안이 없어요.</string>
+</resources>
