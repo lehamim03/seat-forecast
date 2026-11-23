@@ -38,9 +38,19 @@ class DemoHomeHost implements HomeHost {
         callback.onSuccess(new UsualTrip(HOME_STOP_ID, ROUTE));
     }
 
+    /** 시연용 가짜 토큰 — 테스트 서버(mock_server.py)는 Bearer 가 있는지만 봄 */
+    static final String TOKEN = "demo-id-token";
+    /** 13주차: 401 뒤 새로 받은 토큰 (mock_server.py --reject-token demo-id-token 으로 재시도 확인) */
+    static final String REFRESHED_TOKEN = "demo-id-token-refreshed";
+
     @Override
     public void getIdToken(Callback<String> callback) {
-        callback.onSuccess("demo-id-token");
+        callback.onSuccess(TOKEN);
+    }
+
+    @Override
+    public void getIdToken(boolean forceRefresh, Callback<String> callback) {
+        callback.onSuccess(forceRefresh ? REFRESHED_TOKEN : TOKEN);
     }
 
     @Override

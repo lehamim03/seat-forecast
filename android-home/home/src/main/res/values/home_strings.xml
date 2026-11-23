@@ -18,6 +18,8 @@
     <string name="home_retry">다시 시도</string>
     <string name="home_signed_out">로그인하면 평소 정류장 기준으로 추천해 드려요.</string>
     <string name="home_sign_in">로그인</string>
+    <!-- 13주차: 토큰을 새로 받아도 서버가 401 -->
+    <string name="home_session_expired">로그인이 만료되었어요. 다시 로그인해 주세요.</string>
     <!-- 우리집 → 국민대 카드 칩: 날짜 · day.kind · 계산 시각 (generated_at) -->
     <string name="home_chip_now">지금 %1$s</string>
     <string name="home_trip_open">평소 정류장 · 노선 설정</string>

@@ -294,24 +294,59 @@ public class HomeFragment extends Fragment {
     }
 
     private void fetch(int id, UsualTrip trip, @Nullable String token, boolean keepList, boolean byUser) {
+        fetch(id, trip, token, keepList, byUser, false);
+    }
+
+    /**
+     * @param retried 401 뒤 토큰을 새로 받아 다시 보낸 요청이면 true (13주차 — 한 번만 다시 시도)
+     */
+    private void fetch(int id, UsualTrip trip, @Nullable String token, boolean keepList, boolean byUser,
+                       boolean retried) {
         final RecommendationSource source = Home.source();
         EXECUTOR.execute(() -> {
             Recommendations result = null;
-            String error = null;
+            SourceException error = null;
             try {
                 result = source.load(trip.homeStopId, trip.route, token);
             } catch (SourceException e) {
-                error = e.getMessage();
+                error = e;
             } catch (RuntimeException e) {
                 error = null;   // 아래에서 기본 문구
             }
             final Recommendations r = result;
-            final String message = error;
+            final SourceException err = error;
             main.post(() -> {
                 if (stale(id)) return;
-                if (r != null) show(r);
-                else failed(message != null ? message : getString(R.string.home_error_default), keepList, byUser);
+                if (r != null) {
+                    show(r);
+                } else if (err != null && err.isUnauthorized()) {
+                    unauthorized(id, trip, keepList, byUser, retried, err.getMessage());
+                } else {
+                    String message = err != null && err.getMessage() != null ? err.getMessage()
+                            : getString(R.string.home_error_default);
+                    failed(message, keepList, byUser);
+                }
             });
+        });
+    }
+
+    /** 13주차: 서버 401 — 토큰을 새로 받아 한 번 더. 그래도 401 이면 다시 로그인 화면 */
+    private void unauthorized(int id, UsualTrip trip, boolean keepList, boolean byUser, boolean retried,
+                              String message) {
+        if (retried) {
+            showSessionExpired();
+            return;
+        }
+        Home.host().getIdToken(true, new Callback<String>() {
+            @Override
+            public void onSuccess(String token) {
+                if (!stale(id)) fetch(id, trip, token, keepList, byUser, true);
+            }
+
+            @Override
+            public void onError(String m) {
+                if (!stale(id)) failed(message, keepList, byUser);
+            }
         });
     }
 
@@ -445,6 +480,14 @@ public class HomeFragment extends Fragment {
     private void showSignedOut() {
         showState(false, getString(R.string.home_signed_out), getString(R.string.home_sign_in),
                 v -> Home.host().requestSignIn(requireContext()));
+    }
+
+    /** 13주차: 토큰을 새로 받아도 서버가 401 — 목록이 있어도 지우고 다시 로그인하도록 (오래된 목록을 믿지 않게) */
+    private void showSessionExpired() {
+        showState(false, getString(R.string.home_session_expired), getString(R.string.home_sign_in),
+                v -> Home.host().requestSignIn(requireContext()));
+        swipe.setEnabled(false);
+        setRefreshButtonEnabled(false);
     }
 
     /** 상태 화면 = 보여 줄 목록이 없음 → 남은 분 · 자동 새로고침도 멈춤 */

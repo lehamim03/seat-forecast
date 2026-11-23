@@ -8,7 +8,7 @@ import kr.ac.kookmin.seatforecast.home.model.Recommendations;
 
 /**
  * 홈 화면 추천 데이터를 가져오는 곳.
- * 지금은 {@link AssetRecommendationSource}(예시 JSON), 13주차부터 {@link ApiRecommendationSource}(서버).
+ * {@link ApiRecommendationSource}(예측 서버, 13주차 연결) 또는 {@link AssetRecommendationSource}(예시 JSON · 시연).
  */
 public interface RecommendationSource {
 
