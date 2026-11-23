@@ -21,8 +21,15 @@
             android:layout_height="wrap_content" android:layout_gravity="bottom|start"
             android:layout_margin="8dp" android:visibility="gone" android:text="@string/map_nearby" />
     </FrameLayout>
+    <LinearLayout android:id="@+id/map_comparison" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="vertical"
+        android:paddingLeft="12dp" android:paddingRight="12dp" />
+    <TextView android:id="@+id/map_choices_action" android:layout_width="match_parent"
+        android:layout_height="48dp" android:gravity="center" android:clickable="true"
+        android:focusable="true" android:text="@string/map_choices_action"
+        android:textColor="#B52B3C" android:textStyle="bold" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:padding="16dp">
+        android:orientation="vertical" android:padding="8dp">
         <TextView android:id="@+id/map_legend" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="@string/map_legend"
             android:visibility="gone" android:textStyle="bold" android:paddingBottom="6dp" />
