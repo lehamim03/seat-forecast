@@ -300,6 +300,30 @@ public class FirebaseEmulatorTest {
         assertFalse(after.value.get(0).boarded);
     }
 
+    /** 13주차: 서버가 요청 자체를 거절(400 · 403 …)하면 '전송 안 됨'으로 두고 다시 보내지 않음 */
+    @Test
+    public void rejectedFeedbackIsNotRetried() throws Exception {
+        signUp(newEmail(), "거절");
+        server.enqueue(new MockResponse().setResponseCode(403)
+                .setBody("{\"error\": {\"code\": \"uid_mismatch\", \"message\": \"다른 사용자의 피드백은 보낼 수 없습니다.\"}}"));
+
+        Result<FeedbackRepository.SubmitResult> r = new Result<>();
+        feedbackRepo().submit(new FeedbackRequest(null, "2026-11-23", "3007", "203000161", true, 0.9, ""), r);
+        assertFalse(r.ok().sentToServer);
+        assertEquals(1, server.getRequestCount());
+
+        Result<List<FeedbackRecord>> history = new Result<>();
+        feedbackRepo().loadHistory(20, history);
+        assertTrue(history.ok().get(0).rejected);
+        assertFalse(history.value.get(0).sent);
+        assertTrue(history.value.get(0).summary().contains("전송 안 됨"));
+
+        Result<Integer> retried = new Result<>();
+        feedbackRepo().retryPending(retried);
+        assertEquals(Integer.valueOf(0), retried.ok());
+        assertEquals("거절된 기록은 다시 보내지 않음", 1, server.getRequestCount());
+    }
+
     @Test
     public void feedbackNeedsLogin() throws Exception {
         Account.signOut();

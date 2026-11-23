@@ -17,6 +17,8 @@ public class FeedbackRecord {
     public String memo;
     /** 서버(POST /feedback)에 보냈는지 */
     public boolean sent;
+    /** 서버가 요청을 거절해 다시 보내지 않는 기록 (13주차) */
+    public boolean rejected;
 
     static FeedbackRecord from(DocumentSnapshot doc) {
         FeedbackRecord r = new FeedbackRecord();
@@ -28,6 +30,7 @@ public class FeedbackRecord {
         r.predictedProb = doc.getDouble("predicted_prob");
         r.memo = doc.getString("memo");
         r.sent = Boolean.TRUE.equals(doc.getBoolean(FeedbackRepository.SENT));
+        r.rejected = Boolean.TRUE.equals(doc.getBoolean(FeedbackRepository.REJECTED));
         return r;
     }
 
@@ -61,7 +64,8 @@ public class FeedbackRecord {
         sb.append(date).append(" · ").append(route).append(" · ").append(Stops.nameOf(stopId))
                 .append(" — ").append(boarded ? "탔어요" : "못 탔어요");
         if (predictedProb != null) sb.append(" (예측 ").append(Math.round(predictedProb * 100)).append("%)");
-        if (!sent) sb.append(" · 전송 대기");
+        if (rejected) sb.append(" · 전송 안 됨");
+        else if (!sent) sb.append(" · 전송 대기");
         return sb.toString();
     }
 }

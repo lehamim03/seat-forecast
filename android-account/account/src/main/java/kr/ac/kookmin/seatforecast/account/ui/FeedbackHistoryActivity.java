@@ -103,7 +103,8 @@ public class FeedbackHistoryActivity extends AppCompatActivity {
         if (r.predictedProb != null) {
             sub.append(" · ").append(getString(R.string.account_feedback_prob_tag, Math.round(r.predictedProb * 100)));
         }
-        if (!r.sent) sub.append(" · ").append(getString(R.string.account_feedback_pending_tag));
+        if (r.rejected) sub.append(" · ").append(getString(R.string.account_feedback_rejected_tag));
+        else if (!r.sent) sub.append(" · ").append(getString(R.string.account_feedback_pending_tag));
         if (r.memo != null && !r.memo.isEmpty()) sub.append(" · ").append(r.memo);
         ((TextView) row.findViewById(R.id.account_feedback_sub)).setText(sub);
 
