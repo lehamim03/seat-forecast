@@ -11,6 +11,8 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import org.json.JSONObject;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.RadioButton;
@@ -33,6 +35,9 @@ public final class MapActivity extends Activity {
     private static final String COARSE = Manifest.permission.ACCESS_COARSE_LOCATION;
     private static final String FINE = Manifest.permission.ACCESS_FINE_LOCATION;
 
+    private RouteData routeData;
+    private boolean comparing = true;
+    private boolean alternativeSelected;
     private MapOverlay overlay;
     private DevicePosition position;
     private boolean locateAfterGrant;
@@ -58,7 +63,20 @@ public final class MapActivity extends Activity {
 
         mapMessage = findViewById(R.id.map_message);
         permissionButton = findViewById(R.id.map_permission_action);
-        if (state != null) selectedNumber = state.getString("selected_route");
+        if (state != null) {
+            selectedNumber = state.getString("selected_route");
+            comparing = state.getBoolean("comparing", true);
+            alternativeSelected = state.getBoolean("alternative");
+        }
+        try {
+            routeData = new RouteData(this);
+            renderComparison();
+        } catch (Exception error) {
+            ((LinearLayout) findViewById(R.id.map_comparison)).addView(
+                    new RouteUi(this).text("경로 비교 정보를 불러오지 못했습니다.", 14, RouteUi.MUTED, false));
+        }
+        findViewById(R.id.map_choices_action).setOnClickListener(v ->
+                startActivity(RouteChoicesActivity.newIntent(this, selectedNumber)));
         position = new DevicePosition(this, location -> {
             if (overlay != null && (allowed(COARSE) || allowed(FINE))) {
                 overlay.locate(LatLng.from(location.getLatitude(), location.getLongitude()));
@@ -75,19 +93,19 @@ public final class MapActivity extends Activity {
         startMap();
     }
 
-    private String nativeAppKey() {
+    static String readNativeAppKey(Activity activity) {
         try {
-            ApplicationInfo app = getPackageManager().getApplicationInfo(getPackageName(),
+            ApplicationInfo app = activity.getPackageManager().getApplicationInfo(activity.getPackageName(),
                     PackageManager.GET_META_DATA);
             int resource = app.metaData == null ? 0 : app.metaData.getInt(KEY_METADATA);
-            return resource == 0 ? "" : getString(resource).trim();
+            return resource == 0 ? "" : activity.getString(resource).trim();
         } catch (PackageManager.NameNotFoundException e) {
             throw new IllegalStateException(e);
         }
     }
 
     private void startMap() {
-        String key = nativeAppKey();
+        String key = readNativeAppKey(this);
         if (key.isEmpty()) {
             mapMessage.setText(R.string.map_missing_key);
             return;
@@ -140,8 +158,10 @@ public final class MapActivity extends Activity {
                     overlay.select(route, false);
                 }
                 button.setOnClickListener(v -> {
+                    comparing = false;
                     selectedNumber = route.name();
                     overlay.select(route, true);
+                    renderComparison();
                 });
             }
             View nearby = findViewById(R.id.map_nearby);
@@ -149,9 +169,75 @@ public final class MapActivity extends Activity {
             nearby.setVisibility(View.VISIBLE);
             findViewById(R.id.map_legend).setVisibility(View.VISIBLE);
             mapMessage.setVisibility(View.GONE);
+            if (comparing && routeData != null) showComparison(false);
             refreshPermission();
         } catch (IOException | JSONException | IllegalArgumentException e) {
             mapMessage.setText(R.string.map_example_error);
+        }
+    }
+
+    private void showComparison(boolean fit) {
+        comparing = true;
+        JSONObject chosen = alternativeSelected ? routeData.alternative : routeData.usual;
+        if (chosen != null) selectedNumber = chosen.optString("route");
+        if (overlay != null) overlay.compare(routeData, chosen, fit);
+        RadioGroup buttons = findViewById(R.id.map_routes);
+        for (int i = 0; i < buttons.getChildCount(); i++) {
+            RadioButton button = (RadioButton) buttons.getChildAt(i);
+            button.setChecked(button.getText().toString().equals(selectedNumber));
+        }
+        renderComparison();
+    }
+
+    private void renderComparison() {
+        LinearLayout panel = findViewById(R.id.map_comparison);
+        panel.removeAllViews();
+        ((TextView) findViewById(R.id.map_legend)).setText(comparing
+                ? "예시 경로 · 빨강은 선택 경로, 회색은 비교 경로"
+                : "예시 경로 · 실선은 버스 노선, 파란 점선은 도보");
+        RouteUi ui = new RouteUi(this);
+        if (routeData == null) {
+            panel.addView(ui.text("경로 비교 정보를 불러오지 못했습니다.", 14, RouteUi.MUTED, false));
+            return;
+        }
+        JSONObject[] options = {routeData.usual, routeData.alternative};
+        for (int i = 0; i < options.length; i++) {
+            final boolean alternative = i == 1;
+            JSONObject option = options[i];
+            String label = alternative ? "대안 · 추천" : "원래 경로";
+            if (option == null) {
+                panel.addView(ui.text(label + " 정보가 없습니다.", 13, RouteUi.MUTED, false));
+                continue;
+            }
+            boolean selected = comparing && alternativeSelected == alternative;
+            LinearLayout card = ui.column();
+            card.setPadding(ui.dp(10), ui.dp(7), ui.dp(10), ui.dp(7));
+            card.setBackground(ui.background(selected ? 0xfffff2f4 : RouteUi.SURFACE,
+                    selected ? RouteUi.RED : RouteUi.BORDER, 10));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+            params.topMargin = ui.dp(5);
+            panel.addView(card, params);
+            String arrival = option.isNull("arrive_at") ? "도착 정보 없음" : "국민대 " + option.optString("arrive_at");
+            card.addView(ui.text(label + " · " + option.optString("route") + "번 · " + arrival,
+                    14, RouteUi.INK, true));
+            JSONObject stop = option.optJSONObject("stop");
+            String stopName = stop == null ? "정류장 정보 없음" : stop.optString("name");
+            double chance = option.optDouble("board_prob", Double.NaN);
+            String probability = Double.isNaN(chance) ? "확률 미확인" : "탑승 " + Math.round(chance * 100) + "%";
+            card.addView(ui.text(stopName + " · 도보 " + option.optInt("walk_min") + "분 · " + probability,
+                    12, RouteUi.MUTED, false));
+            java.util.List<RouteData.Choice> transfers = routeData.choices.get(option.optString("route"));
+            if (transfers != null && !transfers.isEmpty()
+                    && !routeData.hasShape(option.optString("route"), transfers.get(0))) {
+                card.addView(ui.text("서울 환승 구간은 경로 목록에서 확인", 12, RouteUi.MUTED, false));
+            }
+            card.setSelected(selected);
+            card.setFocusable(true);
+            card.setContentDescription(label + " 지도 보기. " + option.optString("route") + "번. " + arrival);
+            card.setOnClickListener(v -> {
+                alternativeSelected = alternative;
+                showComparison(true);
+            });
         }
     }
 
@@ -162,6 +248,8 @@ public final class MapActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         state.putString("selected_route", selectedNumber);
+        state.putBoolean("comparing", comparing);
+        state.putBoolean("alternative", alternativeSelected);
     }
 
     private void showMapFailure() {

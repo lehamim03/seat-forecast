@@ -10,28 +10,36 @@ android {
     }
 }
 
-dependencies { implementation 'com.kakao.maps.open:android:2.15.2' }
+dependencies {
+    implementation 'com.kakao.maps.open:android:2.15.2'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}
 
 // 지도 예시만 라이브러리 assets에 포함해 저장소의 원본 GeoJSON을 그대로 사용한다.
 abstract class PrepareMapExample extends DefaultTask {
-    @InputFile
+    @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
-    abstract RegularFileProperty getExample()
+    abstract ConfigurableFileCollection getExamples()
 
     @OutputDirectory
     abstract DirectoryProperty getOutputDir()
 
     @TaskAction
     void copyExample() {
-        java.nio.file.Files.copy(example.get().asFile.toPath(),
-                outputDir.file('map.geojson').get().asFile.toPath(),
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        examples.files.each { source ->
+            java.nio.file.Files.copy(source.toPath(),
+                    outputDir.file(source.name).get().asFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
     }
 }
 
 androidComponents.onVariants(androidComponents.selector().all()) { variant ->
     def mapAssets = tasks.register("prepare${variant.name.capitalize()}MapExample", PrepareMapExample) {
-        example.set(rootProject.layout.projectDirectory.file('../docs/examples/map.geojson'))
+        examples.from(['map.geojson', 'route_choices.json', 'recommendations.json'].collect {
+            rootProject.layout.projectDirectory.file("../docs/examples/$it")
+        })
     }
     variant.sources.assets.addGeneratedSourceDirectory(mapAssets) { it.outputDir }
 }

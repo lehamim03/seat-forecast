@@ -20,6 +20,7 @@ final class MapOverlay {
     private final KakaoMap map;
     private final float density;
     private RouteLine selected;
+    private final List<RouteLine> comparison = new ArrayList<>();
     private Label device;
     private final List<LatLng> nearby = new ArrayList<>();
 
@@ -50,9 +51,47 @@ final class MapOverlay {
     }
 
     void select(MapExample.Line route, boolean fit) {
+        clearComparison();
         if (selected != null) selected.remove();
         selected = line(route, RouteLineStyle.from(px(3), route.color()));
         if (fit) map.moveCamera(CameraUpdateFactory.fitMapPoints(route.points().toArray(new LatLng[0]), px(36)));
+    }
+
+    private void clearComparison() {
+        for (RouteLine line : comparison) line.remove();
+        comparison.clear();
+    }
+
+    void compare(RouteData data, org.json.JSONObject active, boolean fit) {
+        clearComparison();
+        if (selected != null) {
+            selected.remove();
+            selected = null;
+        }
+        List<LatLng> focus = new ArrayList<>();
+        org.json.JSONObject[] options = {data.usual, data.alternative};
+        for (org.json.JSONObject option : options) {
+            if (option == null) continue;
+            String number = option.optString("route");
+            List<RouteData.Choice> choices = data.choices.get(number);
+            RouteData.Choice transfer = choices == null || choices.isEmpty() ? null : choices.get(0);
+            for (RouteData.Feature feature : data.features) {
+                boolean bus = feature.kind().equals("route") && number.equals(feature.value("route"));
+                if (!bus && !RouteData.matches(feature, number, transfer)) continue;
+                List<LatLng> points = new ArrayList<>();
+                for (RouteData.Pt point : feature.pts()) points.add(LatLng.from(point.lat(), point.lon()));
+                boolean highlighted = option == active;
+                int color = highlighted ? RouteUi.RED : 0xff909aa8;
+                RouteLine line = line(new MapExample.Line(number, color, points),
+                        RouteLineStyle.from(px(highlighted ? 4 : 2), color));
+                line.setZOrder(highlighted ? 3 : 0);
+                comparison.add(line);
+                focus.addAll(points);
+            }
+        }
+        if (fit && !focus.isEmpty()) {
+            map.moveCamera(CameraUpdateFactory.fitMapPoints(focus.toArray(new LatLng[0]), px(28)));
+        }
     }
 
     void locate(LatLng point) {
@@ -78,17 +117,22 @@ final class MapOverlay {
     }
 
     private Label label(LatLng point, String title, int color, boolean below) {
+        return textLabel(map, density, point, title, color, below);
+    }
+
+    static Label textLabel(KakaoMap map, float density, LatLng point, String title, int color, boolean below) {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setTypeface(Typeface.DEFAULT_BOLD);
-        paint.setTextSize(px(11));
-        int w = (int) Math.ceil(paint.measureText(title)) + px(14);
-        int h = px(22);
-        Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        paint.setTextSize(11 * density);
+        float padding = 7 * density;
+        int width = (int) Math.ceil(paint.measureText(title) + padding * 2);
+        int height = Math.max(1, Math.round(22 * density));
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         paint.setColor(color);
-        canvas.drawRoundRect(0, 0, w, h, px(7), px(7), paint);
+        canvas.drawRoundRect(0, 0, width, height, padding, padding, paint);
         paint.setColor(Color.WHITE);
-        canvas.drawText(title, px(7), (h - paint.ascent() - paint.descent()) / 2, paint);
+        canvas.drawText(title, padding, (height - paint.ascent() - paint.descent()) / 2, paint);
         return map.getLabelManager().getLayer().addLabel(LabelOptions.from(point)
                 .setRank(title.equals("내 위치") ? 100 : 10)
                 .setStyles(LabelStyle.from(bitmap).setAnchorPoint(.5f, below ? 0f : 1f)));
