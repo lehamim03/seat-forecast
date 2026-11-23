@@ -21,7 +21,8 @@ import kr.ac.kookmin.seatforecast.home.model.Recommendations;
  * <pre>
  * adb shell am start -n kr.ac.kookmin.seatforecast.homedemo/kr.ac.kookmin.seatforecast.home.ui.HomeActivity --es demo_mode cases
  * </pre>
- * cases(경우 모음 home_cases.json) · empty(빈 목록) · error(오류) · signed_out(로그인 필요) · loading(로딩). 없으면 보통 화면.
+ * cases(경우 모음 home_cases.json) · empty(빈 목록) · error(오류) · signed_out(로그인 필요) · loading(로딩)
+ * · refresh_error(처음엔 보통, 새로고침부터 실패). 없으면 보통 화면.
  */
 public class DemoApp extends Application {
 
@@ -71,6 +72,19 @@ public class DemoApp extends Application {
                 return (stop, route, token) -> {
                     throw new SourceException("추천 서버에 연결하지 못했습니다. (시연: 오류 상태)", null);
                 };
+            case "refresh_error": {
+                // 12주차: 처음엔 보통 화면, 그다음 새로고침부터는 1초 뒤 실패 → 이전 목록 + '갱신 실패' 확인
+                final int[] calls = {0};
+                return (stop, route, token) -> {
+                    if (calls[0]++ == 0) return example.load(stop, route, token);
+                    try {
+                        Thread.sleep(1000L);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw new SourceException("추천 서버에 연결하지 못했습니다. (시연: 새로고침 실패)", null);
+                };
+            }
             case "loading":
                 return (stop, route, token) -> {
                     try {

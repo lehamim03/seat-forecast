@@ -26,7 +26,9 @@ final class OptionFormat {
         /** 다가오는 차가 모두 걸어가는 동안 지나감 */
         NONE_REACHABLE,
         /** 탈 수 있는 첫 차 ({@link BusLine#bus}) */
-        BUS
+        BUS,
+        /** 받은 뒤 시간이 지나 목록의 차가 모두 정류장을 지나감 — 새로고침이 필요 (12주차) */
+        PASSED
     }
 
     static final class BusLine {
@@ -36,11 +38,18 @@ final class OptionFormat {
         final Bus bus;
         /** 그 앞에 걸어가는 동안 지나가는 차가 있었는지 */
         final boolean missedEarlier;
+        /** {@link BusLineKind#BUS} 일 때 지금 기준 남은 분 ({@code eta_min} − 받은 뒤 지난 분, 0 이상) */
+        final int etaMin;
 
         BusLine(BusLineKind kind, @Nullable Bus bus, boolean missedEarlier) {
+            this(kind, bus, missedEarlier, bus == null ? 0 : bus.etaMin);
+        }
+
+        BusLine(BusLineKind kind, @Nullable Bus bus, boolean missedEarlier, int etaMin) {
             this.kind = kind;
             this.bus = bus;
             this.missedEarlier = missedEarlier;
+            this.etaMin = etaMin;
         }
     }
 
@@ -60,19 +69,38 @@ final class OptionFormat {
         return p + "%";
     }
 
+    /** 받은 그대로 (지난 시간 0분) — {@link #busLine(Option, int)} */
+    static BusLine busLine(Option o) {
+        return busLine(o, 0);
+    }
+
     /**
      * {@code board_prob} 은 "걸어가서 탈 수 있는 첫 차" 기준이므로, 카드에도 그 차를 보여 줍니다.
      * 첫 차가 {@code reachable: false} 면 건너뛰고 다음 차를 보여 주며 {@code missedEarlier} 를 켭니다.
+     *
+     * <p>12주차: 응답을 받은 뒤 {@code elapsedMin} 분이 지났으면 남은 시간을 줄여서 보여 줍니다.
+     * <ul>
+     *   <li>남은 시간이 0 보다 작으면 이미 정류장을 지나간 차 → 목록에서 뺌 (놓친 차로 세지 않음)</li>
+     *   <li>남은 시간이 도보 시간보다 짧아지면 이제 걸어가서 못 탐 → 놓친 차 (서버 {@code reachable} 규칙: eta ≥ 도보)</li>
+     *   <li>차가 모두 지나갔으면 {@link BusLineKind#PASSED}</li>
+     * </ul>
      */
-    static BusLine busLine(Option o) {
+    static BusLine busLine(Option o, int elapsedMin) {
         List<Bus> buses = o.buses;
         if (buses == null || buses.isEmpty()) return new BusLine(BusLineKind.NO_INFO, null, false);
+        int elapsed = Math.max(0, elapsedMin);
         boolean missed = false;
+        boolean anyLeft = false;
         for (Bus b : buses) {
             if (b == null) continue;
-            if (b.reachable) return new BusLine(BusLineKind.BUS, b, missed);
+            int left = b.etaMin - elapsed;
+            if (elapsed > 0 && left < 0) continue;   // 이미 지나간 차
+            anyLeft = true;
+            boolean reachable = b.reachable && (elapsed == 0 || left >= o.walkMin);
+            if (reachable) return new BusLine(BusLineKind.BUS, b, missed, Math.max(0, left));
             missed = true;
         }
+        if (!anyLeft) return new BusLine(BusLineKind.PASSED, null, false);
         return new BusLine(BusLineKind.NONE_REACHABLE, null, missed);
     }
 

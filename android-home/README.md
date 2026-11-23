@@ -5,12 +5,30 @@
 D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 라이브러리 모듈**로 만들었습니다.
 팀 앱 뼈대(app 모듈)가 생기면 이 모듈을 붙이기만 하면 됩니다. 저장소의 다른 파일은 고치지 않았습니다.
 
-**지금 상태: 11주차 (추천 목록 · 확률 배지).** 추천 카드와 '우리집 → 국민대' 카드를 Figma `02 홈` 값(글자 크기 · 간격 · 색)으로 만들었습니다.
-다음: 12주차 도착 시각 · 새로고침 완성 → 13주차 서버 연결.
+**지금 상태: 12주차 (도착 시각 · 새로고침).** 11주차에 Figma `02 홈` 값으로 만든 카드에, 걸리는 시간 · 남은 분 줄이기 · 새로고침(버튼 · 당기기 · 자동)을 더했습니다.
+다음: 13주차 `/recommendations` 서버 연결 → 14주차 출근길 추천 검증.
+
+### 12주차 — 도착 시각 · 새로고침
+
+| 기능 | 규칙 | 위치 |
+|---|---|---|
+| 걸리는 시간 | 카드 1줄 `도착 10:08` 옆에 `total_min` → `2시간 28분` (회색, 좁으면 이 칸만 `…`). 읽어 주기: "국민대 도착 예상 10:08, 2시간 28분 걸림" | `OptionAdapter.bindArrive`, `LiveTime.duration` |
+| 남은 분 줄이기 | 응답을 **받은 순간부터** 지난 분(`SystemClock.elapsedRealtime`, 기기 시계 · `generated_at` 비교 안 함)만큼 `eta_min` 을 줄임. 30초마다 다시 그림 | `OptionFormat.busLine(o, elapsedMin)`, `LiveTime` |
+| ↳ 놓친 차 | 남은 분 < 도보 분이 되면 이제 못 탐 → `앞차는 놓치고 다음 차 N분 뒤` (서버 `reachable` 규칙 eta ≥ 도보와 같음) | |
+| ↳ 지나간 차 | 남은 분 < 0 이면 목록에서 뺌. 모두 지나가면 `표시된 차가 모두 지나갔어요 · 새로고침해 주세요` (회색) | |
+| '지금 HH:MM' 칩 | `generated_at` 시각 + 받은 뒤 지난 분 | `LiveTime.plusMinutes` |
+| 갱신 시각 | 목록 제목 아래 `07:40 기준 · 방금 갱신` / `3분 전 갱신` / `새로 불러오는 중…` / `갱신 실패 · 07:40 기준`(노랑) | `HomeFragment.showUpdated` |
+| 새로고침 | 헤더 ⟳ 버튼 · 목록을 아래로 당기기(목록이 맨 위일 때만). **지금 목록은 그대로 둔 채** 불러오고 보던 자리도 유지. 불러오는 중에는 버튼 흐리게 · 중복 요청 무시 | `HomeFragment.refresh` |
+| 자동 새로고침 | 화면이 보이는 동안 받은 지 **2분** 지나면 알아서. 실패하면 2분 뒤 다시 (서버를 계속 두드리지 않음). 다른 화면 · 백그라운드에서 돌아오면 바로 확인 | `LiveTime.shouldAutoRefresh`, `onResume` |
+| 실패 | 새로고침 실패 = 이전 목록 + `갱신 실패`. 직접 눌렀을 때만 Snackbar `새로고침하지 못했어요. …` + `다시 시도`. 처음 불러오기 실패는 11주차처럼 오류 화면 | `HomeFragment.failed` |
+| 상태 화면 | 오류 · 빈 목록에서도 당기기 · ⟳ 로 다시 시도. 로딩 · 로그인 필요 화면에서는 막음 | `HomeFragment.showState` |
+
+배지(`board_prob`) · `arrive_at` 은 서버 값 그대로입니다 (앱에서 다시 계산하지 않음). 시간이 지나 달라지는 부분은 2분 자동 새로고침으로 맞춥니다.
+팀 앱에서 쓸 수 있는 메서드: `homeFragment.reload()`(로딩 화면부터) · `homeFragment.refresh(false)`(목록을 둔 채).
 
 | 만든 것 | 위치 |
 |---|---|
-| 홈 화면 구조: 헤더 · 우리집 → 국민대 · 추천 요약(`recommendation.message`) · 추천 목록 · 출발 알림 버튼 | `ui/HomeFragment`, `res/layout/home_fragment_home.xml` |
+| 홈 화면 구조: 헤더(⟳ 새로고침) · 우리집 → 국민대 · 추천 요약(`recommendation.message`) · 추천 목록 · 출발 알림 버튼 | `ui/HomeFragment`, `res/layout/home_fragment_home.xml` |
 | 우리집 → 국민대 카드: 평소 정류장, 칩 3개(날짜 · `day.kind` · 지금 HH:MM — `generated_at` 기준), `>` 누르면 `HomeHost.onTripClicked` | `ui/HomeFragment`, `ui/TripFormat` |
 | 로딩 · 오류(다시 시도) · 빈 목록 · 로그인 필요 상태 화면 (11주차에 에뮬레이터에서 4종 모두 확인) | `ui/HomeFragment` |
 | 추천 카드 (ranking 순서 그대로, 아래 표) | `ui/OptionAdapter`, `ui/OptionFormat`, `res/layout/home_item_option.xml` |
@@ -22,13 +40,13 @@ D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 �
 
 화면 구조는 Figma '좌석예보 앱 UI'의 `02 홈` 프레임을 따랐습니다 (빨강 `#C8102E`, 회색 바탕 `#F2F3F5`, 흰 카드).
 색 값은 `res/values/home_colors.xml` 한 곳에만 있습니다. 아이콘(핀 · 시계 · `>`)은 Figma 아이콘을 벡터로 옮겼습니다.
-하단 탭(홈 · 지도 · 알림 · 마이)과 헤더의 새로고침 · 알림 아이콘, 노란 '만석 위험' 배너는 넣지 않았습니다 (하단 탭은 팀 공통 앱 뼈대, 새로고침은 12주차).
+하단 탭(홈 · 지도 · 알림 · 마이)과 헤더의 알림 아이콘, 노란 '만석 위험' 배너는 넣지 않았습니다 (하단 탭은 팀 공통 앱 뼈대, 알림은 E 담당). 헤더 새로고침은 12주차에 넣었습니다.
 
 ### 추천 카드 (Figma Rec/3007 · Rec/3008)
 
 | 줄 | 내용 | 규칙 |
 |---|---|---|
-| 1 | 노선 칩 · `도착 HH:MM`(`arrive_at`, 없으면 `도착 —`) · `1순위` 태그 · 탑승 확률 배지 | 1순위 = ranking 첫 항목(빨간 테두리). 배지 = `board_prob` 반올림 % |
+| 1 | 노선 칩 · `도착 HH:MM`(`arrive_at`, 없으면 `도착 —`) · `1순위` 태그 · 걸리는 시간(`total_min`, 12주차) · 탑승 확률 배지 | 1순위 = ranking 첫 항목(빨간 테두리). 배지 = `board_prob` 반올림 % |
 | 2 | 📍 정류장 이름 · 도보 N분 | 정류장 이름은 API 그대로 |
 | 3 | 🕒 탈 수 있는 첫 차: `N분 뒤 도착 · 도착 때 약 N석` (0석이면 `만석 예상`, `null`이면 `좌석 정보 없음`, 0분이면 `곧 도착`) | `board_prob` 이 "걸어가서 탈 수 있는 첫 차" 기준이라 `reachable: false` 차는 건너뜀 → `앞차는 놓치고 다음 차 N분 뒤`. 글자색 = 그 차의 확률 단계 |
 | 3 | 탈 수 있는 차가 없음 → `걸어가는 동안 다가오는 차가 모두 지나가요` (빨강) · `buses: []` → `다가오는 차 정보 없음 · 배차간격으로 예상` (회색) | 예시 11개 중 6개가 `buses: []` |
@@ -111,7 +129,8 @@ getSupportFragmentManager().beginTransaction().replace(R.id.container, new HomeF
 
 - `HomeFragment` 의 레이아웃은 모듈 안 색 · 스타일을 쓰고, `HomeActivity` 는 모듈 안의 `HomeTheme` 를 씁니다.
   리소스 이름은 모두 `home_` 으로 시작해 다른 모듈과 겹치지 않습니다.
-- 설정이 바뀌면 `homeFragment.reload()` 로 다시 불러올 수 있습니다.
+- 설정이 바뀌면 `homeFragment.reload()` 로 다시 불러올 수 있습니다. 목록을 둔 채 새로 받으려면 `homeFragment.refresh(false)`.
+- 12주차부터 `androidx.swiperefreshlayout` 를 씁니다 (home 모듈 `build.gradle` 에 있음, 팀 앱이 따로 넣을 필요 없음).
 
 ## 실행 · 테스트
 
@@ -126,9 +145,10 @@ cd android-home
 
 | 테스트 | 확인하는 것 |
 |---|---|
-| `RecommendationsParseTest` (8) | `recommendations.json` 읽기 (ranking 11개 · 순서 · 첫 항목 값), 정류장 이름 그대로, 빈 `buses[]` · 갈 수 없는 첫 차, null 필드(`arrive_at` · `total_min` · `seats_at_stop` · `recommendation`), 깨진 JSON, 시연 앱 assets 가 원본과 같은지 |
+| `RecommendationsParseTest` (8) | `recommendations.json` 읽기 (11주차 '가까운 정류장 먼저' 순서 — 1순위 삼성1차아파트) (ranking 11개 · 순서 · 첫 항목 값), 정류장 이름 그대로, 빈 `buses[]` · 갈 수 없는 첫 차, null 필드(`arrive_at` · `total_min` · `seats_at_stop` · `recommendation`), 깨진 JSON, 시연 앱 assets 가 원본과 같은지 |
 | `ApiRecommendationSourceTest` (6) | 요청 주소 `/api/v1/recommendations` · 쿼리 `home_stop` · `route` · `Bearer` 헤더, 토큰 없을 때 헤더 없음, 주소 끝 `/` 처리, 오류 응답 `{"error":…}` · 본문 없는 500 · 서버 꺼짐 |
-| `ui.OptionFormatTest` (10) | 배지 경계(0.7 · 0.4) · % 반올림 · 0~100 자르기, 탈 수 있는 첫 차 고르기(`reachable: false` 건너뜀 · 모두 지나감 · 빈 `buses`), docs 예시 11개 · 시연 경우 모음 6개, 1순위 · 건너뜀 |
+| `ui.OptionFormatTest` (16) | 배지 경계(0.7 · 0.4) · % 반올림 · 0~100 자르기, 탈 수 있는 첫 차 고르기(`reachable: false` 건너뜀 · 모두 지나감 · 빈 `buses`), docs 예시 11개 · 시연 경우 모음 6개, 1순위 · 건너뜀, **12주차** 남은 분 줄이기 · 도보보다 짧아지면 다음 차 · 지나간 차 빼기 · 모두 지나감 · 0분 = 곧 도착 |
+| `ui.LiveTimeTest` (6) | **12주차** 지난 분(내림 · 음수 없음), 2분 자동 새로고침 · 실패 뒤 2분 기다림, `2시간 28분` 형식, `07:40` + N분 (자정 넘김) |
 | `ui.TripFormatTest` (4) | `generated_at` → `10/7(수)` · `07:40`, 형식이 다르면 칩 숨김, `day.kind` 우선 |
 
 ### 시연 앱으로 상태 화면 확인
@@ -145,6 +165,10 @@ adb shell am start -n kr.ac.kookmin.seatforecast.homedemo/kr.ac.kookmin.seatfore
 | (없음) | 보통 — `recommendations.json` (docs 예시) |
 | `cases` | 카드 경우 모음 `home_cases.json` — 지연 · 놓친 첫 차 · 정보 없음 · 곧 도착 · 좌석 모름 · 모두 지나감 · 건너뜀 |
 | `empty` · `error` · `signed_out` · `loading` | 빈 목록 · 오류(다시 시도) · 로그인 필요 · 로딩 |
+| `refresh_error` | 12주차: 처음엔 보통 화면, ⟳ · 당기기 · 자동 새로고침은 1초 뒤 실패 → 이전 목록 + `갱신 실패` + Snackbar |
+
+12주차 에뮬레이터(Pixel 7, API 34) 확인: 1분 뒤 `6분 뒤` → `5분 뒤` · `지금 07:41` · `1분 전 갱신`, 2분 뒤 자동 새로고침(`방금 갱신`),
+`refresh_error` 에서 ⟳ · 당기기 → 목록 유지 + `갱신 실패` + Snackbar, 목록을 내린 상태에서 아래로 끌면 새로고침 없이 스크롤만.
 
 `loading` 은 10분 동안 응답하지 않으므로, 다른 모드로 바꿀 때는 위처럼 `force-stop` 을 먼저 하세요.
 

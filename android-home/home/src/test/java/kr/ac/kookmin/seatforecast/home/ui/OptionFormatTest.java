@@ -145,6 +145,72 @@ public class OptionFormatTest {
         assertEquals(BusLineKind.NONE_REACHABLE, OptionFormat.busLine(r.get(10)).kind);
     }
 
+    // ── 12주차: 받은 뒤 시간이 지나면 남은 분을 줄임 ──
+
+    private static Option walking(int walkMin, Bus... buses) {
+        Option o = option(buses);
+        o.walkMin = walkMin;
+        return o;
+    }
+
+    @Test
+    public void busLineCountsDownAfterReceiving() {
+        Option o = walking(3, bus(1, 6, 21, 0.95, true));
+        assertEquals(6, OptionFormat.busLine(o, 0).etaMin);
+        BusLine later = OptionFormat.busLine(o, 2);
+        assertEquals(BusLineKind.BUS, later.kind);
+        assertEquals(4, later.etaMin);
+        assertFalse(later.missedEarlier);
+        assertEquals(6, later.bus.etaMin);   // 받은 값은 그대로
+    }
+
+    @Test
+    public void busLineBecomesUnreachableWhenLeftIsShorterThanWalk() {
+        // 도보 3분: 6분 → 4분 지나 2분 남음 → 이제 걸어가도 못 탐 → 다음 차
+        Option o = walking(3, bus(1, 6, 21, 0.95, true), bus(2, 14, 30, 0.9, true));
+        BusLine l = OptionFormat.busLine(o, 4);
+        assertEquals(BusLineKind.BUS, l.kind);
+        assertTrue(l.missedEarlier);
+        assertEquals(2, l.bus.order);
+        assertEquals(10, l.etaMin);
+    }
+
+    @Test
+    public void busLineDropsBusesThatAlreadyPassed() {
+        // 도보 0분: 첫 차 2분 → 3분 지나 이미 지나감 (놓친 차로 세지 않음)
+        Option o = walking(0, bus(1, 2, 5, 0.3, true), bus(2, 8, 20, 0.9, true));
+        BusLine l = OptionFormat.busLine(o, 3);
+        assertEquals(2, l.bus.order);
+        assertFalse(l.missedEarlier);
+        assertEquals(5, l.etaMin);
+    }
+
+    @Test
+    public void busLineWhenEveryBusPassed() {
+        Option o = walking(0, bus(1, 2, 5, 0.3, true), bus(2, 4, 20, 0.9, true));
+        assertEquals(BusLineKind.PASSED, OptionFormat.busLine(o, 5).kind);
+        // 정보가 처음부터 없으면 계속 NO_INFO
+        assertEquals(BusLineKind.NO_INFO, OptionFormat.busLine(walking(0), 30).kind);
+    }
+
+    @Test
+    public void busLineAtArrivalShowsZero() {
+        Option o = walking(0, bus(1, 3, 5, 0.3, true));
+        BusLine l = OptionFormat.busLine(o, 3);
+        assertEquals(BusLineKind.BUS, l.kind);
+        assertEquals(0, l.etaMin);   // '곧 도착'
+    }
+
+    @Test
+    public void elapsedZeroKeepsServerReachable() {
+        // 지난 시간이 0이면 서버 reachable 그대로 (11주차 동작과 같음)
+        Option o = walking(7, bus(1, 4, 5, 0.9, false), bus(2, 12, 20, 0.55, true));
+        BusLine l = OptionFormat.busLine(o, 0);
+        assertTrue(l.missedEarlier);
+        assertEquals(12, l.etaMin);
+        assertEquals(BusLineKind.NONE_REACHABLE, OptionFormat.busLine(o, 6).kind);   // 12−6=6 < 도보 7
+    }
+
     // ── 1순위 · 건너뜀 ──
 
     @Test

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   추천 카드 — Figma '02 홈' Rec/3007 (1순위) · Rec/3008.
-  1줄: 노선 칩 · 도착 HH:MM · 1순위 태그 · 탑승 확률 배지
+  1줄: 노선 칩 · 도착 HH:MM · 1순위 태그 · 걸리는 시간(total_min, 자리가 모자라면 줄임) · 탑승 확률 배지
   2줄: 핀 · 정류장 이름 · 도보 N분
   3줄: 시계 · 탈 수 있는 첫 차 (도착까지 분 · 도착 때 좌석) — 확률 단계 색
   4줄: 돌발 · 행사 지연 / 우회로 건너뜀 (있을 때만)
@@ -57,10 +57,19 @@
             android:visibility="gone"
             tools:visibility="visible" />
 
-        <Space
+        <!-- 12주차: total_min → "2시간 28분" (좁은 화면에서는 이 칸만 줄어듦) -->
+        <TextView
+            android:id="@+id/home_option_total"
             android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:importantForAccessibility="no"
+            android:maxLines="1"
+            android:textColor="@color/home_muted"
+            android:textSize="12sp"
+            tools:text="2시간 28분" />
 
         <TextView
             android:id="@+id/home_option_badge"
