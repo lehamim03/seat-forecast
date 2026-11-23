@@ -13,6 +13,15 @@ import java.util.List;
  */
 public class AlternativesResult {
 
+    /** 서버가 지금 상황으로 계산한 값 (응답 헤더 X-Data-Source: live) */
+    public static final String SOURCE_LIVE = "live";
+    /** 예시 응답 (docs/examples, 또는 서버가 실시간 계산을 못 해 대신 준 값) */
+    public static final String SOURCE_EXAMPLE = "example";
+
+    /** 13주차: 어디서 온 값인지 — {@link #SOURCE_LIVE} · {@link #SOURCE_EXAMPLE}, 모르면 null. JSON 에는 없음 */
+    @Nullable
+    public transient String source;
+
     /** 계산한 시각, 예: "2026-10-07T07:40:00+09:00" */
     @SerializedName("generated_at")
     public String generatedAt;

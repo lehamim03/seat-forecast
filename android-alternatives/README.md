@@ -5,8 +5,16 @@
 A 홈(`android-home`) · D 로그인(`android-account`) 모듈과 같은 방식으로 **독립된 안드로이드 라이브러리 모듈**로 만들었습니다.
 팀 앱 뼈대(app 모듈)가 생기면 이 모듈을 붙이기만 하면 됩니다. 저장소의 다른 파일은 고치지 않았습니다.
 
-**지금 상태: 12주차까지 (10주차 상태별 화면 · API 확인 → 11주차 대안 카드 3장 · 차량별 좌석 → 12주차 1분 자동 갱신 · 만석/좌석 정보 없음 구분).**
-다음: 13주차 `/alternatives` 서버 연결 (`ApiAlternativesSource` 로 바꾸기만 하면 됨).
+**지금 상태: 13주차까지 (10주차 상태별 화면 · API 확인 → 11주차 대안 카드 3장 · 차량별 좌석 → 12주차 1분 자동 갱신 · 만석/좌석 정보 없음 구분 → 13주차 `/alternatives` 서버 연결 · 확률 표시 확인).**
+13주차 서버는 저장소 루트의 [`server-bd/`](../server-bd/README.md) (B · D 두 API 만 있는 작은 FastAPI 서버). 다음: 14주차 만석 상황 동작 검증.
+
+### 13주차 — `/alternatives` 서버 연결
+
+- 팀 앱에서는 `Alternatives.init(host, new ApiAlternativesSource("https://<서버>/"))` 로 바꾸면 끝 (요청 · 헤더 · 오류 처리는 10주차에 만들어 둠).
+- 서버가 실시간 계산 대신 예시 응답을 주면(`X-Data-Source: example`) 갱신 시각 옆에 `· 예시 데이터` 를 붙여 실제 값이 아님을 알림 (`AlternativesResult.source`).
+- 확률 표시 확인: 서버(`live_recommend.api_result`)는 확률을 소수 둘째 자리로 보냄 → 0.70 초록 · 0.69 노랑 · 0.40 노랑 · 0.39 빨강, 좌석을 모르면 0.5(노랑 50%) — `AltFormatTest.serverProbabilitiesShowConsistently`.
+- 11/18 팀장님이 `docs/examples/alternatives.json` 을 새 추천 순서로 갱신해(③ 다른 버스 = 3007 · 삼성1차아파트) 시연 앱 복사본과 테스트 기대값을 맞춤.
+- 확인: `server-bd` 를 켜고 시연 앱 `demo_mode=server` → Firebase 에뮬레이터 토큰으로 `GET /api/v1/alternatives` 200 (아래 '시연 앱으로 상태 화면 확인').
 
 | 주차 | 만든 것 | 위치 |
 |---|---|---|
@@ -113,8 +121,8 @@ cd android-alternatives
 | 테스트 | 확인하는 것 |
 |---|---|
 | `AlternativesParseTest` (8) | `alternatives.json` 읽기 (대안 3개 · 화면 순서 · 필드 값), 정류장 이름 그대로, `subway` 없음, null 필드(`arrive_at` · `total_min` · `seats_at_stop` · 빈 `buses`), 대안 모두 null, 깨진 JSON, 시연 앱 assets 가 원본과 같은지 |
-| `ApiAlternativesSourceTest` (6) | 요청 주소 `/api/v1/alternatives` · 쿼리 `home_stop` · `route` · `Bearer` 헤더, 토큰 없을 때 헤더 없음, 주소 끝 `/`, 오류 응답 `{"error":…}` · 본문 없는 500 · 401 · 서버 꺼짐 |
-| `ui.AltFormatTest` (11) | 확률 단계 경계 · % 표시, 평소 버스 상태(만석 · 여유 · 만석 위험 · 우회 · 정보 없음), 카드 번호, 추천 카드, 가장 빠른 대안과 비교, 차량별 좌석(지나가는 차 · 탈 차 · 만석 · 좌석 모름), **만석(0) · 좌석 정보 없음(-1 · null) 구분**, **다음 자동 갱신까지 남은 시간**, 첫 차 보내고 다음 차 |
+| `ApiAlternativesSourceTest` (7) | **`X-Data-Source` 헤더로 실시간 · 예시 구분(13주차)**, 요청 주소 `/api/v1/alternatives` · 쿼리 `home_stop` · `route` · `Bearer` 헤더, 토큰 없을 때 헤더 없음, 주소 끝 `/`, 오류 응답 `{"error":…}` · 본문 없는 500 · 401 · 서버 꺼짐 |
+| `ui.AltFormatTest` (12) | **서버가 보내는 확률의 % · 색 단계(13주차)**, 확률 단계 경계 · % 표시, 평소 버스 상태(만석 · 여유 · 만석 위험 · 우회 · 정보 없음), 카드 번호, 추천 카드, 가장 빠른 대안과 비교, 차량별 좌석(지나가는 차 · 탈 차 · 만석 · 좌석 모름), **만석(0) · 좌석 정보 없음(-1 · null) 구분**, **다음 자동 갱신까지 남은 시간**, 첫 차 보내고 다음 차 |
 
 ### 시연 앱으로 상태 화면 확인
 
@@ -132,6 +140,7 @@ adb shell am start -n kr.ac.kookmin.seatforecast.alternativesdemo/kr.ac.kookmin.
 | `empty` · `error` · `signed_out` · `loading` | 대안 없음 · 오류(다시 시도) · 로그인 필요 · 조회 중 |
 | `live` | 갱신할 때마다 다가오는 차가 1분씩 가까워지고 계산 시각이 지금으로 바뀜 (자동 갱신 확인용) |
 | `flaky` | 처음만 성공하고 그다음 갱신은 실패 → 이전 정보 유지 + `갱신하지 못했어요` |
+| `server` | **13주차 실제 서버** — `http://10.0.2.2:8000/`(내 컴퓨터의 `server-bd`)에 `GET /api/v1/alternatives`, 토큰은 Firebase Auth 에뮬레이터(`10.0.2.2:9099`)에서 익명 가입해 받은 진짜 ID 토큰. 먼저 `android-account/firebase` 에서 에뮬레이터, `server-bd` 서버를 켜 두세요 |
 
 자동 갱신은 기본 1분이라, 확인할 때는 간격을 줄여서 여세요: `... --es demo_mode live --ei demo_refresh_sec 10`
 

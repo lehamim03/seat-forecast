@@ -14,8 +14,8 @@
   "recommendation": {
     "kind": "다른 버스",
     "route": "3007",
-    "stop_name": "자유총연맹",
-    "message": "다른 버스 (3007번 · 자유총연맹) — 양재역.서초문화예술회관(중)에서 환승하는 경로가 더 빠릅니다"
+    "stop_name": "삼성1차아파트",
+    "message": "다른 버스 (3007번 · 삼성1차아파트) — 양재역.서초문화예술회관(중)에서 환승하는 경로가 더 빠릅니다"
   },
   "alternatives": {
     "기다리기": {
@@ -164,11 +164,11 @@
       "kind": "다른 버스",
       "route": "3007",
       "stop": {
-        "id": "203000161",
-        "name": "자유총연맹",
-        "mobile_no": "04236"
+        "id": "203000063",
+        "name": "삼성1차아파트",
+        "mobile_no": "04007"
       },
-      "walk_min": 3,
+      "walk_min": 0,
       "board_prob": 1.0,
       "arrive_at": "10:08",
       "total_min": 148,
@@ -178,8 +178,8 @@
       "buses": [
         {
           "order": 1,
-          "eta_min": 4,
-          "seats_at_stop": 21,
+          "eta_min": 6,
+          "seats_at_stop": 19,
           "board_prob": 1.0,
           "reachable": true
         }

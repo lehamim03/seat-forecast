@@ -48,6 +48,26 @@ public class AltFormatTest {
         assertEquals("0%", AltFormat.percent(Double.NaN));
     }
 
+    /**
+     * 13주차 2차 '확률 표시 확인': 서버(live_recommend.api_result)는 확률을 소수 둘째 자리로 반올림해 보냄.
+     * 화면 % 와 색 단계가 경계에서 어긋나지 않는지.
+     */
+    @Test
+    public void serverProbabilitiesShowConsistently() {
+        assertEquals("36%", AltFormat.percent(0.355));
+        assertEquals("70%", AltFormat.percent(0.70));
+        assertEquals(AltFormat.Level.HIGH, AltFormat.level(0.70));
+        assertEquals("69%", AltFormat.percent(0.69));
+        assertEquals(AltFormat.Level.MID, AltFormat.level(0.69));
+        assertEquals("40%", AltFormat.percent(0.40));
+        assertEquals(AltFormat.Level.MID, AltFormat.level(0.40));
+        assertEquals("39%", AltFormat.percent(0.39));
+        assertEquals(AltFormat.Level.LOW, AltFormat.level(0.39));
+        // live_recommend 는 좌석을 모르면 탑승 확률 0.5 로 둠 → 노랑 · 50%
+        assertEquals("50%", AltFormat.percent(0.5));
+        assertEquals(AltFormat.Level.MID, AltFormat.level(0.5));
+    }
+
     @Test
     public void timeFromGeneratedAt() {
         assertEquals("07:40", AltFormat.time("2026-10-07T07:40:00+09:00"));
