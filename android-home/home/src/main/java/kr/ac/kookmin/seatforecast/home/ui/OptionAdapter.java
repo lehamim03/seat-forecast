@@ -37,17 +37,35 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
     /** 서버 ranking 1순위 ('1순위' 태그) */
     @Nullable
     private Option recommended;
+    /** 응답을 받은 뒤 지난 분 — 다가오는 차의 남은 시간을 줄여 보여 줌 (12주차) */
+    private int elapsedMin;
 
     OptionAdapter(OnOptionClick onClick) {
         this.onClick = onClick;
     }
 
+    /** 새 응답 · 정렬 변경 — 지난 시간은 0 으로 */
     void submit(List<Option> options, @Nullable Option recommended) {
+        submit(options, recommended, 0);
+    }
+
+    void submit(List<Option> options, @Nullable Option recommended, int elapsedMin) {
         this.recommended = recommended;
+        this.elapsedMin = elapsedMin;
         items.clear();
         items.addAll(options);
         notifyDataSetChanged();
     }
+
+    /** 시간이 지나면 셋째 줄(남은 분)만 다시 그림. 분이 바뀌지 않았으면 아무것도 하지 않음 */
+    void setElapsedMin(int elapsedMin) {
+        if (this.elapsedMin == elapsedMin) return;
+        this.elapsedMin = elapsedMin;
+        notifyItemRangeChanged(0, items.size(), PAYLOAD_TIME);
+    }
+
+    /** {@link #setElapsedMin} 때 카드 전체가 아니라 셋째 줄만 다시 그리도록 */
+    private static final Object PAYLOAD_TIME = new Object();
 
     @NonNull
     @Override
@@ -67,17 +85,40 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
         h.firstTag.setVisibility(first ? View.VISIBLE : View.GONE);
 
         h.route.setText(o.route);
-        h.arrive.setText(o.arriveAt == null
-                ? c.getString(R.string.home_arrive_unknown)
-                : c.getString(R.string.home_arrive, o.arriveAt));
+        bindArrive(h, o);
         // 정류장 이름은 API 이름 그대로
         h.stop.setText(c.getString(R.string.home_stop_walk, o.stop == null ? "" : o.stop.name, o.walkMin));
 
         bindBadge(h, o);
-        bindBusLine(h, o);
+        bindBusLine(h, o, elapsedMin);
         bindNote(h, o);
 
         h.itemView.setOnClickListener(v -> onClick.onClick(o));
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull Holder h, int position, @NonNull List<Object> payloads) {
+        if (!payloads.isEmpty() && payloads.stream().allMatch(p -> p == PAYLOAD_TIME)) {
+            bindBusLine(h, items.get(position), elapsedMin);
+            return;
+        }
+        onBindViewHolder(h, position);
+    }
+
+    /** 1줄: "도착 10:08" + 걸리는 시간 "2시간 28분" (total_min) */
+    private static void bindArrive(Holder h, Option o) {
+        Context c = h.itemView.getContext();
+        String total = o.arriveAt == null ? null : LiveTime.duration(o.totalMin);
+        if (o.arriveAt == null) {
+            h.arrive.setText(R.string.home_arrive_unknown);
+            h.arrive.setContentDescription(null);
+        } else {
+            h.arrive.setText(c.getString(R.string.home_arrive, o.arriveAt));
+            h.arrive.setContentDescription(total == null
+                    ? c.getString(R.string.home_arrive_desc, o.arriveAt)
+                    : c.getString(R.string.home_arrive_total_desc, o.arriveAt, total));
+        }
+        h.total.setText(total);
     }
 
     private static void bindBadge(Holder h, Option o) {
@@ -95,22 +136,24 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
         h.badge.setTextColor(ContextCompat.getColor(c, levelColor(level)));
     }
 
-    private static void bindBusLine(Holder h, Option o) {
+    private static void bindBusLine(Holder h, Option o, int elapsedMin) {
         if (o.skipped) {
             h.busRow.setVisibility(View.GONE);
             return;
         }
         Context c = h.itemView.getContext();
-        OptionFormat.BusLine line = OptionFormat.busLine(o);
+        OptionFormat.BusLine line = OptionFormat.busLine(o, elapsedMin);
         String text;
         @ColorRes int color;
         switch (line.kind) {
             case BUS:
                 Bus b = line.bus;
+                // 남은 분은 받은 뒤 지난 시간만큼 줄인 값 (line.etaMin)
                 String eta = line.missedEarlier
-                        ? c.getString(R.string.home_bus_next_eta, b.etaMin)
-                        : b.etaMin <= 0 ? c.getString(R.string.home_bus_eta_now)
-                        : c.getString(R.string.home_bus_eta, b.etaMin);
+                        ? (line.etaMin <= 0 ? c.getString(R.string.home_bus_eta_now)
+                        : c.getString(R.string.home_bus_next_eta, line.etaMin))
+                        : line.etaMin <= 0 ? c.getString(R.string.home_bus_eta_now)
+                        : c.getString(R.string.home_bus_eta, line.etaMin);
                 String seats = b.seatsAtStop == null ? c.getString(R.string.home_bus_seats_unknown)
                         : b.seatsAtStop <= 0 ? c.getString(R.string.home_bus_full)
                         : c.getString(R.string.home_bus_seats, b.seatsAtStop);
@@ -120,6 +163,10 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
             case NONE_REACHABLE:
                 text = c.getString(R.string.home_bus_none_reachable);
                 color = R.color.home_badge_low;
+                break;
+            case PASSED:
+                text = c.getString(R.string.home_bus_passed);
+                color = R.color.home_muted;
                 break;
             case NO_INFO:
             default:
@@ -182,6 +229,7 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
     static class Holder extends RecyclerView.ViewHolder {
         final TextView route;
         final TextView arrive;
+        final TextView total;
         final TextView firstTag;
         final TextView badge;
         final TextView stop;
@@ -194,6 +242,7 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
             super(v);
             route = v.findViewById(R.id.home_option_route);
             arrive = v.findViewById(R.id.home_option_arrive);
+            total = v.findViewById(R.id.home_option_total);
             firstTag = v.findViewById(R.id.home_option_first_tag);
             badge = v.findViewById(R.id.home_option_badge);
             stop = v.findViewById(R.id.home_option_stop);

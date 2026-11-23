@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 헤더 새로고침 (원형 화살표, 24 × 24, 회색) — Figma '02 홈' 헤더 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M20,12A8,8 0,1 1,17.66 6.34"
+        android:strokeWidth="2"
+        android:strokeColor="@color/home_icon_muted"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M20,4L20,8.5L15.5,8.5"
+        android:strokeWidth="2"
+        android:strokeColor="@color/home_icon_muted"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

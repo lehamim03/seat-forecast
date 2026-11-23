@@ -1,23 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Figma '좌석예보 앱 UI' 02 홈 프레임 구조. 11주차: 우리집 → 국민대 카드 · 추천 카드 · 확률 배지 (헤더 새로고침 · 알림 아이콘은 12주차) -->
+<!-- Figma '좌석예보 앱 UI' 02 홈 프레임 구조. 11주차: 우리집 → 국민대 카드 · 추천 카드 · 확률 배지 / 12주차: 헤더 새로고침 · 당겨서 새로고침 · 갱신 시각 (알림 아이콘은 E 담당) -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/home_background"
     android:orientation="vertical">
 
-    <!-- Header -->
-    <TextView
+    <!-- Header: 앱 이름 · 새로고침 -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingStart="20dp"
-        android:paddingTop="12dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="4dp"
-        android:text="@string/home_app_title"
-        android:textColor="@color/home_primary"
-        android:textSize="22sp"
-        android:textStyle="bold" />
+        android:paddingTop="4dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/home_app_title"
+            android:textColor="@color/home_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/home_refresh"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/home_refresh"
+            android:src="@drawable/home_ic_refresh" />
+    </LinearLayout>
 
     <!-- Trip: 우리집 → 국민대 · 평소 정류장 · day.label -->
     <LinearLayout
@@ -116,14 +131,31 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <TextView
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/home_section_title"
-            android:textColor="@color/home_text"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/home_section_title"
+                android:textColor="@color/home_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <!-- 12주차: "07:40 기준 · 3분 전 갱신" / 새로 불러오는 중 / 갱신 실패 -->
+            <TextView
+                android:id="@+id/home_updated"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:accessibilityLiveRegion="polite"
+                android:textColor="@color/home_muted"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/home_sort"
@@ -140,56 +172,62 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <!-- 추천 목록 · 로딩 · 오류 · 빈 목록 · 로그인 필요 -->
-    <FrameLayout
+    <!-- 추천 목록 · 로딩 · 오류 · 빈 목록 · 로그인 필요 — 아래로 당기면 새로고침 (12주차) -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/home_swipe"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/home_list"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="8dp"
-            android:visibility="gone" />
+            android:layout_height="match_parent">
 
-        <LinearLayout
-            android:id="@+id/home_state"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:padding="24dp">
-
-            <ProgressBar
-                android:id="@+id/home_progress"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:indeterminateTint="@color/home_primary" />
-
-            <TextView
-                android:id="@+id/home_state_message"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:gravity="center"
-                android:textColor="@color/home_muted"
-                android:textSize="14sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/home_state_action"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:textColor="@color/home_primary"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/home_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="8dp"
                 android:visibility="gone" />
-        </LinearLayout>
-    </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/home_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <ProgressBar
+                    android:id="@+id/home_progress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:indeterminateTint="@color/home_primary" />
+
+                <TextView
+                    android:id="@+id/home_state_message"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:textColor="@color/home_muted"
+                    android:textSize="14sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/home_state_action"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:textColor="@color/home_primary"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- 출발 알림 (1순위 조합 기준, 실제 알림은 E 담당) -->
     <com.google.android.material.button.MaterialButton

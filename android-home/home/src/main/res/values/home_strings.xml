@@ -39,4 +39,15 @@
     <string name="home_delay">돌발 · 행사로 +%1$d분 지연 반영</string>
     <string name="home_skipped">우회 중 · 이 정류장은 지나가서 탈 수 없어요</string>
     <string name="home_badge_desc">탑승 확률 %1$s</string>
+
+    <!-- 12주차: 도착 시각 · 새로고침 -->
+    <string name="home_arrive_desc">국민대 도착 예상 %1$s</string>
+    <string name="home_arrive_total_desc">국민대 도착 예상 %1$s, %2$s 걸림</string>
+    <string name="home_bus_passed">표시된 차가 모두 지나갔어요 · 새로고침해 주세요</string>
+    <string name="home_refresh">새로고침</string>
+    <string name="home_updated_now">%1$s 기준 · 방금 갱신</string>
+    <string name="home_updated_ago">%1$s 기준 · %2$d분 전 갱신</string>
+    <string name="home_updating">새로 불러오는 중…</string>
+    <string name="home_update_failed">갱신 실패 · %1$s 기준</string>
+    <string name="home_refresh_failed">새로고침하지 못했어요. %1$s</string>
 </resources>

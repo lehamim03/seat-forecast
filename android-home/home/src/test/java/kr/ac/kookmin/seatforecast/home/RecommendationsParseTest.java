@@ -48,17 +48,17 @@ public class RecommendationsParseTest {
         assertEquals(1.0, r.day.dropFactor, 1e-9);
         assertEquals("다른 버스", r.recommendation.kind);
         assertEquals("3007", r.recommendation.route);
-        assertEquals("자유총연맹", r.recommendation.stopName);
-        assertTrue(r.recommendation.message.startsWith("다른 버스 (3007번 · 자유총연맹)"));
+        assertEquals("삼성1차아파트", r.recommendation.stopName);
+        assertTrue(r.recommendation.message.startsWith("다른 버스 (3007번 · 삼성1차아파트)"));
 
         assertEquals(11, r.ranking.size());
         Option first = r.ranking.get(0);
         assertEquals(Option.KIND_OTHER_BUS, first.kind);
         assertEquals("3007", first.route);
-        assertEquals("203000161", first.stop.id);
-        assertEquals("자유총연맹", first.stop.name);
-        assertEquals("04236", first.stop.mobileNo);
-        assertEquals(3, first.walkMin);
+        assertEquals("203000063", first.stop.id);
+        assertEquals("삼성1차아파트", first.stop.name);
+        assertEquals("04007", first.stop.mobileNo);
+        assertEquals(0, first.walkMin);   // 같은 버스 · 비슷한 확률이면 가까운 정류장 먼저
         assertEquals(1.0, first.boardProb, 1e-9);
         assertEquals("10:08", first.arriveAt);
         assertEquals(Integer.valueOf(148), first.totalMin);
@@ -69,8 +69,8 @@ public class RecommendationsParseTest {
         Bus bus = first.firstBus();
         assertNotNull(bus);
         assertEquals(1, bus.order);
-        assertEquals(4, bus.etaMin);
-        assertEquals(Integer.valueOf(21), bus.seatsAtStop);
+        assertEquals(6, bus.etaMin);
+        assertEquals(Integer.valueOf(19), bus.seatsAtStop);
         assertTrue(bus.reachable);
 
         assertEquals(4, first.routeChoices.size());
