@@ -55,6 +55,15 @@
     <string name="alt_subway_title">지하철로 가면</string>
     <string name="alt_subway_line">도착 %1$s · 환승 %2$d회 · 도보 %3$d분</string>
 
+    <!-- 1분 자동 갱신 (12주차 1차) -->
+    <string name="alt_refresh">새로고침</string>
+    <string name="alt_refreshing">갱신 중…</string>
+    <string name="alt_updated">%1$s 갱신 · %2$s</string>
+    <string name="alt_auto_every_min">%1$d분마다 자동 갱신</string>
+    <string name="alt_auto_every_sec">%1$d초마다 자동 갱신</string>
+    <string name="alt_auto_off">자동 갱신 꺼짐</string>
+    <string name="alt_stale">갱신하지 못했어요 · %1$s 정보예요</string>
+
     <!-- 상태 화면 (10주차 2차: 조회 중 · 오류) -->
     <string name="alt_loading">실시간 대안을 계산하는 중…</string>
     <string name="alt_error_default">실시간 대안을 불러오지 못했습니다.</string>

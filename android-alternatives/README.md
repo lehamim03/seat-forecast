@@ -5,8 +5,8 @@
 A 홈(`android-home`) · D 로그인(`android-account`) 모듈과 같은 방식으로 **독립된 안드로이드 라이브러리 모듈**로 만들었습니다.
 팀 앱 뼈대(app 모듈)가 생기면 이 모듈을 붙이기만 하면 됩니다. 저장소의 다른 파일은 고치지 않았습니다.
 
-**지금 상태: 11주차까지 (10주차 상태별 화면 설계 · API 확인 + 11주차 대안 카드 3장 · 차량별 좌석).**
-다음: 12주차 1분 자동 갱신 · 상태 구분 완성 → 13주차 `/alternatives` 서버 연결.
+**지금 상태: 12주차까지 (10주차 상태별 화면 · API 확인 → 11주차 대안 카드 3장 · 차량별 좌석 → 12주차 1분 자동 갱신 · 만석/좌석 정보 없음 구분).**
+다음: 13주차 `/alternatives` 서버 연결 (`ApiAlternativesSource` 로 바꾸기만 하면 됨).
 
 | 주차 | 만든 것 | 위치 |
 |---|---|---|
@@ -15,6 +15,8 @@ A 홈(`android-home`) · D 로그인(`android-account`) 모듈과 같은 방식�
 | 10주차 2차 | `GET /api/v1/alternatives` 응답 모델 · 예시 JSON / 서버 데이터 소스 · 오류 응답 처리 | `model/*`, `data/*` |
 | 11주차 1차 | 대안 카드 3장 **① 기다리기 ② 걸어가기 ③ 다른 버스** — ★ 추천, 도착 시각, 가장 빠른 대안과 비교, 서울 하차 · 환승 경로 | `ui/OptionCard`, `res/layout/alt_item_option.xml` |
 | 11주차 2차 | 카드 안 **다가오는 차량별 남은 좌석** — N번째 · N분 후 · 약 N석/만석/좌석 정보 없음 · 탑승 확률, 걸어가는 동안 지나가는 차 표시, '탈 차' | `ui/AltFormat.busRows`, `res/layout/alt_item_bus.xml` |
+| 12주차 1차 | **1분 자동 갱신** — 화면이 보이는 동안만 1분마다 다시 불러옴(덮지 않고 조용히 바꿈), `HH:MM:SS 갱신 · 1분마다 자동 갱신` · `새로고침`, 실패하면 이전 정보를 두고 `갱신하지 못했어요 · HH:MM:SS 정보예요`(빨강), 다른 화면에 갔다 오면 1분이 지났을 때 바로 갱신 | `ui/AlternativesFragment`, `Alternatives.setRefreshIntervalMs`, `AltFormat.nextRefreshDelay` |
+| 12주차 2차 | **만석 · 좌석 정보 없음 구분** — `seats_at_stop` 0 = 만석, `-1`(경기도 버스 API 의 '모름') · `null` = 좌석 정보 없음 | `ui/AltFormat.seats` |
 | — | 단독 화면 (A 홈 카드 · E 돌발 알림 푸시에서 열기) | `ui/AlternativesActivity` |
 | — | 다른 화면과 연결할 콜백 | `AlternativesHost`, `Alternatives.init` |
 | — | 단독 실행용 시연 앱 (상태 화면 바로 보기) | `demo/` (팀 앱에 합칠 때는 필요 없음) |
@@ -36,7 +38,7 @@ A 홈(`android-home`) · D 로그인(`android-account`) 모듈과 같은 방식�
 | 도착 | `도착 HH:MM` · `가장 빨라요` / `+N분` | `total_min` 이 가장 작은 대안과 비교 (건너뜀 · 시간 모름은 비교에서 뺌) |
 | 타는 법 | 기다리기 `○○에서 그대로 기다리기` · 걸어가기 `○○까지 도보 N분` · 다른 버스 `○○ · 도보 N분` | 기다리기에서 첫 차가 빨강인데 뒤 차가 탈 만하면 `첫 차 보내고 다음 8800 타기 · 12분 후 · 약 18석` (기획서 11쪽) |
 | 서울 | `서울시청 하차 · 도보 6분 → 버스 1711(…) → 도보 4분` | `alight_stop` + `route_choices[0].summary` (추천 경로) |
-| 다가오는 차 | `1번째 · 6분 후 · 만석 [탈 차] · 2%` | `seats_at_stop` 0 → 만석, null → 좌석 정보 없음. `reachable: false` → 흐리게 + `걸어가는 동안 지나가요`. `buses: []` → `다가오는 차 정보 없음 · 배차간격으로 예상` |
+| 다가오는 차 | `1번째 · 6분 후 · 만석 [탈 차] · 2%` | `seats_at_stop` 0 → 만석, `-1` · null → 좌석 정보 없음(회색). `reachable: false` → 흐리게 + `걸어가는 동안 지나가요`. `buses: []` → `다가오는 차 정보 없음 · 배차간격으로 예상` |
 | 알림 | `돌발 · 행사로 +N분 지연 반영` (노랑) / `우회 중 · 이 정류장은 지나가서 탈 수 없어요` (빨강, 카드 흐리게) | 건너뜀이 지연보다 우선 |
 | 지하철 | `지하철로 가면 · 도착 HH:MM · 환승 N회 · 도보 N분` + 경로 | `subway` 가 있을 때만 (docs 예시에는 없음) |
 
@@ -96,7 +98,7 @@ Alternatives.init(new TeamAltHost(), new ApiAlternativesSource("https://<서버>
 ```
 
 - 화면 하나로 열 때는 `AlternativesActivity`(모듈 안 `AltTheme`, 흰 상단바), 다른 화면 안에 넣을 때는 `AlternativesFragment.newInstance(stop, route)`.
-- `alternativesFragment.reload()` 로 다시 불러올 수 있습니다 (12주차 1분 자동 갱신에서 사용 예정).
+- 화면이 보이는 동안 1분마다 자동으로 다시 불러옵니다. 간격은 `Alternatives.setRefreshIntervalMs(ms)` (0 이하 = 끔), 바로 다시 불러오려면 `alternativesFragment.reload()`.
 
 ## 실행 · 테스트
 
@@ -112,7 +114,7 @@ cd android-alternatives
 |---|---|
 | `AlternativesParseTest` (8) | `alternatives.json` 읽기 (대안 3개 · 화면 순서 · 필드 값), 정류장 이름 그대로, `subway` 없음, null 필드(`arrive_at` · `total_min` · `seats_at_stop` · 빈 `buses`), 대안 모두 null, 깨진 JSON, 시연 앱 assets 가 원본과 같은지 |
 | `ApiAlternativesSourceTest` (6) | 요청 주소 `/api/v1/alternatives` · 쿼리 `home_stop` · `route` · `Bearer` 헤더, 토큰 없을 때 헤더 없음, 주소 끝 `/`, 오류 응답 `{"error":…}` · 본문 없는 500 · 401 · 서버 꺼짐 |
-| `ui.AltFormatTest` (9) | 확률 단계 경계 · % 표시, 평소 버스 상태(만석 · 여유 · 만석 위험 · 우회 · 정보 없음), 카드 번호, 추천 카드, 가장 빠른 대안과 비교, 차량별 좌석(지나가는 차 · 탈 차 · 만석 · 좌석 모름), 첫 차 보내고 다음 차 |
+| `ui.AltFormatTest` (11) | 확률 단계 경계 · % 표시, 평소 버스 상태(만석 · 여유 · 만석 위험 · 우회 · 정보 없음), 카드 번호, 추천 카드, 가장 빠른 대안과 비교, 차량별 좌석(지나가는 차 · 탈 차 · 만석 · 좌석 모름), **만석(0) · 좌석 정보 없음(-1 · null) 구분**, **다음 자동 갱신까지 남은 시간**, 첫 차 보내고 다음 차 |
 
 ### 시연 앱으로 상태 화면 확인
 
@@ -126,7 +128,11 @@ adb shell am start -n kr.ac.kookmin.seatforecast.alternativesdemo/kr.ac.kookmin.
 | (없음) | **만석** — docs 예시 그대로 (평소 8800 · 6분 후 · 만석 · 2%, 추천 ③ 다른 버스 3007) |
 | `relaxed` | **여유** — 다가오는 8800 약 14석 · 92%, 추천 ① 기다리기 (시연용 가상 값) |
 | `risk` | **만석 위험** — 다가오는 8800 약 3석 · 55% (시연용 가상 값) |
-| `cases` | 경우 모음 `alt_cases.json` — 첫 차 보내고 다음 차 · 놓치는 첫 차 · 좌석 모름 · 돌발 지연 · 우회로 건너뜀 · 지하철 비교 |
+| `cases` | 경우 모음 `alt_cases.json` — 첫 차 보내고 다음 차 · 놓치는 첫 차 · 만석(0)과 좌석 정보 없음(-1 · null) · 돌발 지연 · 우회로 건너뜀 · 지하철 비교 |
 | `empty` · `error` · `signed_out` · `loading` | 대안 없음 · 오류(다시 시도) · 로그인 필요 · 조회 중 |
+| `live` | 갱신할 때마다 다가오는 차가 1분씩 가까워지고 계산 시각이 지금으로 바뀜 (자동 갱신 확인용) |
+| `flaky` | 처음만 성공하고 그다음 갱신은 실패 → 이전 정보 유지 + `갱신하지 못했어요` |
+
+자동 갱신은 기본 1분이라, 확인할 때는 간격을 줄여서 여세요: `... --es demo_mode live --ei demo_refresh_sec 10`
 
 `loading` 은 10분 동안 응답하지 않으므로, 다른 모드로 바꿀 때는 위처럼 `force-stop` 을 먼저 하세요.

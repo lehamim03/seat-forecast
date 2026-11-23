@@ -144,6 +144,40 @@ public class AltFormatTest {
         assertTrue("buses: [] → 목록 없음(배차간격으로 예상)", AltFormat.busRows(cases().alternatives.otherBus).isEmpty());
     }
 
+    /** 12주차 2차: 만석(0) 과 좌석 정보 없음(-1 · null) 을 구분 */
+    @Test
+    public void fullAndUnknownSeatsAreDifferent() throws Exception {
+        Bus b = new Bus();
+        b.seatsAtStop = 0;
+        assertEquals(AltFormat.Seats.FULL, AltFormat.seats(b));
+        b.seatsAtStop = -1;
+        assertEquals("경기도 API 는 좌석을 모르면 -1", AltFormat.Seats.UNKNOWN, AltFormat.seats(b));
+        b.seatsAtStop = null;
+        assertEquals(AltFormat.Seats.UNKNOWN, AltFormat.seats(b));
+        b.seatsAtStop = 1;
+        assertEquals(AltFormat.Seats.SOME, AltFormat.seats(b));
+
+        List<AltFormat.BusRow> walk = AltFormat.busRows(cases().alternatives.walk);
+        assertEquals(AltFormat.Seats.FULL, walk.get(0).seats);
+        assertEquals(AltFormat.Seats.UNKNOWN, walk.get(1).seats);
+        List<AltFormat.BusRow> wait = AltFormat.busRows(cases().alternatives.wait);
+        assertEquals(AltFormat.Seats.FULL, wait.get(0).seats);
+        assertEquals(AltFormat.Seats.SOME, wait.get(1).seats);
+        assertEquals(AltFormat.Seats.UNKNOWN, wait.get(2).seats);
+    }
+
+    /** 12주차 1차: 1분 자동 갱신 — 다음 갱신까지 남은 시간 */
+    @Test
+    public void nextRefreshDelay() {
+        long min = 60_000L;
+        assertEquals("아직 한 번도 안 불렀으면 바로", 0, AltFormat.nextRefreshDelay(0, 5_000, min));
+        assertEquals(60_000, AltFormat.nextRefreshDelay(100_000, 100_000, min));
+        assertEquals(15_000, AltFormat.nextRefreshDelay(100_000, 145_000, min));
+        assertEquals("다른 화면에 갔다 온 동안 1분이 지났으면 바로", 0, AltFormat.nextRefreshDelay(100_000, 400_000, min));
+        assertEquals("시계가 뒤로 가면 한 번 기다림", 60_000, AltFormat.nextRefreshDelay(100_000, 50_000, min));
+        assertEquals("0 이하 = 자동 갱신 끔", -1, AltFormat.nextRefreshDelay(100_000, 200_000, 0));
+    }
+
     /** 기획서 11쪽 '첫 차 보내고 다음 8800 타기' */
     @Test
     public void skipFirstBusWhenNextHasSeats() throws Exception {

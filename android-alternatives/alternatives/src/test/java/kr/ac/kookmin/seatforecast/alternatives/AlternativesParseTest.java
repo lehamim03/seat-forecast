@@ -105,7 +105,8 @@ public class AlternativesParseTest {
         assertNull(skipped.totalMin);
         assertTrue(skipped.buses.isEmpty());
         assertNull(skipped.mainChoice());
-        assertNull("좌석 모름", r.alternatives.walk.buses.get(1).seatsAtStop);
+        assertEquals("좌석 모름 (경기도 API 값 -1)", Integer.valueOf(-1), r.alternatives.walk.buses.get(1).seatsAtStop);
+        assertNull("좌석 모름 (null)", r.alternatives.wait.buses.get(2).seatsAtStop);
         assertEquals(12, r.alternatives.walk.delayMin);
         assertNotNull(r.subway);
         assertEquals("10:12", r.subway.arriveAt);
