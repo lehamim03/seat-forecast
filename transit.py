@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta
 import requests
 
 import api_key
+import config
 from config import (SERVICE_KEY, ROUTES, STOPS, MY_STOP, MY_ROUTE, DEST_NAME, DEST_X, DEST_Y,
                     TRANSFER_PENALTY_MIN, WALK_WEIGHT, WAIT_WEIGHT, CITY_BUS_PEAK_FACTOR, PEAK_HOURS)
 
@@ -294,7 +295,8 @@ def pick_choices(options, n=MAX_CHOICES):
 def subway_route(now=None, fetch=True):
     """집 → 국민대 지하철 경로 중 체감 시간이 가장 짧은 것. 좌석 제한이 있는 대상 노선은 타지 않는 길만 봄.
     만석이 없어 탑승 확률은 100%로 봅니다. 없거나 조회에 실패하면 None."""
-    route = ROUTES[MY_ROUTE]
+    # 평소 정류장 좌표 — 평소 노선이 그 정류장에 안 서면 서는 다른 노선의 정류장 정보로
+    route = next(c for c in (ROUTES.get(MY_ROUTE), *ROUTES.values()) if c and MY_STOP in c["stops"])
     try:
         x, y, _ = station_xy(route["route_id"], route["stops"][MY_STOP])
         routes = odsay_routes(x, y, fetch=fetch) or []
@@ -336,8 +338,9 @@ def get_legs(now=None, fetch=True):
 def get_walks():
     """평소 정류장 → 각 후보 정류장 도보 시간(분). 실패하면 config 의 walk_min 을 씁니다."""
     c = _load_cache()
-    if "walks" in c:
-        return c["walks"]
+    key = "walks" if MY_STOP == config.MY_STOP else f"walks:{MY_STOP}"   # 평소 정류장마다 따로 저장
+    if key in c:
+        return c[key]
     near = {}
     if os.path.exists("nearby_stops.json"):
         with open("nearby_stops.json", encoding="utf-8") as f:
@@ -355,7 +358,7 @@ def get_walks():
             print(f"  ! {stop['name']} 도보 시간 조회 실패 — 추정값 사용 ({e})")
             walks[stop_id], ok = base, False
     if ok:
-        c["walks"] = walks
+        c[key] = walks
         _save_cache(c)
     return walks
 

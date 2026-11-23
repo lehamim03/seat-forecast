@@ -187,6 +187,28 @@ python events.py
 python demo_scenarios.py
 ```
 
+## 예측 서버 (앱이 부르는 API)
+
+`server.py` 는 [docs/api.md](docs/api.md) 형식 그대로 답하는 FastAPI 서버입니다. 계산은 `live_recommend.py` · `transit.py` · `map_data.py` 를 그대로 씁니다.
+
+```bash
+pip install -r requirements.txt
+uvicorn server:app --host 0.0.0.0 --port 8000      # Windows 는 run_server.bat 더블클릭
+python -m unittest discover tests                   # 서버 시험 (가상 버스 데이터, 인터넷 불필요)
+```
+
+| 접속하는 곳 | 서버 주소 |
+|---|---|
+| 같은 컴퓨터 (브라우저 · 시험) | `http://localhost:8000/health`, `http://localhost:8000/docs` (API 화면) |
+| 안드로이드 에뮬레이터 | `http://10.0.2.2:8000/` (각 모듈 시연 앱의 `SERVER_BASE_URL` 기본값) |
+| 같은 와이파이의 휴대폰 | `http://<서버 컴퓨터 IP>:8000/` — Windows 방화벽에서 8000 포트 허용 필요 |
+
+- **로그인 확인**: 환경변수 `FIREBASE_PROJECT_ID` 를 정하면 `Authorization: Bearer <Firebase ID 토큰>` 이 없거나 틀린 요청을 `401` 로 막습니다. 정하지 않으면 확인하지 않습니다(개발용). Firebase 로컬 에뮬레이터 토큰을 쓸 때는 `FIREBASE_AUTH_EMULATOR_HOST` 도 정합니다.
+- **응답 속도**: 서버를 켜면 바로 한 번 미리 계산합니다(약 40초 — 수집 데이터 읽기 · 환승 경로 조회). 그 뒤 요청은 약 4초이고, 같은 정류장 · 노선은 30초 동안 계산 결과를 다시 씁니다. 환승 경로는 20분마다 뒤에서 다시 계산합니다.
+- **서버를 둘 곳**: ODsay 는 등록한 공인 IP 에서만 작동하므로, 그 IP 의 컴퓨터에서 켜야 환승 경로 · 지하철 비교가 실제 값으로 나옵니다(아니면 config 가정값). `api_key.py` 와 `board_model.pkl` 이 서버 폴더에 있어야 합니다.
+- **탑승 피드백**: `POST /api/v1/feedback` 은 `feedback/feedback.jsonl` 에 한 줄씩 저장합니다 (git 제외).
+- **돌발 감지**: 공식 돌발정보(ITS)는 항상 반영합니다. 앞차 움직임으로 정지 · 정체를 감지하려면 같은 컴퓨터에서 `collect.py` 가 돌아 `bus_seats.csv` 가 있어야 합니다 — 하루 API 호출 한도를 GitHub 자동 수집과 나눠 쓰므로 시연 때만 켭니다.
+
 ## 자동 수집 (노트북을 켜 두지 않아도 됨)
 
 GitHub Actions 가 **첫차 전 05:00부터 막차가 서울에 닿는 다음 날 01:30까지** 수집해
@@ -222,6 +244,9 @@ GitHub Actions 가 **첫차 전 05:00부터 막차가 서울에 닿는 다음 �
 | `transit.py` | ODsay 환승 경로 · TMAP 도보 시간 조회 (하루 한 번 조회해 저장) |
 | `check_keys.py` | 지금 공인 IP 확인 + API 키 작동 점검 |
 | `map_data.py` | 앱 지도 화면용 GeoJSON (내 위치 · 도보 경로 · 노선 · 실시간 버스 · 돌발 · 환승 경로) + 미리보기 HTML |
+| `server.py` | 예측 서버 (FastAPI) — 앱이 부르는 `/api/v1/...` 6개, 형식은 docs/api.md |
+| `run_server.bat` | Windows 에서 예측 서버 실행 (`0.0.0.0:8000`) |
+| `tests/test_server.py` | 예측 서버 응답 형식 · 오류 · 로그인 · 피드백 시험 |
 | `survey_form.gs` | 이용자 설문 구글폼 자동 생성 스크립트 (Google Apps Script) |
 
 ## 탑승 성공의 정의

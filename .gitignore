@@ -23,3 +23,6 @@ daytype_cache.json
 events_cache.json
 map_data.geojson
 map_preview.html
+
+# 예측 서버에 들어온 탑승 피드백 (개인 기록)
+feedback/

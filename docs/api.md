@@ -3,6 +3,8 @@
 앱(Android · Java)과 예측 서버(FastAPI · Python)가 주고받는 데이터 형식입니다.
 화면별 예시 응답은 [`docs/examples/`](examples/)에 있습니다. 서버가 완성되기 전에는 이 파일로 화면을 먼저 만들면 됩니다.
 
+- **서버**: 저장소 루트의 `server.py` (실행 방법은 [README의 "예측 서버"](../README.md#예측-서버-앱이-부르는-api)). 에뮬레이터에서는 `http://10.0.2.2:8000/` 입니다. 서버 상태는 `GET /health`.
+
 - 예시 파일은 `python api_examples.py`로 다시 만들 수 있습니다. 가상 상황(평일 07:40, 평소 삼성1차아파트에서 8800)을 실제 추천 로직(`live_recommend.py`)으로 계산한 결과입니다.
 - 형식을 바꿀 때는 이 문서와 예시 파일을 함께 고치고 팀 전체에 알립니다.
 
@@ -16,7 +18,9 @@
 | 정류장 이름 | 공공데이터 API 이름 그대로 (줄이거나 바꾸지 않음). 예: `매탄위브하늘채.경기아트센터`, `양재역.서초문화예술회관(중)` |
 | 정류장 ID | 경기도 정류소 ID (`203000063` 등). 화면에 보이는 5자리 번호는 `mobile_no` (`04007`) |
 | 확률 | `0.0 ~ 1.0` (화면에는 `%`로) — 70% 이상 초록, 40~70% 노랑, 40% 미만 빨강 |
-| 오류 | HTTP 상태 코드 + `{"error": {"code": "...", "message": "..."}}` |
+| 오류 | HTTP 상태 코드 + `{"error": {"code": "...", "message": "..."}}` — `message` 는 화면에 그대로 보여줘도 되는 문장 |
+| 오류 코드 | `400` `bad_request`(요청 값 형식) · `unknown_stop` · `unknown_route` / `401` `unauthorized`(토큰 없음 · 만료) / `404` `not_found` / `500` `internal` |
+| 요청 값 기본값 | `home_stop` · `route` 를 빼면 `203000063` · `8800` 으로 계산 (정류장 3곳 · 노선 4개만 지원) |
 
 ## 화면별 API 한눈에
 
@@ -83,7 +87,7 @@
 
 ## ④ 지도 — `GET /api/v1/map`
 
-카카오맵에 그릴 GeoJSON(`FeatureCollection`)입니다. 좌표는 `[경도, 위도]` 순서입니다. `properties.kind`로 무엇인지 구분합니다.
+카카오맵에 그릴 GeoJSON(`FeatureCollection`)입니다. 요청 값 `home_stop`(선택, `me` 위치와 도보선 기준). 좌표는 `[경도, 위도]` 순서입니다. `properties.kind`로 무엇인지 구분합니다.
 
 | `kind` | 도형 | 속성 | 그리는 법 |
 |---|---|---|---|
@@ -114,7 +118,9 @@
 |---|---|
 | `incidents[]` | `route`, `delay_min`, `skip_stops`(건너뛰는 정류장 ID), `drop_factor`(좌석이 평소의 몇 배로 주는지), `notes`(화면 문구) |
 | `recommendation`, `alternatives` | 돌발을 반영한 ③과 같은 형식 |
-| `push` | FCM 알림 — `title`, `body`, `data.screen`(눌렀을 때 열 화면: `alternatives`), `data.route` |
+| `push` | FCM 알림 — `title`, `body`, `data.screen`(눌렀을 때 열 화면: `alternatives`), `data.route`. 평소 노선에 돌발이 없으면 `null` |
+
+요청 값은 ②와 같습니다. 돌발이 없을 때 `incidents` 는 빈 목록입니다.
 
 서버가 돌발을 감지하면 해당 노선을 평소 노선으로 둔 사용자에게 `push` 내용을 FCM으로 보냅니다.
 

@@ -64,8 +64,9 @@ def live_prob(b, route, stop_id, n_stops, seats_now, now, day_type):
     return b["live_model"].predict_proba(x)[0, 1]
 
 
-def main():
-    my_route = sys.argv[1] if len(sys.argv) > 1 else MY_ROUTE
+def main(my_route=None):
+    """my_route 를 주지 않으면 명령줄 인자, 그것도 없으면 config.MY_ROUTE (server.py 는 항상 넘김)"""
+    my_route = my_route or (sys.argv[1] if len(sys.argv) > 1 else MY_ROUTE)
     now = NOW_OVERRIDE or datetime.now()
     b = joblib.load("board_model.pkl") if USE_MODEL and os.path.exists("board_model.pkl") else {}
 
@@ -94,12 +95,18 @@ def main():
     inc = incidents.detect(now, b, INCIDENT_RECENT, INCIDENT_EVENTS)
 
     # 1) 노선마다 달리고 있는 모든 차량 (위치 · 현재 잔여 좌석)
-    buses = {r: get("buslocationservice/v2/getBusLocationListv2", routeId=c["route_id"])
-             for r, c in ROUTES.items()}
     # 2) 후보 정류장마다 첫 차의 정확한 도착 예정 시간 (차량번호 → 분)
+    #    공공 API 7번을 동시에 불러 기다리는 시간을 줄임 (앱 서버 응답 속도)
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        loc = {r: pool.submit(get, "buslocationservice/v2/getBusLocationListv2", routeId=c["route_id"])
+               for r, c in ROUTES.items()}
+        arr = {s: pool.submit(get, "busarrivalservice/v2/getBusArrivalListv2", stationId=s) for s in STOPS}
+        buses = {r: f.result() for r, f in loc.items()}
+        arrivals = {s: f.result() for s, f in arr.items()}
     eta_exact = {}
     for stop_id in STOPS:
-        for a in get("busarrivalservice/v2/getBusArrivalListv2", stationId=stop_id):
+        for a in arrivals[stop_id]:
             for n in ("1", "2"):
                 if a.get(f"plateNo{n}") and num(a.get(f"predictTime{n}")) is not None:
                     eta_exact[(stop_id, a[f"plateNo{n}"])] = num(a[f"predictTime{n}"])
