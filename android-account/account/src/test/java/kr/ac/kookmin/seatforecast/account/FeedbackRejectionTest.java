@@ -7,7 +7,7 @@ import org.junit.Test;
 
 import kr.ac.kookmin.seatforecast.account.feedback.FeedbackResponse;
 
-/** 13주차 서버 연결: 어떤 응답이면 다시 보내지 않을지 (server-bd 오류 코드 기준) */
+/** 13주차 서버 연결: 어떤 응답이면 다시 보내지 않을지 (docs/api.md 오류 코드 기준) */
 public class FeedbackRejectionTest {
 
     @Test

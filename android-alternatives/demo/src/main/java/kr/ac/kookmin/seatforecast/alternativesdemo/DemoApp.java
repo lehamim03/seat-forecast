@@ -30,7 +30,7 @@ import kr.ac.kookmin.seatforecast.alternatives.model.Option;
  * adb shell am start -n kr.ac.kookmin.seatforecast.alternativesdemo/kr.ac.kookmin.seatforecast.alternatives.ui.AlternativesActivity --es demo_mode relaxed
  * </pre>
  * relaxed(여유) · risk(만석 위험) · cases(경우 모음 alt_cases.json) · empty(대안 없음) · error(오류) · signed_out(로그인 필요) · loading(조회 중)
- * · live(갱신마다 값이 바뀜) · flaky(첫 갱신 뒤 실패) · server(13주차: 실제 서버 server-bd + Firebase 에뮬레이터 토큰).
+ * · live(갱신마다 값이 바뀜) · flaky(첫 갱신 뒤 실패) · server(13주차: 팀 server.py + Firebase 에뮬레이터 토큰).
  * 없으면 보통 화면 = docs 예시 (평소 8800 만석).
  * 자동 갱신 간격은 {@code --ei demo_refresh_sec 10} 으로 줄일 수 있습니다 (기본 1분).
  */
@@ -93,7 +93,7 @@ public class DemoApp extends Application {
             case "cases":
                 return new AssetAlternativesSource(this, "alt_cases.json");
             case "server":
-                // 13주차: 실제 서버(server-bd) GET /api/v1/alternatives — 에뮬레이터에서 10.0.2.2 = 내 컴퓨터
+                // 13주차: 팀 server.py GET /api/v1/alternatives — 에뮬레이터에서 10.0.2.2 = 내 컴퓨터
                 return new ApiAlternativesSource(BuildConfig.SERVER_BASE_URL);
             case "live":
                 // 시연용 가상 값: 불러올 때마다 다가오는 차가 1분씩 가까워지고 좌석이 줄어듦 (자동 갱신 확인)

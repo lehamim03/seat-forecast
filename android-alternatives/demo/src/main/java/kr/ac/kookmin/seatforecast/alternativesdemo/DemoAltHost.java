@@ -26,7 +26,7 @@ import kr.ac.kookmin.seatforecast.alternatives.model.Option;
  * 팀 앱에서는 D 의 Account · UserRepository 로 채웁니다 (android-alternatives/README.md).
  *
  * <p>13주차 서버 연결 확인(demo_mode=server): 로컬 Firebase Auth 에뮬레이터에서 익명 가입해 받은 진짜 ID 토큰을 씁니다.
- * 서버(server-bd)가 그 토큰을 Firebase 로 확인합니다.
+ * 서버(팀 server.py)가 그 토큰을 Firebase 로 확인합니다.
  */
 class DemoAltHost implements AlternativesHost {
 

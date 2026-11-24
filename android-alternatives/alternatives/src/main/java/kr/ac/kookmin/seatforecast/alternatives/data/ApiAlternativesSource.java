@@ -51,7 +51,7 @@ public class ApiAlternativesSource implements AlternativesSource {
         if (!res.isSuccessful()) throw errorOf(res);
         AlternativesResult body = res.body();
         if (body == null) throw new SourceException("대안 데이터가 비어 있습니다.", null, res.code(), null);
-        body.source = res.headers().get("X-Data-Source");   // server-bd: live / example
+        body.source = res.headers().get("X-Data-Source");   // 서버가 보내면 live / example (팀 server.py 는 보내지 않음 → null)
         return body;
     }
 

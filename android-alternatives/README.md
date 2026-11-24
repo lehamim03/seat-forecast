@@ -6,15 +6,16 @@ A 홈(`android-home`) · D 로그인(`android-account`) 모듈과 같은 방식�
 팀 앱 뼈대(app 모듈)가 생기면 이 모듈을 붙이기만 하면 됩니다. 저장소의 다른 파일은 고치지 않았습니다.
 
 **지금 상태: 13주차까지 (10주차 상태별 화면 · API 확인 → 11주차 대안 카드 3장 · 차량별 좌석 → 12주차 1분 자동 갱신 · 만석/좌석 정보 없음 구분 → 13주차 `/alternatives` 서버 연결 · 확률 표시 확인).**
-13주차 서버는 저장소 루트의 [`server-bd/`](../server-bd/README.md) (B · D 두 API 만 있는 작은 FastAPI 서버). 다음: 14주차 만석 상황 동작 검증.
+13주차 서버는 저장소 루트의 팀 예측 서버 `server.py` (실행 방법은 [README의 "예측 서버"](../README.md#예측-서버-앱이-부르는-api)). 다음: 14주차 만석 상황 동작 검증.
 
 ### 13주차 — `/alternatives` 서버 연결
 
 - 팀 앱에서는 `Alternatives.init(host, new ApiAlternativesSource("https://<서버>/"))` 로 바꾸면 끝 (요청 · 헤더 · 오류 처리는 10주차에 만들어 둠).
-- 서버가 실시간 계산 대신 예시 응답을 주면(`X-Data-Source: example`) 갱신 시각 옆에 `· 예시 데이터` 를 붙여 실제 값이 아님을 알림 (`AlternativesResult.source`).
+- 예시 응답이면 갱신 시각 옆에 `· 예시 데이터` 를 붙여 실제 값이 아님을 알림 (`AlternativesResult.source` — 시연 앱 예시 파일, 또는 서버가 `X-Data-Source: example` 헤더를 보낼 때).
+  팀 `server.py` 는 항상 실시간으로 계산하므로 헤더가 없고 표시도 나오지 않습니다.
 - 확률 표시 확인: 서버(`live_recommend.api_result`)는 확률을 소수 둘째 자리로 보냄 → 0.70 초록 · 0.69 노랑 · 0.40 노랑 · 0.39 빨강, 좌석을 모르면 0.5(노랑 50%) — `AltFormatTest.serverProbabilitiesShowConsistently`.
 - 11/18 팀장님이 `docs/examples/alternatives.json` 을 새 추천 순서로 갱신해(③ 다른 버스 = 3007 · 삼성1차아파트) 시연 앱 복사본과 테스트 기대값을 맞춤.
-- 확인: `server-bd` 를 켜고 시연 앱 `demo_mode=server` → Firebase 에뮬레이터 토큰으로 `GET /api/v1/alternatives` 200 (아래 '시연 앱으로 상태 화면 확인').
+- 확인(11/24): 팀 `server.py`(가상 버스 데이터) + Firebase 에뮬레이터 토큰으로 시연 앱 `demo_mode=server` → `GET /api/v1/alternatives` 200, 대안 카드 3장 표시 (아래 '시연 앱으로 상태 화면 확인').
 
 | 주차 | 만든 것 | 위치 |
 |---|---|---|
@@ -140,7 +141,7 @@ adb shell am start -n kr.ac.kookmin.seatforecast.alternativesdemo/kr.ac.kookmin.
 | `empty` · `error` · `signed_out` · `loading` | 대안 없음 · 오류(다시 시도) · 로그인 필요 · 조회 중 |
 | `live` | 갱신할 때마다 다가오는 차가 1분씩 가까워지고 계산 시각이 지금으로 바뀜 (자동 갱신 확인용) |
 | `flaky` | 처음만 성공하고 그다음 갱신은 실패 → 이전 정보 유지 + `갱신하지 못했어요` |
-| `server` | **13주차 실제 서버** — `http://10.0.2.2:8000/`(내 컴퓨터의 `server-bd`)에 `GET /api/v1/alternatives`, 토큰은 Firebase Auth 에뮬레이터(`10.0.2.2:9099`)에서 익명 가입해 받은 진짜 ID 토큰. 먼저 `android-account/firebase` 에서 에뮬레이터, `server-bd` 서버를 켜 두세요 |
+| `server` | **13주차 실제 서버** — `http://10.0.2.2:8000/`(내 컴퓨터의 팀 `server.py`)에 `GET /api/v1/alternatives`, 토큰은 Firebase Auth 에뮬레이터(`10.0.2.2:9099`)에서 익명 가입해 받은 진짜 ID 토큰. 먼저 `android-account/firebase` 에서 에뮬레이터를 켜고, 서버는 `FIREBASE_PROJECT_ID=demo-seat-forecast` · `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099` 로 켜 두세요 |
 
 자동 갱신은 기본 1분이라, 확인할 때는 간격을 줄여서 여세요: `... --es demo_mode live --ei demo_refresh_sec 10`
 

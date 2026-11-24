@@ -55,7 +55,7 @@ public class ApiAlternativesSourceTest {
         assertEquals("매탄위브하늘채.경기아트센터", r.alternatives.walk.stop.name);
     }
 
-    /** 13주차 server-bd: 응답 헤더 X-Data-Source 로 실시간 계산인지 예시 응답인지 구분 */
+    /** 13주차: 응답 헤더 X-Data-Source 로 실시간 계산인지 예시 응답인지 구분 */
     @Test
     public void dataSourceHeader() throws Exception {
         server.enqueue(new MockResponse().setBody(example()).setHeader("X-Data-Source", "example"));

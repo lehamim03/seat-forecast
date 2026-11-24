@@ -23,14 +23,14 @@
 
 ### 13주차 — Firestore · `/feedback` 서버 연결
 
-- 서버: 저장소 루트의 [`server-bd/`](../server-bd/README.md) (`POST /api/v1/feedback` — Firebase ID 토큰을 확인하고 SQLite 에 저장).
-  팀 공통 서버가 생기면 그 주소로 `Account.setServerBaseUrl("https://<서버>/")` 만 바꾸면 됩니다.
+- 서버: 저장소 루트의 팀 예측 서버 `server.py` (`POST /api/v1/feedback` — Firebase ID 토큰을 확인하고 `feedback/feedback.jsonl` 에 저장).
+  기본 주소가 `http://10.0.2.2:8000/` 이라 에뮬레이터에서는 그대로 붙고, 실제 서버 주소는 `Account.setServerBaseUrl("https://<서버>/")` 로 바꿉니다.
 - 서버가 요청 자체를 거절하면(400 형식 오류 · 403 남의 uid 등) 기록에 `rejected: true` · `reject_status` 를 남기고 **다시 보내지 않음**,
   기록 화면에는 `전송 안 됨` 으로 표시. 401(로그인 만료) · 5xx · 연결 실패는 지금처럼 마이페이지를 열 때 다시 보냄 (`FeedbackResponse.isPermanentRejection`).
-- 확인(11/23): Firebase 에뮬레이터 + `server-bd` + 시연 앱에서 회원가입 → '탔어요' → 서버 201 · SQLite 에 같은 uid 로 저장 →
+- 확인(11/24): Firebase 에뮬레이터 + 팀 `server.py` + 시연 앱에서 회원가입 → '탔어요' → 서버 201 · `feedback.jsonl` 에 같은 uid 로 저장 →
   Firestore 기록 `sent: true` · `server_id` 가 서버 id 와 같음. 계측 테스트에 '거절된 기록은 다시 보내지 않음' 추가 (8개 통과).
 - 실제 Firebase 프로젝트: 팀 프로젝트가 생기면 `google-services.json` 을 `demo/`(팀 앱이면 app 모듈)에 넣으면 에뮬레이터 대신 실제 Firebase 를 씁니다.
-  서버는 `FIREBASE_PROJECT_ID=<프로젝트 ID>` 로 켭니다. 보안 규칙은 `firebase/firestore.rules` 를 콘솔에 게시.
+  서버는 `FIREBASE_PROJECT_ID=<프로젝트 ID>` 로 켭니다 (에뮬레이터로 시험할 때는 `demo-seat-forecast` 와 `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099`). 보안 규칙은 `firebase/firestore.rules` 를 콘솔에 게시.
 
 ## 데이터 형식 (docs/api.md ⑦ 그대로)
 
