@@ -23,6 +23,15 @@ public interface HomeHost {
     /** 서버 요청용 Firebase ID 토큰, "Bearer " 는 붙이지 않음 (D: Account.getIdToken) */
     void getIdToken(Callback<String> callback);
 
+    /**
+     * 13주차: 서버가 401(토큰 만료 · 무효)을 돌려주면 홈 화면이 {@code forceRefresh = true} 로 한 번 더 부르고 다시 요청합니다.
+     * Firebase 라면 {@code user.getIdToken(forceRefresh)}. 기본은 {@link #getIdToken(Callback)} 그대로라
+     * 구현하지 않아도 기존 코드가 컴파일됩니다 (그 경우 재시도도 같은 토큰).
+     */
+    default void getIdToken(boolean forceRefresh, Callback<String> callback) {
+        getIdToken(callback);
+    }
+
     /** 추천 목록 항목을 눌렀을 때 (B 실시간 대안 또는 D 탑승 피드백 FeedbackActivity.newIntent) */
     void onOptionClicked(Context context, Option option);
 

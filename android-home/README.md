@@ -5,8 +5,41 @@
 D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 라이브러리 모듈**로 만들었습니다.
 팀 앱 뼈대(app 모듈)가 생기면 이 모듈을 붙이기만 하면 됩니다. 저장소의 다른 파일은 고치지 않았습니다.
 
-**지금 상태: 12주차 (도착 시각 · 새로고침).** 11주차에 Figma `02 홈` 값으로 만든 카드에, 걸리는 시간 · 남은 분 줄이기 · 새로고침(버튼 · 당기기 · 자동)을 더했습니다.
-다음: 13주차 `/recommendations` 서버 연결 → 14주차 출근길 추천 검증.
+**지금 상태: 13주차 (`/recommendations` 서버 연결).** 12주차 화면이 예시 JSON 대신 예측 서버에 실제 HTTP 요청을 보내 그립니다.
+시간 제한 · 실패 이유별 문장 · 401 이면 토큰을 새로 받아 한 번 더 요청하는 처리를 넣었고, 서버가 완성되기 전 확인용 테스트 서버(`tools/mock_server.py`)를 만들었습니다.
+다음: 14주차 출근길 추천 검증.
+
+### 13주차 — `/recommendations` 서버 연결
+
+| 기능 | 규칙 | 위치 |
+|---|---|---|
+| 서버 요청 | `GET <서버>/api/v1/recommendations?home_stop=…&route=…` + `Authorization: Bearer <ID 토큰>` (docs/api.md ② 그대로). 주소 앞뒤 공백 · 끝 `/` 정리 | `data/ApiRecommendationSource` |
+| 시간 제한 | 연결 10초 · 응답 읽기 20초 · 요청 전체 30초 (서버가 실시간 API 를 모아 계산하므로 읽기는 넉넉히). 바꾸려면 `new ApiRecommendationSource(url, okHttpClient)` | `ApiRecommendationSource.defaultClient()` |
+| 실패 문장 | 시간 초과 `서버 응답이 늦어요…` · 연결 안 됨(인터넷 꺼짐 · 서버 꺼짐 · 주소 틀림) `서버에 연결할 수 없습니다. 인터넷 연결을 확인하고…` · 200 인데 HTML · 잘린 JSON `추천 데이터 형식이 올바르지 않습니다.` · 서버 `{"error":{"message"}}` 가 있으면 그 문장 그대로, 없으면 401 `로그인이 필요합니다.` · 404 `서버 주소가 올바르지 않습니다` · 429 · 5xx `추천 서버에 문제가 있어요…(503)` | `ApiRecommendationSource.ofIo` · `defaultMessage` |
+| 실패 종류 | `SourceException.code` — 서버 오류 코드 또는 `timeout` · `offline`, `httpStatus`, `isUnauthorized()` | `data/SourceException` |
+| 401 재시도 | 서버가 401 → `HomeHost.getIdToken(true, …)` 로 토큰을 새로 받아 **한 번만** 다시 요청. 그래도 401 이면 목록을 지우고 `로그인이 만료되었어요. 다시 로그인해 주세요.` + 로그인 버튼 (새로고침 막음) | `HomeFragment.unauthorized` · `showSessionExpired` |
+| 화면 | 처음 불러오기 실패 = 오류 화면(다시 시도), 새로고침 실패 = 이전 목록 + `갱신 실패` (12주차 그대로) | `HomeFragment.failed` |
+| 테스트 서버 | 파이썬 기본 라이브러리만. docs 예시를 돌려주되 `generated_at` · `arrive_at` 을 지금 시각으로 옮김. Bearer 없으면 401, `home_stop` · `route` 없으면 400. `--delay` · `--fail 503` · `--reject-token` · `--fixed` | `tools/mock_server.py` |
+
+`HomeHost` 에 기본 메서드 `getIdToken(boolean forceRefresh, Callback<String>)` 를 더했습니다. 구현하지 않으면 기존 `getIdToken(cb)` 를 그대로 불러 재시도도 같은 토큰입니다.
+Firebase 라면 `user.getIdToken(true)` 로 구현하면 됩니다 (D 의 `Account.getIdToken` 은 지금 `false` 고정 — 아래 '팀 앱 연결 때 확인할 것').
+
+에뮬레이터(Pixel 7, API 34) + 테스트 서버로 확인 (`demo_mode server`):
+
+| 서버 | 화면 |
+|---|---|
+| 보통 | 서버 응답으로 목록 · `지금 12:13` · `12:13 기준 · 방금 갱신` · 1순위 3007 `도착 14:41` |
+| `--reject-token demo-id-token` | 서버 기록: `demo-id-token` 401 → `demo-id-token-refreshed` 200 — 사용자는 목록만 봄 |
+| 두 토큰 모두 거절 | `로그인이 만료되었어요. 다시 로그인해 주세요.` + 로그인 |
+| `--fail 503` | 서버 문장 그대로 + 다시 시도 |
+| 서버 끔 | `서버에 연결할 수 없습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.` + 다시 시도 |
+
+#### 팀 앱 연결 때 확인할 것 (다른 담당 · 저장소 바깥 파일이라 고치지 않음)
+
+- **팀 앱 `TeamApp`** (`android-app`): `new AssetRecommendationSource(this)` → `new ApiRecommendationSource(BuildConfig.SERVER_BASE_URL)` 한 줄로 바꾸면 서버 연결.
+- **D `Account.getIdToken`**: `user.getIdToken(false)` 고정이라 401 재시도 때 새 토큰을 받지 못함 → `getIdToken(boolean forceRefresh, cb)` 가 있으면 `TeamHomeHost` 에서 연결.
+- **D 둘러보기(로그인 없이)**: `getIdToken` 이 `둘러보기 중에는 서버에 보내지 않습니다.` 오류 → 서버 연결 뒤 둘러보기에서는 홈이 이 문장의 오류 화면. 둘러보기는 예시 JSON 으로 둘지 정해야 함.
+- **예측 서버(FastAPI)**: 아직 저장소에 없음. 오류 본문을 `{"error":{"code","message"}}` 로, 401 은 토큰 만료 · 무효에만 써 주면 앱 처리와 맞음.
 
 ### 12주차 — 도착 시각 · 새로고침
 
@@ -34,7 +67,7 @@ D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 �
 | 추천 카드 (ranking 순서 그대로, 아래 표) | `ui/OptionAdapter`, `ui/OptionFormat`, `res/layout/home_item_option.xml` |
 | 단독 화면 (시연 앱 · 하단 탭이 없을 때) | `ui/HomeActivity` |
 | `GET /api/v1/recommendations` 응답 모델 (Gson) | `model/*` |
-| 데이터 소스: 예시 JSON(지금) / 서버(13주차) | `data/RecommendationSource`, `AssetRecommendationSource`, `ApiRecommendationSource` |
+| 데이터 소스: 예시 JSON(시연 · 둘러보기) / 서버(13주차 연결) | `data/RecommendationSource`, `AssetRecommendationSource`, `ApiRecommendationSource` |
 | 다른 화면과 연결할 콜백 | `HomeHost`, `Home.init` |
 | 단독 실행용 시연 앱 | `demo/` (팀 앱에 합칠 때는 필요 없음) |
 
@@ -94,6 +127,9 @@ public class TeamHomeHost implements HomeHost {
         });
     }
 
+    // 13주차 (기본 메서드): 서버 401 뒤 새 토큰 — D 에 forceRefresh 가 생기면 user.getIdToken(true) 로
+    public void getIdToken(boolean forceRefresh, Callback<String> cb) { getIdToken(cb); }
+
     public void onOptionClicked(Context c, Option o) {
         // B 실시간 대안 화면 (B 모듈 생기면 연결) 또는 D 탑승 피드백:
         c.startActivity(FeedbackActivity.newIntent(c, o.route, o.stop.id, o.boardProb));
@@ -119,8 +155,8 @@ dependencies { implementation project(':home') }
 
 ```java
 // Application.onCreate — 한 번
-Home.init(new TeamHomeHost(), new AssetRecommendationSource(this));            // 서버 전: 앱 assets 에 recommendations.json
-Home.init(new TeamHomeHost(), new ApiRecommendationSource("https://<서버>/"));  // 13주차 서버 연결
+Home.init(new TeamHomeHost(), new ApiRecommendationSource("https://<서버>/"));  // 13주차 서버 연결 (에뮬레이터 + 내 컴퓨터 서버: "http://10.0.2.2:8000/")
+Home.init(new TeamHomeHost(), new AssetRecommendationSource(this));            // 서버 없이: 앱 assets 에 recommendations.json
 
 // 하단 탭 '홈'
 getSupportFragmentManager().beginTransaction().replace(R.id.container, new HomeFragment()).commit();
@@ -130,6 +166,7 @@ getSupportFragmentManager().beginTransaction().replace(R.id.container, new HomeF
 - `HomeFragment` 의 레이아웃은 모듈 안 색 · 스타일을 쓰고, `HomeActivity` 는 모듈 안의 `HomeTheme` 를 씁니다.
   리소스 이름은 모두 `home_` 으로 시작해 다른 모듈과 겹치지 않습니다.
 - 설정이 바뀌면 `homeFragment.reload()` 로 다시 불러올 수 있습니다. 목록을 둔 채 새로 받으려면 `homeFragment.refresh(false)`.
+- 서버 주소가 `http://` 이면 팀 앱 매니페스트에 `android:usesCleartextTraffic="true"`(또는 network security config)가 필요합니다. 실제 서버는 `https://` 로.
 - 12주차부터 `androidx.swiperefreshlayout` 를 씁니다 (home 모듈 `build.gradle` 에 있음, 팀 앱이 따로 넣을 필요 없음).
 
 ## 실행 · 테스트
@@ -146,7 +183,7 @@ cd android-home
 | 테스트 | 확인하는 것 |
 |---|---|
 | `RecommendationsParseTest` (8) | `recommendations.json` 읽기 (11주차 '가까운 정류장 먼저' 순서 — 1순위 삼성1차아파트) (ranking 11개 · 순서 · 첫 항목 값), 정류장 이름 그대로, 빈 `buses[]` · 갈 수 없는 첫 차, null 필드(`arrive_at` · `total_min` · `seats_at_stop` · `recommendation`), 깨진 JSON, 시연 앱 assets 가 원본과 같은지 |
-| `ApiRecommendationSourceTest` (6) | 요청 주소 `/api/v1/recommendations` · 쿼리 `home_stop` · `route` · `Bearer` 헤더, 토큰 없을 때 헤더 없음, 주소 끝 `/` 처리, 오류 응답 `{"error":…}` · 본문 없는 500 · 서버 꺼짐 |
+| `ApiRecommendationSourceTest` (16) | 요청 주소 `/api/v1/recommendations` · 쿼리 `home_stop` · `route`(한글 · 공백 인코딩) · `Bearer` 헤더, 토큰 없을 때 헤더 없음, 주소 끝 `/` · 앞뒤 공백 처리, 오류 응답 `{"error":…}` · 본문 없는 500 · 서버 꺼짐, **13주차** 시간 초과 · 기본 시간 제한 값 · 200 인데 HTML · 잘린 JSON · 타입 다름 · 빈 본문 · 401 `isUnauthorized` · 503/504/404/429 문장 · 서버 문장이 null · 빈칸이면 기본 문구 |
 | `ui.OptionFormatTest` (16) | 배지 경계(0.7 · 0.4) · % 반올림 · 0~100 자르기, 탈 수 있는 첫 차 고르기(`reachable: false` 건너뜀 · 모두 지나감 · 빈 `buses`), docs 예시 11개 · 시연 경우 모음 6개, 1순위 · 건너뜀, **12주차** 남은 분 줄이기 · 도보보다 짧아지면 다음 차 · 지나간 차 빼기 · 모두 지나감 · 0분 = 곧 도착 |
 | `ui.LiveTimeTest` (6) | **12주차** 지난 분(내림 · 음수 없음), 2분 자동 새로고침 · 실패 뒤 2분 기다림, `2시간 28분` 형식, `07:40` + N분 (자정 넘김) |
 | `ui.TripFormatTest` (4) | `generated_at` → `10/7(수)` · `07:40`, 형식이 다르면 칩 숨김, `day.kind` 우선 |
@@ -166,6 +203,23 @@ adb shell am start -n kr.ac.kookmin.seatforecast.homedemo/kr.ac.kookmin.seatfore
 | `cases` | 카드 경우 모음 `home_cases.json` — 지연 · 놓친 첫 차 · 정보 없음 · 곧 도착 · 좌석 모름 · 모두 지나감 · 건너뜀 |
 | `empty` · `error` · `signed_out` · `loading` | 빈 목록 · 오류(다시 시도) · 로그인 필요 · 로딩 |
 | `refresh_error` | 12주차: 처음엔 보통 화면, ⟳ · 당기기 · 자동 새로고침은 1초 뒤 실패 → 이전 목록 + `갱신 실패` + Snackbar |
+| `server` | **13주차**: 예측 서버에 실제 요청 (`--es server_url http://…:8000/`, 없으면 `http://10.0.2.2:8000/`). 토큰 `demo-id-token`, 401 뒤 `demo-id-token-refreshed` |
+
+### 13주차 — 테스트 서버로 서버 연결 확인
+
+```bash
+# 저장소 루트에서 (파이썬 3, 설치할 것 없음)
+python android-home/tools/mock_server.py                     # 보통
+python android-home/tools/mock_server.py --reject-token demo-id-token   # 401 → 새 토큰으로 재시도
+python android-home/tools/mock_server.py --reject-token demo-id-token --reject-token demo-id-token-refreshed  # 로그인 만료
+python android-home/tools/mock_server.py --fail 503          # 서버 오류
+python android-home/tools/mock_server.py --delay 25          # 응답 읽기 20초 넘김 → 시간 초과
+
+adb shell am force-stop kr.ac.kookmin.seatforecast.homedemo
+adb shell am start -n kr.ac.kookmin.seatforecast.homedemo/kr.ac.kookmin.seatforecast.home.ui.HomeActivity --es demo_mode server
+```
+
+휴대폰(같은 와이파이)에서는 `--es server_url http://<컴퓨터 IP>:8000/` 를 더하고, Windows 방화벽에서 파이썬의 8000번 접속을 허용하세요.
 
 12주차 에뮬레이터(Pixel 7, API 34) 확인: 1분 뒤 `6분 뒤` → `5분 뒤` · `지금 07:41` · `1분 전 갱신`, 2분 뒤 자동 새로고침(`방금 갱신`),
 `refresh_error` 에서 ⟳ · 당기기 → 목록 유지 + `갱신 실패` + Snackbar, 목록을 내린 상태에서 아래로 끌면 새로고침 없이 스크롤만.

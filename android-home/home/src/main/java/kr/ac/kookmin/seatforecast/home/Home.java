@@ -7,8 +7,8 @@ import kr.ac.kookmin.seatforecast.home.data.RecommendationSource;
 /**
  * 홈 모듈 진입점. 앱 시작 시(Application.onCreate) 한 번:
  * <pre>
- * Home.init(new MyHomeHost(), new AssetRecommendationSource(this));          // 지금 (예시 JSON)
- * Home.init(new MyHomeHost(), new ApiRecommendationSource("https://<서버>/")); // 13주차 서버 연결
+ * Home.init(new MyHomeHost(), new ApiRecommendationSource("https://&lt;서버&gt;/")); // 13주차 서버 연결
+ * Home.init(new MyHomeHost(), new AssetRecommendationSource(this));          // 서버 없이 (예시 JSON)
  * </pre>
  */
 public final class Home {
