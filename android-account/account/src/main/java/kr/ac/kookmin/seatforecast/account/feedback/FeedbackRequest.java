@@ -28,6 +28,8 @@ public class FeedbackRequest {
     public Double predictedProb;
     @SerializedName("memo")
     public String memo = "";
+    /** 화면 표시용 정류장 이름 (서버 API 이름 그대로) — Firestore 기록에만, 서버로는 보내지 않음 */
+    public transient String stopName;
 
     public FeedbackRequest() {
     }
@@ -69,6 +71,7 @@ public class FeedbackRequest {
         m.put("boarded", boarded);
         m.put("predicted_prob", predictedProb);
         m.put("memo", memo);
+        if (stopName != null) m.put("stop_name", stopName);
         return m;
     }
 }

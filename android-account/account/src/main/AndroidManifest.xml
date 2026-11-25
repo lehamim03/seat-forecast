@@ -23,7 +23,7 @@
             android:label="@string/account_my_page"
             android:theme="@style/AccountTheme.NoActionBar" />
         <activity
-            android:name=".ui.RouteSettingsActivity"
+            android:name=".ui.FavoritesActivity"
             android:exported="false"
             android:label="@string/account_menu_favorite"
             android:theme="@style/AccountTheme" />

@@ -12,6 +12,8 @@ public class FeedbackRecord {
     public String date;
     public String route;
     public String stopId;
+    /** 정류장 이름 (출발지 · 도착지 모드 기록), 예전 기록은 null */
+    public String stopName;
     public boolean boarded;
     public Double predictedProb;
     public String memo;
@@ -26,6 +28,7 @@ public class FeedbackRecord {
         r.date = doc.getString("date");
         r.route = doc.getString("route");
         r.stopId = doc.getString("stop_id");
+        r.stopName = doc.getString("stop_name");
         r.boarded = Boolean.TRUE.equals(doc.getBoolean("boarded"));
         r.predictedProb = doc.getDouble("predicted_prob");
         r.memo = doc.getString("memo");
@@ -36,6 +39,11 @@ public class FeedbackRecord {
 
     FeedbackRequest toRequest(String uid) {
         return new FeedbackRequest(uid, date, route, stopId, boarded, predictedProb, memo);
+    }
+
+    /** 정류장 이름 — 기록된 이름, 없으면 예전 정류장 목록에서, 그래도 없으면 ID */
+    public String stopLabel() {
+        return stopName != null && !stopName.isEmpty() ? stopName : Stops.nameOf(stopId);
     }
 
     /** 이번 달 기록 수와 그중 탑승 성공 수: {전체, 성공}. month 는 "2026-11" */
@@ -61,7 +69,7 @@ public class FeedbackRecord {
     /** "2026-10-07 · 3007 · 자유총연맹 — 탔어요 (예측 100%)" */
     public String summary() {
         StringBuilder sb = new StringBuilder();
-        sb.append(date).append(" · ").append(route).append(" · ").append(Stops.nameOf(stopId))
+        sb.append(date).append(" · ").append(route).append(" · ").append(stopLabel())
                 .append(" — ").append(boarded ? "탔어요" : "못 탔어요");
         if (predictedProb != null) sb.append(" (예측 ").append(Math.round(predictedProb * 100)).append("%)");
         if (rejected) sb.append(" · 전송 안 됨");

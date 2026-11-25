@@ -25,6 +25,7 @@ import java.util.TimeZone;
 
 import kr.ac.kookmin.seatforecast.account.Account;
 import kr.ac.kookmin.seatforecast.account.Callback;
+import kr.ac.kookmin.seatforecast.account.Place;
 import kr.ac.kookmin.seatforecast.account.R;
 import kr.ac.kookmin.seatforecast.account.data.AuthRepository;
 import kr.ac.kookmin.seatforecast.account.data.Stops;
@@ -41,7 +42,7 @@ import kr.ac.kookmin.seatforecast.account.feedback.FeedbackRequest;
  *
  * 홈 화면에서 그날 추천했던 버스로 열면 '오늘 탑승 결과' 카드가 그 버스를 묻습니다:
  * <pre>startActivity(MyPageActivity.newIntent(this, "3007", "203000162", 0.95));</pre>
- * 값 없이 열면 평소 노선 · 정류장을 묻습니다.
+ * 값 없이 열면 그 카드는 숨깁니다 (평소 노선 · 정류장 기본값 없음). '즐겨찾는 곳' 메뉴 = {@link FavoritesActivity}.
  * 로그아웃하면 {@link #RESULT_SIGNED_OUT} 으로 닫힙니다.
  */
 public class MyPageActivity extends AppCompatActivity {
@@ -102,7 +103,7 @@ public class MyPageActivity extends AppCompatActivity {
         emailView.setText(Account.currentEmail());
 
         rowFavorite = setUpRow(R.id.account_row_favorite, R.drawable.account_ic_bookmark, R.string.account_menu_favorite,
-                v -> startActivity(new Intent(this, RouteSettingsActivity.class)));
+                v -> startActivity(new Intent(this, FavoritesActivity.class)));
         rowNotify = setUpRow(R.id.account_row_notify, R.drawable.account_ic_bell, R.string.account_menu_notify,
                 v -> startActivity(new Intent(this, NotifySettingsActivity.class)));
         rowHistory = setUpRow(R.id.account_row_history, R.drawable.account_ic_chat, R.string.account_menu_history,
@@ -112,7 +113,6 @@ public class MyPageActivity extends AppCompatActivity {
         setRowSub(rowAccount, getString(R.string.account_menu_account_sub));
         findViewById(R.id.account_profile).setOnClickListener(v -> showAccountMenu());
 
-        fillStops();
         boardedButton.setOnClickListener(v -> submitToday(true));
         notBoardedButton.setOnClickListener(v -> submitToday(false));
 
@@ -154,23 +154,38 @@ public class MyPageActivity extends AppCompatActivity {
         ((TextView) row.findViewById(R.id.account_row_sub)).setText(text);
     }
 
-    private void fillStops() {
+    /** 즐겨찾는 곳 목록 (예전 '주변 정류장' 자리) — 기본 도착지는 ★ */
+    private void fillFavorites(UserSettings s) {
         LinearLayout list = findViewById(R.id.account_stop_list);
+        list.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
-        for (Stops.Stop stop : Stops.ALL) {
+        if (s.favorites.isEmpty()) {
             View row = inflater.inflate(R.layout.account_item_stop_row, list, false);
-            ((TextView) row.findViewById(R.id.account_stop_name)).setText(stop.name);
+            ((TextView) row.findViewById(R.id.account_stop_name)).setText(R.string.account_favorites_none);
+            row.findViewById(R.id.account_stop_sub).setVisibility(View.GONE);
+            row.findViewById(R.id.account_stop_walk).setVisibility(View.GONE);
+            list.addView(row);
+            return;
+        }
+        for (Place p : s.favorites) {
+            View row = inflater.inflate(R.layout.account_item_stop_row, list, false);
+            ((TextView) row.findViewById(R.id.account_stop_name)).setText(p.name);
             ((TextView) row.findViewById(R.id.account_stop_sub)).setText(
-                    stop.mobileNo + " · " + TextUtils.join(" · ", stop.routes));
+                    String.format(Locale.US, "%.5f, %.5f", p.lat, p.lng));
             ((TextView) row.findViewById(R.id.account_stop_walk)).setText(
-                    getString(R.string.account_walk_format, stop.walkMin));
+                    p.samePlace(s.destination) ? getString(R.string.account_default_mark) : "");
+            row.setOnClickListener(v -> startActivity(new Intent(this, FavoritesActivity.class)));
             list.addView(row);
         }
     }
 
     private void bindSettings(UserSettings s) {
-        setRowSub(rowFavorite, getString(R.string.account_menu_favorite_sub,
-                Stops.nameOf(s.homeStopId), s.destinationName, s.arriveBy));
+        Place dest = s.lastDestination();
+        setRowSub(rowFavorite, s.favorites.isEmpty()
+                ? getString(R.string.account_menu_favorite_empty, s.arriveBy)
+                : getString(R.string.account_menu_favorite_sub, s.favorites.size(),
+                dest == null ? getString(R.string.account_no_destination) : dest.name, s.arriveBy));
+        fillFavorites(s);
         String incident = getString(s.notifyIncident ? R.string.account_on : R.string.account_off);
         setRowSub(rowNotify, s.notifyDeparture
                 ? getString(R.string.account_menu_notify_on, s.minutesBefore, incident)
@@ -182,27 +197,33 @@ public class MyPageActivity extends AppCompatActivity {
         setRowSub(rowHistory, getString(R.string.account_menu_history_sub, stats[0], stats[1]));
     }
 
-    /** '오늘 탑승 결과' 카드: 묻는 버스 = 홈 화면이 넘긴 값, 없으면 평소 노선 · 정류장. 오늘 이미 남겼으면 숨김. */
+    /** '오늘 탑승 결과' 카드: 묻는 버스 = 홈 화면이 넘긴 값 (없으면 숨김). 오늘 이미 남겼으면 숨김. */
     private void bindTodayCard() {
         if (settings == null || history == null) return;
         String route = todayRoute();
-        if (FeedbackRecord.hasRecord(history, FeedbackRequest.today(), route)) {
+        String stopId = todayStopId();
+        if (route == null || stopId == null || FeedbackRecord.hasRecord(history, FeedbackRequest.today(), route)) {
             feedbackCard.setVisibility(View.GONE);
             return;
         }
         feedbackQuestion.setText(getString(R.string.account_today_question, route));
-        feedbackDesc.setText(getString(R.string.account_today_desc, Stops.nameOf(todayStopId()), route));
+        feedbackDesc.setText(getString(R.string.account_today_desc, todayStopName(), route));
         feedbackCard.setVisibility(View.VISIBLE);
     }
 
+    @Nullable
     private String todayRoute() {
-        String r = getIntent().getStringExtra(FeedbackActivity.EXTRA_ROUTE);
-        return r != null ? r : settings.myRoute;
+        return getIntent().getStringExtra(FeedbackActivity.EXTRA_ROUTE);
     }
 
+    @Nullable
     private String todayStopId() {
-        String s = getIntent().getStringExtra(FeedbackActivity.EXTRA_STOP_ID);
-        return s != null ? s : settings.homeStopId;
+        return getIntent().getStringExtra(FeedbackActivity.EXTRA_STOP_ID);
+    }
+
+    private String todayStopName() {
+        String name = getIntent().getStringExtra(FeedbackActivity.EXTRA_STOP_NAME);
+        return name != null && !name.isEmpty() ? name : Stops.nameOf(todayStopId());
     }
 
     @Nullable
@@ -270,6 +291,7 @@ public class MyPageActivity extends AppCompatActivity {
     private void submitToday(boolean boarded) {
         FeedbackRequest request = new FeedbackRequest(uid, FeedbackRequest.today(),
                 todayRoute(), todayStopId(), boarded, todayProb(), "");
+        request.stopName = todayStopName();
         setLoading(true);
         feedback.submit(request, new Callback<FeedbackRepository.SubmitResult>() {
             @Override

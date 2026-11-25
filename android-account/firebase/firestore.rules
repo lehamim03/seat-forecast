@@ -2,12 +2,40 @@ rules_version = '2';
 
 // 사용자 문서는 본인만 읽고 쓸 수 있음.
 // 다른 화면(E 푸시 등)이 users/{uid} 에 필드를 더해도 이 규칙 그대로 동작합니다.
+// 출발지 · 도착지 모드 (docs/api.md): favorites [{name, lat, lng}] 20곳까지, destination · last_trip.from/to 는 {name, lat, lng}.
+// 예전 destination {name, x, y} 문서도 그대로 쓸 수 있게 둠 (앱이 다음에 저장할 때 새 형식으로 바뀜).
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
 
-      // 탑승 피드백 기록 (서버 전송 여부 sent 포함)
+    function isPlace(p) {
+      return p is map && p.name is string && p.name.size() > 0 && p.name.size() <= 100
+          && ((p.lat is number && p.lng is number
+               && p.lat >= 33 && p.lat <= 39 && p.lng >= 124 && p.lng <= 132)
+              || (p.x is number && p.y is number));
+    }
+
+    function validFavorites(d) {
+      return !('favorites' in d) || (d.favorites is list && d.favorites.size() <= 20
+          && (d.favorites.size() == 0 || isPlace(d.favorites[0])));
+    }
+
+    function validDestination(d) {
+      return !('destination' in d) || d.destination == null || isPlace(d.destination);
+    }
+
+    function validLastTrip(d) {
+      return !('last_trip' in d) || d.last_trip == null
+          || (d.last_trip is map && isPlace(d.last_trip.from) && isPlace(d.last_trip.to));
+    }
+
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid
+          && validFavorites(request.resource.data)
+          && validDestination(request.resource.data)
+          && validLastTrip(request.resource.data);
+
+      // 탑승 피드백 기록 (서버 전송 여부 sent 포함) — 어떤 노선 · 정류장이든
       match /feedback/{feedbackId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }

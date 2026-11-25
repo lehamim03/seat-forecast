@@ -29,7 +29,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -192,9 +191,9 @@ public class FirebaseEmulatorTest {
         Tasks.await(users.userDoc(user.getUid()).update("fcm_token", "token-from-E"), 20, TimeUnit.SECONDS);
 
         UserSettings s = UserSettings.defaults();
-        s.homeStopId = "203000161";
-        s.myRoute = "7001";
-        s.candidateStopIds = Arrays.asList("203000161", "203000162");
+        s.favorites.add(new Place("집", 37.2726, 127.0436));
+        s.favorites.add(new Place("학교", 37.610977, 126.995185));
+        s.destination = s.favorites.get(1);
         s.arriveBy = "08:40";
         s.notifyDeparture = false;
         s.notifyIncident = true;
@@ -212,18 +211,50 @@ public class FirebaseEmulatorTest {
         assertEquals("token-from-E", doc.getString("fcm_token"));
         assertEquals("설정", doc.getString("nickname"));
         assertEquals(20L, doc.get("notify.minutes_before"));
+        assertEquals("학교", doc.getString("destination.name"));
 
-        // 잘못된 설정은 저장하지 않음
-        UserSettings bad = UserSettings.defaults();
-        bad.homeStopId = "203000161";
-        bad.myRoute = "8800";
+        // 잘못된 설정(같은 이름)은 저장하지 않음
+        UserSettings bad = UserSettings.fromMap(doc.getData());
+        bad.favorites.add(new Place("집", 37.3, 127.1));
         Result<Void> rejected = new Result<>();
         users.saveSettings(user.getUid(), bad, rejected);
         rejected.await();
         assertNotNull(rejected.error);
         Result<UserSettings> still = new Result<>();
         users.loadSettings(user.getUid(), still);
-        assertEquals("7001", still.ok().myRoute);
+        assertEquals(2, still.ok().favorites.size());
+
+        // last_trip 저장 → 처음 도착지 · 서버 시각
+        Result<Void> trip = new Result<>();
+        users.saveLastTrip(user.getUid(), new Place(Place.CURRENT_LOCATION, 37.385, 127.1233),
+                new Place("코엑스", 37.5118, 127.0576), trip);
+        trip.ok();
+        Result<UserSettings> afterTrip = new Result<>();
+        users.loadSettings(user.getUid(), afterTrip);
+        assertEquals("코엑스", afterTrip.ok().lastTrip.to.name);
+        assertNotNull(afterTrip.ok().lastTrip.at);
+        assertEquals("코엑스", afterTrip.ok().lastDestination().name);
+    }
+
+    /** 규칙: 즐겨찾는 곳 21곳 · 한국 밖 좌표는 막음 */
+    @Test
+    public void securityRulesValidatePlaces() throws Exception {
+        FirebaseUser user = signUp(newEmail(), "규칙");
+        java.util.List<Object> many = new java.util.ArrayList<>();
+        for (int i = 0; i < 21; i++) many.add(new Place("곳" + i, 37.5, 127.0).toMap());
+        try {
+            Tasks.await(users.userDoc(user.getUid()).update("favorites", many), 20, TimeUnit.SECONDS);
+            fail("즐겨찾는 곳 21곳은 막혀야 함");
+        } catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof FirebaseFirestoreException);
+        }
+        try {
+            Tasks.await(users.userDoc(user.getUid()).update("destination", new Place("뉴욕", 40.7, -74.0).toMap()),
+                    20, TimeUnit.SECONDS);
+            fail("한국 밖 좌표는 막혀야 함");
+        } catch (ExecutionException e) {
+            assertTrue(e.getCause() instanceof FirebaseFirestoreException);
+        }
     }
 
     @Test

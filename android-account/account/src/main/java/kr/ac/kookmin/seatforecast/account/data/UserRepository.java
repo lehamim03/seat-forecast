@@ -1,5 +1,11 @@
 package kr.ac.kookmin.seatforecast.account.data;
 
+import kr.ac.kookmin.seatforecast.account.Place;
+
+import java.util.List;
+
+import java.util.ArrayList;
+
 import androidx.annotation.NonNull;
 
 import com.google.firebase.Timestamp;
@@ -107,5 +113,89 @@ public class UserRepository {
         p.nickname = doc.getString(UserProfile.NICKNAME);
         p.createdAt = doc.getTimestamp(UserProfile.CREATED_AT);
         return p;
+    }
+
+    // ---------- 출발지 · 도착지 모드 (A 홈 · B 대안 · E 알림이 씀) ----------
+
+    /** 처음 열 때 쓸 도착지 — destination, 없으면 last_trip.to, 없으면 null 로 성공 (HomeHost.loadLastDestination) */
+    public void loadLastDestination(@NonNull String uid, Callback<Place> callback) {
+        loadSettings(uid, new Callback<UserSettings>() {
+            @Override
+            public void onSuccess(UserSettings s) {
+                callback.onSuccess(s.lastDestination());
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
+    }
+
+    /** 즐겨찾는 곳 (HomeHost.loadFavorites) */
+    public void loadFavorites(@NonNull String uid, Callback<List<Place>> callback) {
+        loadSettings(uid, new Callback<UserSettings>() {
+            @Override
+            public void onSuccess(UserSettings s) {
+                callback.onSuccess(new ArrayList<>(s.favorites));
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
+    }
+
+    /** 즐겨찾는 곳 추가 (HomeHost.addFavorite) — 같은 곳이 있으면 그대로 성공 */
+    public void addFavorite(@NonNull String uid, Place place, Callback<Void> callback) {
+        loadSettings(uid, new Callback<UserSettings>() {
+            @Override
+            public void onSuccess(UserSettings s) {
+                for (Place p : s.favorites) {
+                    if (p.samePlace(place)) {
+                        callback.onSuccess(null);
+                        return;
+                    }
+                }
+                s.favorites.add(new Place(place.name, place.lat, place.lng));
+                saveSettings(uid, s, callback);
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
+    }
+
+    /**
+     * 마지막 검색 저장 (HomeHost.saveLastTrip) — last_trip {from, to, at(서버 시각)}, 도착지는 destination 에도.
+     * 출발지가 "현재 위치"면 그때의 GPS 좌표가 들어 있음 (E 돌발 알림이 그 경로로 /incidents 를 부름).
+     */
+    public void saveLastTrip(@NonNull String uid, Place from, Place to, Callback<Void> callback) {
+        if (from == null || to == null || !from.isValid() || !to.isValid()) {
+            callback.onError("출발지 · 도착지 위치가 올바르지 않습니다.");
+            return;
+        }
+        if (Account.isPreview()) {
+            if (previewSettings == null) previewSettings = UserSettings.defaults();
+            previewSettings.lastTrip = new UserSettings.LastTrip();
+            previewSettings.lastTrip.from = from;
+            previewSettings.lastTrip.to = to;
+            previewSettings.lastTrip.at = Timestamp.now();
+            previewSettings.destination = to;
+            callback.onSuccess(null);
+            return;
+        }
+        Map<String, Object> trip = UserSettings.lastTripMap(from, to);
+        trip.put("at", FieldValue.serverTimestamp());
+        Map<String, Object> data = new HashMap<>();
+        data.put(UserSettings.LAST_TRIP, trip);
+        data.put(UserSettings.DESTINATION, to.toMap());
+        data.put(UserProfile.UPDATED_AT, FieldValue.serverTimestamp());
+        userDoc(uid).set(data, SetOptions.merge())
+                .addOnSuccessListener(v -> callback.onSuccess(null))
+                .addOnFailureListener(e -> callback.onError("최근 경로를 저장하지 못했습니다."));
     }
 }

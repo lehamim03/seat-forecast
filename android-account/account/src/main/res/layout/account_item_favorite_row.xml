@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 즐겨찾는 곳 한 줄: 이름(기본 도착지면 ★) · 좌표 · 기본으로 · 삭제 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="64dp"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="8dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/account_favorite_name"
+            style="@style/AccountRowTitle" />
+
+        <TextView
+            android:id="@+id/account_favorite_sub"
+            style="@style/AccountRowSub" />
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/account_favorite_default"
+        style="@style/AccountTextLink"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/account_favorite_make_default" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/account_favorite_delete"
+        style="@style/AccountTextLink"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/account_delete" />
+</LinearLayout>

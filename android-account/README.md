@@ -21,6 +21,18 @@
 회원가입 · 하위 설정 화면 · 피드백 화면은 Figma 에 프레임이 없어 같은 색 · 카드 모양으로 맞췄습니다.
 하단 탭(홈 · 지도 · 알림 · 마이)은 팀 공통 앱 뼈대에서 만들고, 마이 탭에서 `MyPageActivity` 를 열면 됩니다.
 
+### 12월 — 출발지 · 도착지 모드 (즐겨찾는 곳)
+
+- **마이페이지 > 즐겨찾는 곳** (`FavoritesActivity`, 예전 평소 정류장 · 노선 설정 자리): 이름(집 · 학교 등) + 장소 검색(`GET /api/v1/places`, `PlaceSearch`) 좌표로 추가 · 삭제, ★ 기본 도착지 고르기, 도착 목표 시각.
+  마이페이지의 '주변 정류장' 목록은 즐겨찾는 곳 목록으로 바뀜. 처음 가입한 사용자는 즐겨찾는 곳 · 도착지 · 평소 정류장이 없음 (고정 기본값 없음).
+- **Firestore users/{uid}**: `favorites [{name, lat, lng}]`(20곳까지) · `destination {name, lat, lng}` · `last_trip {from, to, at}`.
+  예전 `home_stop_id` · `my_route` · `candidate_stop_ids` 는 읽기만 하고 쓰지 않음, 예전 `destination {name, x, y}` 는 lat/lng 로 읽음.
+- **UserRepository** (팀 앱이 A 홈 `HomeHost` · B `AlternativesHost` 를 구현할 때):
+  `loadFavorites(uid, cb)` · `loadLastDestination(uid, cb)`(destination → last_trip.to) · `addFavorite(uid, place, cb)` · `saveLastTrip(uid, from, to, cb)`(at = 서버 시각, destination 도 같이).
+- **규칙** (`firebase/firestore.rules`): favorites 20곳 · 장소 좌표 한국 범위(위도 33~39 · 경도 124~132). 목록은 첫 항목만 검사 (규칙에서 반복 불가 — 앱의 `UserSettings.validate` 가 전부 검사).
+- **탑승 피드백**: 어떤 노선 · 정류장이든 — `FeedbackActivity.newIntent(context, route, stopId, stopName, prob)`, 정류장 이름은 Firestore 기록(`stop_name`)에만 (서버 요청에는 없음). 노선 · 정류장 없이 열면 안내 후 닫음.
+- 시험: 단위 테스트 24개. Firebase 에뮬레이터 시험(`FirebaseEmulatorTest`)은 새 필드 · last_trip · 규칙 확인을 추가했고 컴파일만 확인.
+
 ### 13주차 — Firestore · `/feedback` 서버 연결
 
 - 서버: 저장소 루트의 팀 예측 서버 `server.py` (`POST /api/v1/feedback` — Firebase ID 토큰을 확인하고 `feedback/feedback.jsonl` 에 저장).

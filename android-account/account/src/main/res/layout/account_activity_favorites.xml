@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 마이페이지 > 즐겨찾는 곳 (이름 + 장소 검색 좌표, 기본 도착지, 도착 목표 시각) -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/account_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            style="@style/AccountLabel"
+            android:text="@string/account_favorite_hint" />
+
+        <TextView
+            android:id="@+id/account_favorite_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/account_favorite_empty"
+            android:textColor="@color/account_muted"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/account_favorite_list"
+            style="@style/AccountCard"
+            android:divider="@drawable/account_divider"
+            android:dividerPadding="16dp"
+            android:showDividers="middle" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/account_favorite_add"
+            style="@style/AccountButton.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/account_favorite_add" />
+
+        <LinearLayout
+            style="@style/AccountCard"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="16dp">
+
+            <TextView
+                style="@style/AccountLabel"
+                android:text="@string/account_arrive_by" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/AccountInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/account_arrive_by"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="09:00"
+                    android:inputType="time" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/account_save"
+                style="@style/AccountButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/account_save" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/account_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
+            android:visibility="gone" />
+    </LinearLayout>
+</ScrollView>

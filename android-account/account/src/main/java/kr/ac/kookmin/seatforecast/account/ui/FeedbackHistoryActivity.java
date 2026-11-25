@@ -98,7 +98,7 @@ public class FeedbackHistoryActivity extends AppCompatActivity {
         ImageViewCompat.setImageTintList(icon, ColorStateList.valueOf(color));
 
         ((TextView) row.findViewById(R.id.account_feedback_title)).setText(
-                r.route + " · " + Stops.nameOf(r.stopId));
+                r.route + " · " + r.stopLabel());
         StringBuilder sub = new StringBuilder(r.date == null ? "" : r.date);
         if (r.predictedProb != null) {
             sub.append(" · ").append(getString(R.string.account_feedback_prob_tag, Math.round(r.predictedProb * 100)));
