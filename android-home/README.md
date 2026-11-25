@@ -5,9 +5,37 @@
 D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 라이브러리 모듈**로 만들었습니다.
 팀 앱 뼈대(app 모듈)가 생기면 이 모듈을 붙이기만 하면 됩니다. 저장소의 다른 파일은 고치지 않았습니다.
 
-**지금 상태: 13주차 (`/recommendations` 서버 연결).** 12주차 화면이 예시 JSON 대신 예측 서버에 실제 HTTP 요청을 보내 그립니다.
-시간 제한 · 실패 이유별 문장 · 401 이면 토큰을 새로 받아 한 번 더 요청하는 처리를 넣었고, 서버가 완성되기 전 확인용 테스트 서버(`tools/mock_server.py`)를 만들었습니다.
-다음: 14주차 출근길 추천 검증.
+**지금 상태: 12월 출발지 · 도착지 모드.** "우리집 → 국민대" 한 경로 대신, 지도 앱처럼 출발지(기본: 현재 GPS)와 도착지를 정해
+`GET /api/v1/recommendations?from_lat&from_lng&from_name&to_lat&to_lng&to_name` 로 추천을 받습니다 (docs/api.md '출발지 · 도착지 모드').
+아래 13주차 이전 설명 중 평소 정류장 · 노선(`UsualTrip`) 부분은 더 이상 쓰지 않습니다.
+
+### 12월 — 출발지 · 도착지 모드
+
+- **화면**: 위쪽 빨간 카드가 출발지 · 도착지 입력 2줄 + 바꾸기(⇅) · 즐겨찾기(☆). 줄을 누르면 장소 검색 화면(`PlaceSearchActivity`, `GET /api/v1/places`)
+  — 입력 전에는 "현재 위치"(출발지일 때) · 즐겨찾는 곳. 마지막으로 고른 출발지 · 도착지는 기기에 저장.
+- **도착지 고정값 없음**: 이 기기에 저장된 도착지 → `HomeHost.loadLastDestination` (D: destination · last_trip.to) → 없으면 "도착지를 검색해 주세요".
+- **현재 위치**: `HomeLocation` (android-map `DevicePosition` 과 같은 방식 — LocationManager, 최근 2분 위치 재사용, 12초 시간 초과).
+  처음 쓸 때 위치 권한을 묻고, 거부하면 출발지 검색을 엶. 새로고침마다 GPS 를 다시 읽고, 못 읽으면 마지막 좌표로.
+- **카드**: 버스 · 지하철 아이콘(`first_mode`) · 종류(`kind`, "지하철" 포함 · 모르는 값은 그대로) · 경로 한 줄(`summary`).
+  배지: `seat_limited=false` → "입석 가능", `seat_known=false` → "좌석 정보 없음", 나머지 탑승 확률. 환승 적은 순은 `transfers` 사용.
+- **오류**: `{"error": {"code", "message"}}` 의 message 를 그대로 + 다시 시도 (`503 route_unavailable` · `400 bad_request` 등).
+- **시연 앱**: 기본 = 서버, `demo_mode example` = `trip_recommendations.json` · `trip_places.json` (docs/examples 복사본, 서버 꺼짐 대비).
+  즐겨찾는 곳(집 · 학교)은 시연용 가짜 값.
+
+#### 화면 사이 약속 (다음 브랜치 B · C · D · E 도 그대로)
+
+| 이름 | 내용 |
+|---|---|
+| 인텐트 extra (`TripExtras`) | `from_lat` · `from_lng` · `to_lat` · `to_lng` (double), `from_name` · `to_name` (String) — `TripExtras.put(intent, from, to)` / `TripExtras.from(intent)` · `to(intent)` |
+| 장소 (`Place`) | `{name, address?, lat, lng}` — Firestore favorites · destination · last_trip.from/to 와 같은 모양, 현재 위치 이름은 `Place.CURRENT_LOCATION` = "현재 위치" |
+| `HomeHost.loadFavorites(Callback<List<Place>>)` | D: favorites |
+| `HomeHost.loadLastDestination(Callback<Place>)` | D: destination (없으면 last_trip.to), 없으면 null |
+| `HomeHost.addFavorite(Context, Place)` | D: favorites 에 추가 (즐겨찾기 버튼) |
+| `HomeHost.saveLastTrip(Place from, Place to)` | D: last_trip 저장 — 검색할 때마다 (자동 새로고침 제외) |
+| `HomeHost.onOptionClicked(Context, Option, Place from, Place to)` | 팀 앱: `TripExtras.put(AlternativesActivity.newIntent(...), from, to)` 로 B 열기 |
+| `HomeFragment.setTrip(Place from, Place to)` | 팀 앱이 출발지 · 도착지를 정해 홈을 열 때 (from = null 이면 현재 위치) |
+
+`loadUsualTrip` · `onTripClicked` 는 기본 구현만 남겨 두어 예전 팀 앱 코드도 컴파일됩니다 (부르지 않음).
 
 ### 13주차 — `/recommendations` 서버 연결
 

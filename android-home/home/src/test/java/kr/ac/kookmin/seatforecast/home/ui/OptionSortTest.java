@@ -109,4 +109,15 @@ public class OptionSortTest {
             }
         }
     }
+
+    /** 출발지 · 도착지 모드: transfers 필드가 있으면 route_choices 보다 우선 */
+    @Test
+    public void transfersFieldFirst() {
+        Option a = option("a", 3, 0.9, 0);
+        a.transfers = 2;
+        Option b = option("b", 3, 0.9, 1);
+        assertEquals(2, OptionSort.fewestTransfers(a));
+        assertEquals(1, OptionSort.fewestTransfers(b));
+        assertEquals(Arrays.asList("b", "a"), names(OptionSort.FEWEST_TRANSFERS.apply(Arrays.asList(a, b))));
+    }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- seat_limited=false: 확률 배지 대신 "입석 가능" (회색 바탕) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/home_background" />
+    <corners android:radius="999dp" />
+</shape>

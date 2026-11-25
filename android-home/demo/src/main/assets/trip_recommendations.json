@@ -1,0 +1,161 @@
+{
+  "generated_at": "2026-10-07T07:40:00+09:00",
+  "origin": {
+    "name": "현재 위치",
+    "lat": 37.385,
+    "lng": 127.1233
+  },
+  "destination": {
+    "name": "국민대학교",
+    "lat": 37.611,
+    "lng": 126.9952
+  },
+  "my_route": null,
+  "home_stop": {
+    "id": "1855",
+    "name": "서현"
+  },
+  "day": {
+    "label": "평일 출퇴근 시간대",
+    "kind": "평일 출퇴근",
+    "drop_factor": 1.0,
+    "headway_factor": 1.0
+  },
+  "recommendation": {
+    "kind": "지하철",
+    "route": "수인분당선",
+    "stop_name": "서현",
+    "message": "지하철 (수인분당선 · 서현) — 지하철이 가장 빠르고 좌석 걱정이 없습니다"
+  },
+  "ranking": [
+    {
+      "kind": "지하철",
+      "route": "수인분당선",
+      "stop": {
+        "id": "1855",
+        "name": "서현",
+        "mobile_no": "",
+        "lat": 37.385,
+        "lng": 127.1233
+      },
+      "walk_min": 3,
+      "board_prob": 1.0,
+      "arrive_at": "09:10",
+      "total_min": 90,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "선릉",
+      "first_mode": "subway",
+      "seat_limited": false,
+      "seat_known": false,
+      "transfers": 1,
+      "summary": "도보 3분 → 수인분당선(서현→선릉) → 2호선(선릉→신설동)",
+      "buses": [],
+      "route_choices": [
+        {
+          "arrive_at": "09:10",
+          "transfers": 1,
+          "walk_min": 3,
+          "tags": [
+            "추천",
+            "최단시간",
+            "최소환승"
+          ],
+          "alight_stop": "선릉",
+          "summary": "도보 3분 → 수인분당선(서현→선릉) → 2호선(선릉→신설동)"
+        }
+      ]
+    },
+    {
+      "kind": "기다리기",
+      "route": "8100",
+      "stop": {
+        "id": "206000299",
+        "name": "서현역.AK프라자",
+        "mobile_no": "07302",
+        "lat": 37.3849,
+        "lng": 127.1236
+      },
+      "walk_min": 4,
+      "board_prob": 0.73,
+      "arrive_at": "09:13",
+      "total_min": 94,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "숭례문",
+      "first_mode": "bus",
+      "seat_limited": true,
+      "seat_known": true,
+      "transfers": 1,
+      "summary": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 9,
+          "seats_at_stop": 16,
+          "board_prob": 0.73,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "09:13",
+          "transfers": 1,
+          "walk_min": 4,
+          "tags": [],
+          "alight_stop": "숭례문",
+          "summary": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)"
+        }
+      ]
+    },
+    {
+      "kind": "기다리기",
+      "route": "M4102",
+      "stop": {
+        "id": "206000299",
+        "name": "서현역.AK프라자",
+        "mobile_no": "07302",
+        "lat": 37.3849,
+        "lng": 127.1236
+      },
+      "walk_min": 4,
+      "board_prob": 0.18,
+      "arrive_at": "09:17",
+      "total_min": 98,
+      "delay_min": 0,
+      "skipped": false,
+      "alight_stop": "숭례문",
+      "first_mode": "bus",
+      "seat_limited": true,
+      "seat_known": true,
+      "transfers": 1,
+      "summary": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)",
+      "buses": [
+        {
+          "order": 1,
+          "eta_min": 6,
+          "seats_at_stop": 0,
+          "board_prob": 0.18,
+          "reachable": true
+        },
+        {
+          "order": 2,
+          "eta_min": 16,
+          "seats_at_stop": 18,
+          "board_prob": 0.8,
+          "reachable": true
+        }
+      ],
+      "route_choices": [
+        {
+          "arrive_at": "09:17",
+          "transfers": 1,
+          "walk_min": 4,
+          "tags": [],
+          "alight_stop": "숭례문",
+          "summary": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,11 @@
 package kr.ac.kookmin.seatforecast.home.ui;
 
+import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,6 +18,8 @@ import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -26,6 +32,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,16 +43,18 @@ import java.util.concurrent.Executors;
 import kr.ac.kookmin.seatforecast.home.Callback;
 import kr.ac.kookmin.seatforecast.home.Home;
 import kr.ac.kookmin.seatforecast.home.HomeHost;
+import kr.ac.kookmin.seatforecast.home.Place;
 import kr.ac.kookmin.seatforecast.home.R;
-import kr.ac.kookmin.seatforecast.home.UsualTrip;
 import kr.ac.kookmin.seatforecast.home.data.RecommendationSource;
 import kr.ac.kookmin.seatforecast.home.data.SourceException;
 import kr.ac.kookmin.seatforecast.home.model.Option;
 import kr.ac.kookmin.seatforecast.home.model.Recommendations;
 
 /**
- * ② 홈 — 정류장 × 노선 추천. 팀 앱 하단 탭의 '홈'에 이 Fragment 를 그대로 넣으면 됩니다.
- * 순서: 로그인 확인 → 평소 정류장 · 노선 → ID 토큰 → {@link RecommendationSource#load} (백그라운드) → 화면.
+ * ② 홈 — 출발지 → 도착지 추천. 팀 앱 하단 탭의 '홈'에 이 Fragment 를 그대로 넣으면 됩니다.
+ * 순서: 로그인 확인 → 도착지(이 기기에서 마지막으로 고른 곳, 없으면 HomeHost.loadLastDestination, 그래도 없으면 검색 안내)
+ * → 출발지("현재 위치"면 GPS, 처음이면 권한 요청 · 거부하면 출발지 검색) → ID 토큰
+ * → {@link RecommendationSource#load} (백그라운드) → 화면. 검색할 때마다(자동 새로고침 제외) HomeHost.saveLastTrip.
  *
  * <p>12주차 — 새로고침: 헤더 새로고침 버튼 · 목록 당기기 · 화면이 보이는 동안 {@link LiveTime#AUTO_REFRESH_MIN}분마다 자동.
  * 새로고침 중에도 지금 목록은 그대로 두고, 실패하면 이전 목록을 남긴 채 "갱신 실패" 를 표시합니다.
@@ -56,6 +66,11 @@ public class HomeFragment extends Fragment {
     /** 고른 정렬 기준은 앱을 다시 켜도 유지 */
     private static final String PREFS = "home_prefs";
     private static final String KEY_SORT = "sort";
+    /** 마지막으로 고른 출발지 · 도착지 (앱을 다시 켜도 유지) — 출발지가 "현재 위치"면 KEY_FROM 없음 */
+    private static final String KEY_FROM = "trip_from";
+    private static final String KEY_TO = "trip_to";
+    private static final String STATE_SEARCHING_ORIGIN = "searching_origin";
+    private static final Gson GSON = new Gson();
     private static final float DISABLED_ALPHA = 0.4f;
 
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -76,7 +91,36 @@ public class HomeFragment extends Fragment {
     @Nullable
     private Recommendations current;
 
-    private TextView usualStop;
+    /** 출발지 — null 이면 "현재 위치"(GPS) */
+    @Nullable
+    private Place fromPlace;
+    /** 도착지 — null 이면 아직 정하지 않음 (검색 안내) */
+    @Nullable
+    private Place to;
+    /** "현재 위치" 로 마지막으로 받은 GPS 좌표 (위치를 다시 못 받으면 새로고침에 씀) */
+    @Nullable
+    private Place gpsFix;
+    /** 지금 보여 주는 추천을 계산한 출발지 · 도착지 — 카드에서 B 화면으로 넘김 */
+    @Nullable
+    private Place shownFrom;
+    @Nullable
+    private Place shownTo;
+    /** 검색 화면을 출발지로 열었는지 */
+    private boolean searchingOrigin;
+    /** 위치 권한을 물어보는 동안 기다리는 요청 */
+    private boolean pendingKeepList;
+    private boolean pendingByUser;
+    private HomeLocation location;
+
+    private final ActivityResultLauncher<String[]> permissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), granted -> onPermissionResult());
+    private final ActivityResultLauncher<Intent> searchLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), r -> {
+                if (r.getResultCode() == Activity.RESULT_OK) onPlaceChosen(searchingOrigin, r.getData());
+            });
+
+    private TextView fromName;
+    private TextView toName;
     private TextView dateChip;
     private TextView dayLabel;
     private TextView nowChip;
@@ -109,7 +153,16 @@ public class HomeFragment extends Fragment {
 
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
-        usualStop = v.findViewById(R.id.home_usual_stop);
+        fromName = v.findViewById(R.id.home_from_name);
+        toName = v.findViewById(R.id.home_to_name);
+        location = new HomeLocation(requireContext());
+        if (savedInstanceState != null) searchingOrigin = savedInstanceState.getBoolean(STATE_SEARCHING_ORIGIN);
+        loadTrip();
+        bindTrip();
+        v.findViewById(R.id.home_from).setOnClickListener(b -> openSearch(true));
+        v.findViewById(R.id.home_to).setOnClickListener(b -> openSearch(false));
+        v.findViewById(R.id.home_swap).setOnClickListener(b -> swap());
+        v.findViewById(R.id.home_favorite).setOnClickListener(this::openFavorites);
         dateChip = v.findViewById(R.id.home_chip_date);
         dayLabel = v.findViewById(R.id.home_day_label);
         nowChip = v.findViewById(R.id.home_chip_now);
@@ -125,10 +178,16 @@ public class HomeFragment extends Fragment {
         swipe = v.findViewById(R.id.home_swipe);
         refreshButton = v.findViewById(R.id.home_refresh);
 
-        adapter = new OptionAdapter(o -> Home.host().onOptionClicked(requireContext(), o));
+        // 카드 → B 실시간 대안 (그 추천을 계산한 출발지 · 도착지를 extra 6개로 — TripExtras)
+        adapter = new OptionAdapter(o -> {
+            if (shownFrom != null && shownTo != null) {
+                Home.host().onOptionClicked(requireContext(), o, shownFrom, shownTo);
+            } else {
+                Home.host().onOptionClicked(requireContext(), o);
+            }
+        });
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         list.setAdapter(adapter);
-        v.findViewById(R.id.home_trip).setOnClickListener(t -> Home.host().onTripClicked(requireContext()));
         departureAlarm.setOnClickListener(b -> {
             if (first != null) Home.host().onDepartureAlarmClicked(requireContext(), first);
         });
@@ -147,6 +206,137 @@ public class HomeFragment extends Fragment {
         refreshing = false;
         refreshFailed = false;
         current = null;
+    }
+
+    // ── 출발지 · 도착지 ──
+
+    private void bindTrip() {
+        String from = fromPlace == null ? getString(R.string.home_current_location)
+                : fromPlace.nameOr(getString(R.string.home_current_location));
+        fromName.setText(from);
+        requireView().findViewById(R.id.home_from).setContentDescription(getString(R.string.home_from_desc, from));
+        String dest = to == null ? getString(R.string.home_to_empty) : to.nameOr(getString(R.string.home_to_empty));
+        toName.setText(dest);
+        toName.setAlpha(to == null ? 0.7f : 1f);
+        requireView().findViewById(R.id.home_to).setContentDescription(getString(R.string.home_to_desc, dest));
+    }
+
+    private void openSearch(boolean origin) {
+        searchingOrigin = origin;
+        searchLauncher.launch(PlaceSearchActivity.newIntent(requireContext(), origin));
+    }
+
+    /** 검색 화면에서 고른 곳 → 저장하고 다시 계산 */
+    private void onPlaceChosen(boolean origin, @Nullable Intent data) {
+        if (getView() == null) return;
+        Place chosen = PlaceSearchActivity.resultPlace(data);
+        if (origin) {
+            if (PlaceSearchActivity.isCurrentLocation(data)) fromPlace = null;
+            else if (chosen != null) fromPlace = chosen;
+            else return;
+        } else {
+            if (chosen == null) return;
+            to = chosen;
+        }
+        changedTrip();
+    }
+
+    /** 바꾸기 — 출발지가 "현재 위치"면 마지막 GPS 좌표를 도착지로 씀 (아직 없으면 안내) */
+    private void swap() {
+        if (to == null) {
+            openSearch(false);
+            return;
+        }
+        Place newTo;
+        if (fromPlace != null) {
+            newTo = fromPlace;
+        } else if (gpsFix != null) {
+            newTo = new Place(getString(R.string.home_current_location), gpsFix.lat, gpsFix.lng);
+        } else {
+            Snackbar.make(requireView(), R.string.home_swap_need_place, Snackbar.LENGTH_LONG)
+                    .setAction(R.string.home_search_origin, b -> openSearch(true))
+                    .show();
+            return;
+        }
+        fromPlace = to;
+        to = newTo;
+        changedTrip();
+    }
+
+    /** 즐겨찾기 버튼: 즐겨찾는 곳을 도착지로 고르거나, 지금 도착지를 즐겨찾기에 추가 (D 콜백) */
+    private void openFavorites(View anchor) {
+        Home.host().loadFavorites(new Callback<List<Place>>() {
+            @Override
+            public void onSuccess(List<Place> result) {
+                if (getView() != null) showFavorites(anchor, result);
+            }
+
+            @Override
+            public void onError(String message) {
+                if (getView() != null) showFavorites(anchor, new ArrayList<>());
+            }
+        });
+    }
+
+    private void showFavorites(View anchor, @Nullable List<Place> favorites) {
+        List<Place> places = new ArrayList<>();
+        if (favorites != null) for (Place p : favorites) if (p != null && p.hasCoords()) places.add(p);
+        if (places.isEmpty() && to == null) {
+            Snackbar.make(requireView(), R.string.home_favorite_none, Snackbar.LENGTH_LONG).show();
+            return;
+        }
+        PopupMenu menu = new PopupMenu(requireContext(), anchor);
+        for (int i = 0; i < places.size(); i++) menu.getMenu().add(Menu.NONE, i, i, places.get(i).name);
+        final int add = places.size();
+        if (to != null) menu.getMenu().add(Menu.NONE, add, add, getString(R.string.home_favorite_add, to.name));
+        menu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == add) {
+                Home.host().addFavorite(requireContext(), to);
+            } else {
+                to = places.get(item.getItemId());
+                changedTrip();
+            }
+            return true;
+        });
+        menu.show();
+    }
+
+    private void changedTrip() {
+        saveTrip();
+        bindTrip();
+        reload();
+    }
+
+    private void loadTrip() {
+        fromPlace = readPlace(KEY_FROM);
+        to = readPlace(KEY_TO);
+    }
+
+    private void saveTrip() {
+        SharedPreferences.Editor e = prefs().edit();
+        if (fromPlace == null) e.remove(KEY_FROM);
+        else e.putString(KEY_FROM, GSON.toJson(fromPlace));
+        if (to == null) e.remove(KEY_TO);
+        else e.putString(KEY_TO, GSON.toJson(to));
+        e.apply();
+    }
+
+    @Nullable
+    private Place readPlace(String key) {
+        String json = prefs().getString(key, null);
+        if (json == null) return null;
+        try {
+            Place p = GSON.fromJson(json, Place.class);
+            return p != null && p.hasCoords() ? p : null;
+        } catch (JsonParseException e) {
+            return null;
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle out) {
+        super.onSaveInstanceState(out);
+        out.putBoolean(STATE_SEARCHING_ORIGIN, searchingOrigin);
     }
 
     /** 정렬 메뉴: 도착 빠른 순 · 환승 적은 순 · 가까운 정류장 순 · 탑승 확률 높은 순 */
@@ -225,13 +415,25 @@ public class HomeFragment extends Fragment {
     @Override
     public void onDestroyView() {
         requestId++;   // 진행 중인 요청 결과 버림
+        location.stop();
         main.removeCallbacks(tick);
         super.onDestroyView();
     }
 
-    /** 추천을 처음부터 다시 불러옵니다 — 로딩 화면 (팀 앱에서 설정이 바뀐 뒤 부를 수 있음). */
+    /** 추천을 처음부터 다시 불러옵니다 — 로딩 화면 (팀 앱에서 즐겨찾기 등이 바뀐 뒤 부를 수 있음). */
     public void reload() {
         start(false, false);
+    }
+
+    /**
+     * 팀 앱이 출발지 · 도착지를 정해 홈을 열 때 (예: 알림 · 다른 화면에서 돌아옴).
+     *
+     * @param from null 이면 "현재 위치"(GPS)
+     */
+    public void setTrip(@Nullable Place from, @NonNull Place to) {
+        this.fromPlace = from;
+        this.to = to;
+        if (getView() != null) changedTrip();
     }
 
     /**
@@ -263,23 +465,98 @@ public class HomeFragment extends Fragment {
             showSignedOut();
             return;
         }
+        if (to == null) {
+            findDestination(id, keepList, byUser);
+            return;
+        }
         if (keepList) setRefreshing(true);
-        else showLoading();
-        host.loadUsualTrip(new Callback<UsualTrip>() {
-            @Override
-            public void onSuccess(UsualTrip trip) {
-                if (stale(id)) return;
-                host.getIdToken(new Callback<String>() {
-                    @Override
-                    public void onSuccess(String token) {
-                        if (!stale(id)) fetch(id, trip, token, keepList, byUser);
-                    }
+        else showLoading(fromPlace == null ? R.string.home_locating : R.string.home_loading);
+        findOrigin(id, keepList, byUser);
+    }
 
-                    @Override
-                    public void onError(String message) {
-                        if (!stale(id)) failed(message, keepList, byUser);
-                    }
-                });
+    /** 이 기기에 도착지가 없으면 D 의 destination · last_trip.to, 그래도 없으면 검색 안내 */
+    private void findDestination(int id, boolean keepList, boolean byUser) {
+        showLoading(R.string.home_loading);
+        Home.host().loadLastDestination(new Callback<Place>() {
+            @Override
+            public void onSuccess(Place result) {
+                if (stale(id)) return;
+                if (result != null && result.hasCoords()) {
+                    to = result;
+                    saveTrip();
+                    bindTrip();
+                    start(keepList, byUser);
+                } else {
+                    showNeedDestination();
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!stale(id)) showNeedDestination();
+            }
+        });
+    }
+
+    /** 출발지 — 검색한 곳이면 그대로, "현재 위치"면 GPS (권한이 없으면 먼저 물어봄) */
+    private void findOrigin(int id, boolean keepList, boolean byUser) {
+        if (fromPlace != null) {
+            withToken(id, fromPlace, keepList, byUser);
+            return;
+        }
+        if (!HomeLocation.hasPermission(requireContext())) {
+            pendingKeepList = keepList;
+            pendingByUser = byUser;
+            permissionLauncher.launch(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION});
+            return;
+        }
+        location.request(new HomeLocation.Listener() {
+            @Override
+            public void onLocation(@NonNull Location l) {
+                if (stale(id)) return;
+                gpsFix = new Place(Place.CURRENT_LOCATION, l.getLatitude(), l.getLongitude());
+                if (!keepList) stateMessage.setText(R.string.home_loading);
+                withToken(id, gpsFix, keepList, byUser);
+            }
+
+            @Override
+            public void onFailure(int message) {
+                if (stale(id)) return;
+                // 새로고침인데 위치를 다시 못 받으면 마지막 GPS 좌표로
+                if (keepList && gpsFix != null) withToken(id, gpsFix, true, byUser);
+                else locationFailed(getString(message), keepList, byUser);
+            }
+        });
+    }
+
+    /** 권한 창이 닫힘 — 허용하면 이어서, 거부하면 출발지 검색을 엶 */
+    private void onPermissionResult() {
+        if (getView() == null) return;
+        if (HomeLocation.hasPermission(requireContext())) {
+            start(pendingKeepList, pendingByUser);
+            return;
+        }
+        locationFailed(getString(R.string.home_location_denied), false, false);
+        openSearch(true);
+    }
+
+    /** 위치를 못 받음 — 목록이 있으면 그대로 두고 알림, 없으면 '출발지 검색' 버튼 */
+    private void locationFailed(String message, boolean keepList, boolean byUser) {
+        if (keepList && loaded) {
+            failed(message, true, byUser);
+            return;
+        }
+        showState(false, message, getString(R.string.home_search_origin), v -> openSearch(true));
+    }
+
+    private void withToken(int id, Place from, boolean keepList, boolean byUser) {
+        final Place dest = to;
+        if (dest == null) return;
+        Home.host().getIdToken(new Callback<String>() {
+            @Override
+            public void onSuccess(String token) {
+                if (!stale(id)) fetch(id, from, dest, token, keepList, byUser, false);
             }
 
             @Override
@@ -293,21 +570,19 @@ public class HomeFragment extends Fragment {
         return id != requestId || getView() == null;
     }
 
-    private void fetch(int id, UsualTrip trip, @Nullable String token, boolean keepList, boolean byUser) {
-        fetch(id, trip, token, keepList, byUser, false);
-    }
-
     /**
      * @param retried 401 뒤 토큰을 새로 받아 다시 보낸 요청이면 true (13주차 — 한 번만 다시 시도)
      */
-    private void fetch(int id, UsualTrip trip, @Nullable String token, boolean keepList, boolean byUser,
+    private void fetch(int id, Place from, Place dest, @Nullable String token, boolean keepList, boolean byUser,
                        boolean retried) {
         final RecommendationSource source = Home.source();
+        // 검색할 때마다 last_trip 저장 (D) — 자동 새로고침 · 401 재시도는 빼고
+        if (!retried && (!keepList || byUser)) Home.host().saveLastTrip(from, dest);
         EXECUTOR.execute(() -> {
             Recommendations result = null;
             SourceException error = null;
             try {
-                result = source.load(trip.homeStopId, trip.route, token);
+                result = source.load(from, dest, token);
             } catch (SourceException e) {
                 error = e;
             } catch (RuntimeException e) {
@@ -318,9 +593,11 @@ public class HomeFragment extends Fragment {
             main.post(() -> {
                 if (stale(id)) return;
                 if (r != null) {
+                    shownFrom = from;
+                    shownTo = dest;
                     show(r);
                 } else if (err != null && err.isUnauthorized()) {
-                    unauthorized(id, trip, keepList, byUser, retried, err.getMessage());
+                    unauthorized(id, from, dest, keepList, byUser, retried, err.getMessage());
                 } else {
                     String message = err != null && err.getMessage() != null ? err.getMessage()
                             : getString(R.string.home_error_default);
@@ -331,7 +608,7 @@ public class HomeFragment extends Fragment {
     }
 
     /** 13주차: 서버 401 — 토큰을 새로 받아 한 번 더. 그래도 401 이면 다시 로그인 화면 */
-    private void unauthorized(int id, UsualTrip trip, boolean keepList, boolean byUser, boolean retried,
+    private void unauthorized(int id, Place from, Place dest, boolean keepList, boolean byUser, boolean retried,
                               String message) {
         if (retried) {
             showSessionExpired();
@@ -340,7 +617,7 @@ public class HomeFragment extends Fragment {
         Home.host().getIdToken(true, new Callback<String>() {
             @Override
             public void onSuccess(String token) {
-                if (!stale(id)) fetch(id, trip, token, keepList, byUser, true);
+                if (!stale(id)) fetch(id, from, dest, token, keepList, byUser, true);
             }
 
             @Override
@@ -373,9 +650,6 @@ public class HomeFragment extends Fragment {
         setRefreshing(false);
         swipe.setEnabled(true);
 
-        if (r.homeStop != null && r.homeStop.name != null) {
-            usualStop.setText(getString(R.string.home_usual_stop, r.homeStop.name));
-        }
         // 칩 3개: 날짜 · 평일 출퇴근(day.kind) · 지금 HH:MM (generated_at + 받은 뒤 지난 분)
         setTextOrGone(dateChip, TripFormat.dateChip(r.generatedAt));
         setTextOrGone(dayLabel, TripFormat.dayChip(r.day));
@@ -469,8 +743,14 @@ public class HomeFragment extends Fragment {
 
     // ── 상태 화면 ──
 
-    private void showLoading() {
-        showState(true, getString(R.string.home_loading), null, null);
+    private void showLoading(@StringRes int message) {
+        showState(true, getString(message), null, null);
+    }
+
+    /** 도착지가 아직 없음 — 고정 기본값 없이 검색부터 */
+    private void showNeedDestination() {
+        showState(false, getString(R.string.home_need_destination), getString(R.string.home_search_destination),
+                v -> openSearch(false));
     }
 
     private void showError(String message) {
@@ -494,6 +774,9 @@ public class HomeFragment extends Fragment {
     private void showState(boolean loading, String message, @Nullable String action,
                            @Nullable View.OnClickListener onAction) {
         list.setVisibility(View.GONE);
+        // 이전 추천 요약 · '지금' 칩은 지움 (도착지를 바꾼 뒤 실패하면 예전 경로 문장이 남지 않게)
+        setTextOrGone(summary, null);
+        setTextOrGone(nowChip, null);
         state.setVisibility(View.VISIBLE);
         progress.setVisibility(loading ? View.VISIBLE : View.GONE);
         stateMessage.setText(message);

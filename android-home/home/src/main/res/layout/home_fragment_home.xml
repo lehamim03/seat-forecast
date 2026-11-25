@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Figma '좌석예보 앱 UI' 02 홈 프레임 구조. 11주차: 우리집 → 국민대 카드 · 추천 카드 · 확률 배지 / 12주차: 헤더 새로고침 · 당겨서 새로고침 · 갱신 시각 (알림 아이콘은 E 담당) -->
+<!-- Figma '좌석예보 앱 UI' 02 홈 프레임 구조. 12월: 출발지 · 도착지 입력 (예전 우리집 → 국민대 카드 자리) · 추천 카드 · 확률 배지 / 12주차: 헤더 새로고침 · 당겨서 새로고침 · 갱신 시각 (알림 아이콘은 E 담당) -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -34,7 +34,7 @@
             android:src="@drawable/home_ic_refresh" />
     </LinearLayout>
 
-    <!-- Trip: 우리집 → 국민대 · 평소 정류장 · day.label -->
+    <!-- 출발지 · 도착지 (12월 출발지 · 도착지 모드): 누르면 검색 화면, 오른쪽 바꾸기 · 즐겨찾기 / 아래 칩 3개 -->
     <LinearLayout
         android:id="@+id/home_trip"
         android:layout_width="match_parent"
@@ -43,13 +43,11 @@
         android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
         android:background="@drawable/home_bg_trip"
-        android:contentDescription="@string/home_trip_open"
-        android:foreground="?attr/selectableItemBackground"
         android:orientation="vertical"
-        android:paddingStart="20dp"
-        android:paddingTop="18dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="18dp">
+        android:paddingStart="14dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="14dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -57,30 +55,101 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/home_trip_title"
-                android:textColor="@color/home_on_primary"
-                android:textSize="21sp"
-                android:textStyle="bold" />
+                android:orientation="vertical">
 
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_marginStart="8dp"
+        <LinearLayout
+            android:id="@+id/home_from"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/home_bg_trip_field"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <TextView
+                android:layout_width="36dp"
+                android:layout_height="wrap_content"
                 android:importantForAccessibility="no"
-                android:src="@drawable/home_ic_chevron_right" />
+                android:text="@string/home_from_label"
+                android:textColor="@color/home_on_primary"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/home_from_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/home_on_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/home_usual_stop"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/home_to"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="@color/home_on_primary"
-            android:textSize="14sp" />
+            android:layout_marginTop="8dp"
+            android:background="@drawable/home_bg_trip_field"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <TextView
+                android:layout_width="36dp"
+                android:layout_height="wrap_content"
+                android:importantForAccessibility="no"
+                android:text="@string/home_to_label"
+                android:textColor="@color/home_on_primary"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/home_to_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/home_on_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/home_swap"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/home_swap"
+                    android:src="@drawable/home_ic_swap" />
+
+                <ImageButton
+                    android:id="@+id/home_favorite"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/home_favorite"
+                    android:src="@drawable/home_ic_star" />
+            </LinearLayout>
+        </LinearLayout>
 
         <!-- 칩 3개 (Figma): 날짜 · day.kind · 지금 HH:MM — 값이 없으면 그 칩만 숨김 -->
         <LinearLayout

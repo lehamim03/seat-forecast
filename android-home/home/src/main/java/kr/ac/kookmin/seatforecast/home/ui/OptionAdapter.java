@@ -85,9 +85,17 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
         h.firstTag.setVisibility(first ? View.VISIBLE : View.GONE);
 
         h.route.setText(o.route);
+        h.mode.setImageResource(o.isSubway() ? R.drawable.home_ic_subway : R.drawable.home_ic_bus);
+        h.mode.setContentDescription(c.getString(o.isSubway() ? R.string.home_mode_subway : R.string.home_mode_bus));
         bindArrive(h, o);
         // 정류장 이름은 API 이름 그대로
         h.stop.setText(c.getString(R.string.home_stop_walk, o.stop == null ? "" : o.stop.name, o.walkMin));
+        String kind = OptionFormat.kindLabel(o);
+        h.kind.setText(kind);
+        h.kind.setVisibility(kind == null ? View.GONE : View.VISIBLE);
+        String summary = OptionFormat.summary(o);
+        h.summary.setText(summary);
+        h.summary.setVisibility(summary == null ? View.GONE : View.VISIBLE);
 
         bindBadge(h, o);
         bindBusLine(h, o, elapsedMin);
@@ -122,11 +130,23 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
     }
 
     private static void bindBadge(Holder h, Option o) {
-        if (!OptionFormat.showBadge(o)) {
+        OptionFormat.Badge kind = OptionFormat.badge(o);
+        if (kind == OptionFormat.Badge.NONE) {
             h.badge.setVisibility(View.GONE);
             return;
         }
         Context c = h.itemView.getContext();
+        if (kind == OptionFormat.Badge.STANDING || kind == OptionFormat.Badge.SEAT_UNKNOWN) {
+            // seat_limited=false: 서서 탈 수 있음 · 지하철 / seat_known=false: 좌석 수를 모름 — 확률 대신 글자
+            boolean standing = kind == OptionFormat.Badge.STANDING;
+            h.badge.setVisibility(View.VISIBLE);
+            h.badge.setText(standing ? R.string.home_standing : R.string.home_seat_unknown);
+            h.badge.setContentDescription(c.getString(standing ? R.string.home_standing_desc
+                    : R.string.home_seat_unknown_desc));
+            h.badge.setBackgroundResource(R.drawable.home_bg_standing);
+            h.badge.setTextColor(ContextCompat.getColor(c, standing ? R.color.home_text_body : R.color.home_muted));
+            return;
+        }
         OptionFormat.Level level = OptionFormat.level(o.boardProb);
         String percent = OptionFormat.percent(o.boardProb);
         h.badge.setVisibility(View.VISIBLE);
@@ -157,8 +177,10 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
                 String seats = b.seatsAtStop == null ? c.getString(R.string.home_bus_seats_unknown)
                         : b.seatsAtStop <= 0 ? c.getString(R.string.home_bus_full)
                         : c.getString(R.string.home_bus_seats, b.seatsAtStop);
-                text = c.getString(R.string.home_bus_line, eta, seats);
-                color = levelColor(OptionFormat.level(b.boardProb));
+                // 서서 탈 수 있는 버스(초록) · 좌석 수를 모르는 버스(회색)면 좌석 수 대신 도착 시간만
+                text = o.showsProbability() ? c.getString(R.string.home_bus_line, eta, seats) : eta;
+                color = o.showsProbability() ? levelColor(OptionFormat.level(b.boardProb))
+                        : o.isStandingOk() ? R.color.home_badge_high : R.color.home_muted;
                 break;
             case NONE_REACHABLE:
                 text = c.getString(R.string.home_bus_none_reachable);
@@ -167,6 +189,10 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
             case PASSED:
                 text = c.getString(R.string.home_bus_passed);
                 color = R.color.home_muted;
+                break;
+            case SUBWAY:
+                text = c.getString(R.string.home_subway_line);
+                color = R.color.home_badge_high;
                 break;
             case NO_INFO:
             default:
@@ -227,7 +253,10 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
     }
 
     static class Holder extends RecyclerView.ViewHolder {
+        final ImageView mode;
         final TextView route;
+        final TextView kind;
+        final TextView summary;
         final TextView arrive;
         final TextView total;
         final TextView firstTag;
@@ -240,7 +269,10 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
 
         Holder(View v) {
             super(v);
+            mode = v.findViewById(R.id.home_option_mode);
             route = v.findViewById(R.id.home_option_route);
+            kind = v.findViewById(R.id.home_option_kind);
+            summary = v.findViewById(R.id.home_option_summary);
             arrive = v.findViewById(R.id.home_option_arrive);
             total = v.findViewById(R.id.home_option_total);
             firstTag = v.findViewById(R.id.home_option_first_tag);

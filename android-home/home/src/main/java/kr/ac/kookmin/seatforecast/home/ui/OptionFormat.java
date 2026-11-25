@@ -23,6 +23,8 @@ final class OptionFormat {
     enum BusLineKind {
         /** {@code buses[]} 가 비어 있음 — 실시간 차량 없이 배차간격으로 예상한 값 */
         NO_INFO,
+        /** 지하철로 시작 — 좌석 걱정 없음 (다가오는 차 정보가 없음) */
+        SUBWAY,
         /** 다가오는 차가 모두 걸어가는 동안 지나감 */
         NONE_REACHABLE,
         /** 탈 수 있는 첫 차 ({@link BusLine#bus}) */
@@ -87,7 +89,9 @@ final class OptionFormat {
      */
     static BusLine busLine(Option o, int elapsedMin) {
         List<Bus> buses = o.buses;
-        if (buses == null || buses.isEmpty()) return new BusLine(BusLineKind.NO_INFO, null, false);
+        if (buses == null || buses.isEmpty()) {
+            return new BusLine(o.isSubway() ? BusLineKind.SUBWAY : BusLineKind.NO_INFO, null, false);
+        }
         int elapsed = Math.max(0, elapsedMin);
         boolean missed = false;
         boolean anyLeft = false;
@@ -104,9 +108,35 @@ final class OptionFormat {
         return new BusLine(BusLineKind.NONE_REACHABLE, null, missed);
     }
 
+    /** 오른쪽 위 배지: 탑승 확률 · "입석 가능" · "좌석 정보 없음" · 없음 */
+    enum Badge { PROBABILITY, STANDING, SEAT_UNKNOWN, NONE }
+
+    /**
+     * 우회로 건너뛰는 정류장은 배지 없음. seat_limited=false(서서 탈 수 있음 · 지하철)면 "입석 가능",
+     * seat_known=false(서울 등록 좌석버스 등)면 "좌석 정보 없음", 나머지는 탑승 확률.
+     */
+    static Badge badge(Option o) {
+        if (o.skipped) return Badge.NONE;
+        if (o.isStandingOk()) return Badge.STANDING;
+        if (o.isSeatUnknown()) return Badge.SEAT_UNKNOWN;
+        return Badge.PROBABILITY;
+    }
+
     /** 우회로 건너뛰는 정류장은 1순위 · 배지를 보이지 않음 */
     static boolean showBadge(Option o) {
-        return !o.skipped;
+        return badge(o) != Badge.NONE;
+    }
+
+    /** 둘째 줄 끝에 보여 줄 종류 (기다리기 · 걸어가기 · 다른 버스 · 지하철 · 모르는 값은 그대로), 없으면 null */
+    @Nullable
+    static String kindLabel(Option o) {
+        return o.kind == null || o.kind.trim().isEmpty() ? null : o.kind.trim();
+    }
+
+    /** 넷째 줄: 출발지 → 도착지 경로 한 줄 (summary), 없으면 null */
+    @Nullable
+    static String summary(Option o) {
+        return o.summary == null || o.summary.trim().isEmpty() ? null : o.summary.trim();
     }
 
     /** 서버 ranking 첫 항목이고 탈 수 있을 때만 '1순위' — 정렬 메뉴를 바꿔도 같은 카드에 붙음 */

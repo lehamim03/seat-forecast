@@ -1,5 +1,11 @@
 package kr.ac.kookmin.seatforecast.home.data;
 
+import retrofit2.Call;
+
+import java.util.List;
+
+import kr.ac.kookmin.seatforecast.home.Place;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -21,8 +27,12 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 /**
- * 예측 서버 {@code GET /api/v1/recommendations?home_stop=...&route=...}
- * 헤더 {@code Authorization: Bearer <Firebase ID 토큰>} (docs/api.md ②).
+ * 예측 서버 {@code GET /api/v1/recommendations?from_lat&from_lng&from_name&to_lat&to_lng&to_name}
+ * (docs/api.md '출발지 · 도착지 모드') · 장소 검색 {@code GET /api/v1/places?q=}.
+ * 헤더 {@code Authorization: Bearer <Firebase ID 토큰>} (토큰이 없으면 헤더 생략).
+ *
+ * <p>오류 응답 {@code {"error": {"code", "message"}}} 의 message 는 그대로 보여 줍니다
+ * — 예: {@code 400 bad_request}(좌표 일부만 줌) · {@code 503 route_unavailable}(경로 조회 실패).
  *
  * <p>13주차 서버 연결:
  * <ul>
@@ -32,7 +42,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
  *   <li>401 은 {@link SourceException#isUnauthorized()} — 홈 화면이 토큰을 새로 받아 한 번 더 요청합니다.</li>
  * </ul>
  */
-public class ApiRecommendationSource implements RecommendationSource {
+public class ApiRecommendationSource implements RecommendationSource, PlaceSource {
 
     public static final int CONNECT_TIMEOUT_SEC = 10;
     public static final int READ_TIMEOUT_SEC = 20;
@@ -81,12 +91,26 @@ public class ApiRecommendationSource implements RecommendationSource {
 
     @NonNull
     @Override
-    public Recommendations load(@NonNull String homeStopId, @NonNull String route, @Nullable String idToken)
+    public Recommendations load(@NonNull Place from, @NonNull Place to, @Nullable String idToken)
             throws SourceException {
-        String auth = idToken == null || idToken.isEmpty() ? null : "Bearer " + idToken;
-        Response<Recommendations> res;
+        return execute(api.recommendations(auth(idToken), from.lat, from.lng, from.name, to.lat, to.lng, to.name));
+    }
+
+    @NonNull
+    @Override
+    public List<Place> search(@NonNull String query, @Nullable String idToken) throws SourceException {
+        return execute(api.places(auth(idToken), query.trim())).placesOrEmpty();
+    }
+
+    @Nullable
+    private static String auth(@Nullable String idToken) {
+        return idToken == null || idToken.isEmpty() ? null : "Bearer " + idToken;
+    }
+
+    private static <T> T execute(Call<T> call) throws SourceException {
+        Response<T> res;
         try {
-            res = api.recommendations(auth, homeStopId, route).execute();
+            res = call.execute();
         } catch (JsonParseException e) {
             // JsonIOException(본문 끝에 다른 내용) 도 여기
             throw new SourceException(MSG_FORMAT, e);
@@ -94,7 +118,7 @@ public class ApiRecommendationSource implements RecommendationSource {
             throw ofIo(e);
         }
         if (!res.isSuccessful()) throw errorOf(res);
-        Recommendations body = res.body();
+        T body = res.body();
         if (body == null) throw new SourceException(MSG_EMPTY, null, res.code(), null);
         return body;
     }

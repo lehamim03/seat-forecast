@@ -1,8 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home_app_title">좌석예보</string>
-    <string name="home_trip_title">우리집 → 국민대</string>
-    <string name="home_usual_stop">평소 정류장 · %1$s</string>
+    <!-- 12월 출발지 · 도착지 -->
+    <string name="home_from_label">출발</string>
+    <string name="home_to_label">도착</string>
+    <string name="home_current_location">현재 위치</string>
+    <string name="home_to_empty">도착지 검색</string>
+    <string name="home_from_desc">출발지 %1$s, 바꾸려면 누르세요</string>
+    <string name="home_to_desc">도착지 %1$s, 바꾸려면 누르세요</string>
+    <string name="home_swap">출발지와 도착지 바꾸기</string>
+    <string name="home_favorite">즐겨찾기</string>
+    <string name="home_favorite_add">%1$s 즐겨찾기에 추가</string>
+    <string name="home_favorite_none">즐겨찾는 곳이 없어요. 도착지를 검색한 뒤 추가해 보세요.</string>
+    <string name="home_need_destination">어디로 갈까요? 도착지를 검색해 주세요.</string>
+    <string name="home_search_destination">도착지 검색</string>
+    <string name="home_swap_need_place">현재 위치는 도착지로 쓸 수 없어요. 출발지를 검색해 주세요.</string>
+    <string name="home_locating">현재 위치를 확인하는 중…</string>
+    <string name="home_location_denied">위치 권한이 없어 현재 위치를 쓸 수 없어요. 출발지를 검색해 주세요.</string>
+    <string name="home_location_unavailable">위치 서비스가 꺼져 있어요. 켜거나 출발지를 검색해 주세요.</string>
+    <string name="home_location_timeout">현재 위치를 확인하지 못했어요. 다시 시도하거나 출발지를 검색해 주세요.</string>
+    <string name="home_search_origin">출발지 검색</string>
+
+    <!-- 장소 검색 화면 -->
+    <string name="home_search_title_from">출발지 검색</string>
+    <string name="home_search_title_to">도착지 검색</string>
+    <string name="home_search_back">닫기</string>
+    <string name="home_search_hint">장소 · 건물 · 역 이름</string>
+    <string name="home_search_current_sub">지금 GPS 위치에서 출발</string>
+    <string name="home_search_favorites">즐겨찾는 곳</string>
+    <string name="home_search_start">장소 이름을 입력하면 검색 결과가 나와요.</string>
+    <string name="home_search_empty">“%1$s” 검색 결과가 없어요.</string>
+    <string name="home_search_failed">장소를 검색하지 못했습니다.</string>
+    <string name="home_search_unavailable">장소 검색을 쓸 수 없어요.</string>
     <string name="home_section_title">추천 정류장 · 버스</string>
     <!-- 정렬 메뉴 (OptionSort) -->
     <string name="home_sort_arrival">도착 빠른 순</string>
@@ -16,13 +45,12 @@
     <string name="home_empty">지금은 추천할 정류장 · 버스가 없습니다.</string>
     <string name="home_error_default">추천을 불러오지 못했습니다.</string>
     <string name="home_retry">다시 시도</string>
-    <string name="home_signed_out">로그인하면 평소 정류장 기준으로 추천해 드려요.</string>
+    <string name="home_signed_out">로그인하면 즐겨찾는 곳으로 바로 추천해 드려요.</string>
     <string name="home_sign_in">로그인</string>
     <!-- 13주차: 토큰을 새로 받아도 서버가 401 -->
     <string name="home_session_expired">로그인이 만료되었어요. 다시 로그인해 주세요.</string>
-    <!-- 우리집 → 국민대 카드 칩: 날짜 · day.kind · 계산 시각 (generated_at) -->
+    <!-- 출발지 · 도착지 카드 칩: 날짜 · day.kind · 계산 시각 (generated_at) -->
     <string name="home_chip_now">지금 %1$s</string>
-    <string name="home_trip_open">평소 정류장 · 노선 설정</string>
 
     <!-- 추천 카드 -->
     <string name="home_first_tag">1순위</string>
@@ -41,10 +69,19 @@
     <string name="home_delay">돌발 · 행사로 +%1$d분 지연 반영</string>
     <string name="home_skipped">우회 중 · 이 정류장은 지나가서 탈 수 없어요</string>
     <string name="home_badge_desc">탑승 확률 %1$s</string>
+    <!-- seat_limited=false: 서서 탈 수 있음 · 지하철 -->
+    <string name="home_standing">입석 가능</string>
+    <string name="home_standing_desc">서서 탈 수 있어요</string>
+    <!-- seat_known=false: 서울 등록 좌석버스 등 좌석 수를 모름 -->
+    <string name="home_seat_unknown">좌석 정보 없음</string>
+    <string name="home_seat_unknown_desc">이 버스는 좌석 정보가 없어 탑승 확률을 알 수 없어요</string>
+    <string name="home_mode_bus">버스</string>
+    <string name="home_mode_subway">지하철</string>
+    <string name="home_subway_line">지하철 · 좌석 걱정 없음</string>
 
     <!-- 12주차: 도착 시각 · 새로고침 -->
-    <string name="home_arrive_desc">국민대 도착 예상 %1$s</string>
-    <string name="home_arrive_total_desc">국민대 도착 예상 %1$s, %2$s 걸림</string>
+    <string name="home_arrive_desc">도착 예상 %1$s</string>
+    <string name="home_arrive_total_desc">도착 예상 %1$s, %2$s 걸림</string>
     <string name="home_bus_passed">표시된 차가 모두 지나갔어요 · 새로고침해 주세요</string>
     <string name="home_refresh">새로고침</string>
     <string name="home_updated_now">%1$s 기준 · 방금 갱신</string>

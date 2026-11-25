@@ -19,9 +19,9 @@ enum OptionSort {
 
     /** 서버 ranking 그대로 — 도착 빠른 순 (같은 버스 · 비슷한 확률이면 가까운 정류장 먼저) */
     ARRIVAL,
-    /** 서울에서 국민대까지 갈아타는 횟수가 적은 순 (route_choices 중 가장 적은 값) */
+    /** 갈아타는 횟수가 적은 순 ({@code transfers}, 없으면 route_choices 중 가장 적은 값) */
     FEWEST_TRANSFERS,
-    /** 평소 정류장에서 걸어가는 시간이 짧은 순 */
+    /** 출발지에서 탈 곳까지 걷는 시간이 짧은 순 */
     NEAREST_STOP,
     /** 탈 수 있는 첫 차의 탑승 확률이 높은 순 */
     BOARD_PROB;
@@ -56,8 +56,9 @@ enum OptionSort {
         return out;
     }
 
-    /** route_choices 중 가장 적은 환승 횟수, 경로 정보가 없으면 {@link #UNKNOWN_TRANSFERS} */
+    /** {@code transfers} (출발지 · 도착지 모드), 없으면 route_choices 중 가장 적은 값, 둘 다 없으면 {@link #UNKNOWN_TRANSFERS} */
     static int fewestTransfers(Option o) {
+        if (o.transfers != null) return o.transfers;
         int min = UNKNOWN_TRANSFERS;
         if (o.routeChoices == null) return min;
         for (RouteChoice ch : o.routeChoices) {

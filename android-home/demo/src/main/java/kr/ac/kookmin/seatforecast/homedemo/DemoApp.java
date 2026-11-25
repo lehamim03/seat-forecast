@@ -10,22 +10,23 @@ import androidx.annotation.Nullable;
 import kr.ac.kookmin.seatforecast.home.Home;
 import kr.ac.kookmin.seatforecast.home.data.ApiRecommendationSource;
 import kr.ac.kookmin.seatforecast.home.data.AssetRecommendationSource;
+import kr.ac.kookmin.seatforecast.home.data.PlaceSource;
 import kr.ac.kookmin.seatforecast.home.data.RecommendationSource;
 import kr.ac.kookmin.seatforecast.home.data.SourceException;
 import kr.ac.kookmin.seatforecast.home.model.Recommendations;
 
 /**
- * 시연 앱: 가짜 로그인 · 설정(DemoHomeHost) + 예측 서버 {@code GET /api/v1/recommendations}.
- * 13주차: 기본(또는 {@code demo_mode server})은 예측 서버에 실제로 요청하고, {@code demo_mode example} 이면
- * assets 의 예시 응답(recommendations.json)을 씁니다
+ * 시연 앱: 가짜 로그인 · 즐겨찾기(DemoHomeHost) + 예측 서버 출발지 · 도착지 모드
+ * {@code GET /api/v1/recommendations?from_*&to_*} · 장소 검색 {@code GET /api/v1/places}.
+ * 기본(또는 {@code demo_mode server})은 예측 서버에 실제로 요청하고, {@code demo_mode example} 이면
+ * assets 의 예시 응답(trip_recommendations.json · trip_places.json — 서버가 꺼졌을 때 대비)을 씁니다
  * (주소 = {@code server_url} 값, 없으면 BuildConfig.SERVER_BASE_URL = 에뮬레이터에서 내 컴퓨터 8000번).
- * 서버가 아직 없으면 {@code android-home/tools/mock_server.py} 로 같은 형식의 테스트 서버를 띄웁니다.
  *
  * <p>상태 화면 확인용으로 실행할 때 {@code demo_mode} 를 넘길 수 있습니다 (README 참고):
  * <pre>
  * adb shell am start -n kr.ac.kookmin.seatforecast.homedemo/kr.ac.kookmin.seatforecast.home.ui.HomeActivity --es demo_mode cases
  * </pre>
- * cases(경우 모음 home_cases.json) · empty(빈 목록) · error(오류) · signed_out(로그인 필요) · loading(로딩)
+ * cases(예전 경우 모음 home_cases.json) · empty(빈 목록) · error(오류) · signed_out(로그인 필요) · loading(로딩)
  * · refresh_error(처음엔 보통, 새로고침부터 실패) · example(예시 JSON) · server(13주차 서버 연결). 없으면 서버.
  * <pre>
  * adb shell am start -n ... --es demo_mode server --es server_url http://192.168.0.10:8000/
@@ -66,7 +67,10 @@ public class DemoApp extends Application {
     private void apply(@Nullable String mode, @Nullable String serverUrl) {
         String m = mode == null ? "" : mode;
         host.signedIn = !m.equals("signed_out");
-        Home.init(host, source(m, serverUrl));
+        RecommendationSource source = source(m, serverUrl);
+        // 장소 검색: 서버면 서버(/places), 나머지 시연 상태는 예시 trip_places.json
+        PlaceSource places = source instanceof PlaceSource ? (PlaceSource) source : new AssetRecommendationSource(this);
+        Home.init(host, source, places);
     }
 
     private RecommendationSource source(String mode, @Nullable String serverUrl) {
@@ -82,21 +86,21 @@ public class DemoApp extends Application {
             case "cases":
                 return new AssetRecommendationSource(this, "home_cases.json");
             case "empty":
-                return (stop, route, token) -> {
-                    Recommendations r = example.load(stop, route, token);
+                return (from, to, token) -> {
+                    Recommendations r = example.load(from, to, token);
                     r.recommendation = null;
                     r.ranking.clear();
                     return r;
                 };
             case "error":
-                return (stop, route, token) -> {
+                return (from, to, token) -> {
                     throw new SourceException("추천 서버에 연결하지 못했습니다. (시연: 오류 상태)", null);
                 };
             case "refresh_error": {
                 // 12주차: 처음엔 보통 화면, 그다음 새로고침부터는 1초 뒤 실패 → 이전 목록 + '갱신 실패' 확인
                 final int[] calls = {0};
-                return (stop, route, token) -> {
-                    if (calls[0]++ == 0) return example.load(stop, route, token);
+                return (from, to, token) -> {
+                    if (calls[0]++ == 0) return example.load(from, to, token);
                     try {
                         Thread.sleep(1000L);
                     } catch (InterruptedException e) {
@@ -106,13 +110,13 @@ public class DemoApp extends Application {
                 };
             }
             case "loading":
-                return (stop, route, token) -> {
+                return (from, to, token) -> {
                     try {
                         Thread.sleep(10 * 60 * 1000L);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
-                    return example.load(stop, route, token);
+                    return example.load(from, to, token);
                 };
             default:
                 return example;

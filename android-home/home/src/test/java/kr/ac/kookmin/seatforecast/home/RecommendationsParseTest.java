@@ -31,6 +31,12 @@ public class RecommendationsParseTest {
         return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
     }
 
+    /** 출발지 · 도착지 모드 예시 (docs/examples/trip_*.json 을 시연 앱 assets 에 복사한 것) */
+    static String readTripExample(String name) throws IOException {
+        File f = new File("../demo/src/main/assets/" + name);
+        return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+    }
+
     static Recommendations parse(String json) throws SourceException {
         return RecommendationJson.parse(new StringReader(json));
     }
@@ -154,6 +160,85 @@ public class RecommendationsParseTest {
         } catch (SourceException e) {
             assertEquals("추천 데이터 형식이 올바르지 않습니다.", e.getMessage());
         }
+    }
+
+    // ── 출발지 · 도착지 모드 (trip_recommendations.json) ──
+
+    @Test
+    public void readsTripExample() throws Exception {
+        Recommendations r = parse(readTripExample("trip_recommendations.json"));
+
+        assertEquals("현재 위치", r.origin.name);
+        assertEquals(37.385, r.origin.lat, 1e-9);
+        assertEquals(127.1233, r.origin.lng, 1e-9);
+        assertEquals("국민대학교", r.destination.name);
+        assertEquals(37.611, r.destination.lat, 1e-9);
+        assertNull(r.myRoute);
+        assertEquals("1855", r.homeStop.id);
+        assertEquals(Option.KIND_SUBWAY, r.recommendation.kind);
+        assertEquals(3, r.ranking.size());
+
+        Option subway = r.ranking.get(0);
+        assertEquals(Option.KIND_SUBWAY, subway.kind);
+        assertEquals(Option.MODE_SUBWAY, subway.firstMode);
+        assertTrue(subway.isSubway());
+        assertEquals(Boolean.FALSE, subway.seatLimited);
+        assertTrue(subway.isStandingOk());
+        assertFalse(subway.showsProbability());
+        assertEquals(Integer.valueOf(1), subway.transfers);
+        assertEquals("도보 3분 → 수인분당선(서현→선릉) → 2호선(선릉→신설동)", subway.summary);
+        assertEquals(37.385, subway.stop.lat, 1e-9);
+        assertEquals(127.1233, subway.stop.lng, 1e-9);
+        assertTrue(subway.buses.isEmpty());
+
+        Option bus = r.ranking.get(1);
+        assertEquals("8100", bus.route);
+        assertEquals(Option.MODE_BUS, bus.firstMode);
+        assertFalse(bus.isSubway());
+        assertEquals(Boolean.TRUE, bus.seatLimited);
+        assertEquals(Boolean.TRUE, bus.seatKnown);
+        assertTrue(bus.showsProbability());
+        assertEquals("서현역.AK프라자", bus.stop.name);
+    }
+
+    /** seat_known=false (서울 등록 좌석버스 등) → 확률 대신 "좌석 정보 없음" */
+    @Test
+    public void seatUnknown() throws Exception {
+        Option o = parse("{\"ranking\": [{\"kind\": \"기다리기\", \"route\": \"9711\", \"first_mode\": \"bus\","
+                + " \"seat_limited\": true, \"seat_known\": false, \"board_prob\": 0.93}]}").ranking.get(0);
+        assertTrue(o.isSeatUnknown());
+        assertFalse(o.isStandingOk());
+        assertFalse(o.showsProbability());
+    }
+
+    /** 예전 응답(새 필드 없음)은 그대로 확률 표시 · 버스로 봄 */
+    @Test
+    public void oldResponseStillShowsProbability() throws Exception {
+        Option o = parse(readExample("recommendations.json")).ranking.get(0);
+        assertNull(o.seatLimited);
+        assertNull(o.seatKnown);
+        assertNull(o.firstMode);
+        assertTrue(o.showsProbability());
+        assertFalse(o.isSubway());
+    }
+
+    /** 모르는 kind · first_mode 가 와도 죽지 않음 (그대로 두고 버스로 봄) */
+    @Test
+    public void unknownKindAndMode() throws Exception {
+        Recommendations r = parse("{\"ranking\": [{\"kind\": \"버스\", \"route\": \"62-1\", \"first_mode\": \"ferry\","
+                + " \"seat_limited\": false}], \"origin\": null}");
+        Option o = r.ranking.get(0);
+        assertEquals("버스", o.kind);
+        assertFalse(o.isSubway());
+        assertTrue(o.isStandingOk());
+        assertNull(r.origin);
+    }
+
+    /** kind 만 "지하철" 이고 first_mode 가 없어도 지하철로 */
+    @Test
+    public void subwayByKindOnly() throws Exception {
+        Option o = parse("{\"ranking\": [{\"kind\": \"지하철\", \"route\": \"4호선\"}]}").ranking.get(0);
+        assertTrue(o.isSubway());
     }
 
     /** 시연 앱 assets 복사본이 docs/examples 원본과 같은지 (원본이 바뀌면 다시 복사) */

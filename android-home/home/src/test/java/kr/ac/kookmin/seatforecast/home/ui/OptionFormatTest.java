@@ -243,4 +243,58 @@ public class OptionFormatTest {
         assertNull(r.get(5).arriveAt);
         assertFalse(OptionFormat.showBadge(r.get(5)));
     }
+
+    // ── 출발지 · 도착지 모드: 배지 · 지하철 · 종류 · 경로 한 줄 ──
+
+    private static Option trip(Boolean seatLimited, Boolean seatKnown, String firstMode, String kind) {
+        Option o = new Option();
+        o.seatLimited = seatLimited;
+        o.seatKnown = seatKnown;
+        o.firstMode = firstMode;
+        o.kind = kind;
+        o.boardProb = 0.73;
+        return o;
+    }
+
+    @Test
+    public void badgeByTripFields() {
+        assertEquals(OptionFormat.Badge.PROBABILITY, OptionFormat.badge(trip(true, true, "bus", "기다리기")));
+        assertEquals(OptionFormat.Badge.STANDING, OptionFormat.badge(trip(false, false, "subway", "지하철")));
+        assertEquals(OptionFormat.Badge.STANDING, OptionFormat.badge(trip(false, null, "bus", "기다리기")));
+        assertEquals(OptionFormat.Badge.SEAT_UNKNOWN, OptionFormat.badge(trip(true, false, "bus", "기다리기")));
+        // 예전 응답 (필드 없음) → 확률
+        assertEquals(OptionFormat.Badge.PROBABILITY, OptionFormat.badge(trip(null, null, null, "다른 버스")));
+        // 건너뛰는 정류장은 배지 없음
+        Option skipped = trip(false, null, "bus", "기다리기");
+        skipped.skipped = true;
+        assertEquals(OptionFormat.Badge.NONE, OptionFormat.badge(skipped));
+        assertFalse(OptionFormat.showBadge(skipped));
+    }
+
+    @Test
+    public void subwayLine() {
+        assertEquals(BusLineKind.SUBWAY, OptionFormat.busLine(trip(false, false, "subway", "지하철")).kind);
+        // 버스인데 차량 정보가 없으면 예전처럼
+        assertEquals(BusLineKind.NO_INFO, OptionFormat.busLine(trip(true, true, "bus", "기다리기")).kind);
+    }
+
+    @Test
+    public void kindAndSummary() {
+        Option o = trip(false, false, "subway", " 지하철 ");
+        assertEquals("지하철", OptionFormat.kindLabel(o));
+        assertEquals("버스", OptionFormat.kindLabel(trip(true, true, "bus", "버스")));   // 모르는 값은 그대로
+        assertNull(OptionFormat.kindLabel(trip(true, true, "bus", null)));
+        assertNull(OptionFormat.summary(o));
+        o.summary = "  도보 3분 → 수인분당선(서현→선릉)  ";
+        assertEquals("도보 3분 → 수인분당선(서현→선릉)", OptionFormat.summary(o));
+    }
+
+    @Test
+    public void tripExampleCards() throws Exception {
+        Recommendations r = read("../demo/src/main/assets/trip_recommendations.json");
+        assertEquals(OptionFormat.Badge.STANDING, OptionFormat.badge(r.ranking.get(0)));
+        assertEquals(BusLineKind.SUBWAY, OptionFormat.busLine(r.ranking.get(0)).kind);
+        assertEquals(OptionFormat.Badge.PROBABILITY, OptionFormat.badge(r.ranking.get(1)));
+        assertEquals(BusLineKind.BUS, OptionFormat.busLine(r.ranking.get(1)).kind);
+    }
 }

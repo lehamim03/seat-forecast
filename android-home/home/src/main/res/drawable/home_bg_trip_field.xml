@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 출발지 · 도착지 입력 줄 (빨간 Trip 카드 안) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/home_on_primary_chip" />
+    <corners android:radius="10dp" />
+</shape>

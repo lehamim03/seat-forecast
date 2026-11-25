@@ -1,5 +1,7 @@
 package kr.ac.kookmin.seatforecast.home.model;
 
+import kr.ac.kookmin.seatforecast.home.Place;
+
 import androidx.annotation.Nullable;
 
 import com.google.gson.annotations.SerializedName;
@@ -16,11 +18,20 @@ public class Recommendations {
     @SerializedName("generated_at")
     public String generatedAt;
 
-    /** 요청한 평소 노선 */
+    /** 요청한 출발지 · 도착지 (출발지 · 도착지 모드, 예전 응답에는 없음) */
+    @Nullable
+    @SerializedName("origin")
+    public Place origin;
+
+    @Nullable
+    @SerializedName("destination")
+    public Place destination;
+
+    /** 요청한 평소 노선 — 출발지 · 도착지 모드에서는 항상 null */
     @SerializedName("my_route")
     public String myRoute;
 
-    /** 요청한 평소 정류장 ({@code id}, {@code name} 만 옴) */
+    /** 평소 정류장 — 출발지 · 도착지 모드에서는 1순위 선택지의 탈 정류장 ({@code id}, {@code name} 만 옴) */
     @SerializedName("home_stop")
     public Stop homeStop;
 
