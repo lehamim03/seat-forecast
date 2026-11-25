@@ -15,8 +15,9 @@ import kr.ac.kookmin.seatforecast.home.data.SourceException;
 import kr.ac.kookmin.seatforecast.home.model.Recommendations;
 
 /**
- * 시연 앱: 가짜 로그인 · 설정(DemoHomeHost) + assets 의 예시 응답(recommendations.json).
- * 13주차: {@code demo_mode server} 면 예측 서버 {@code GET /api/v1/recommendations} 에 실제로 요청합니다
+ * 시연 앱: 가짜 로그인 · 설정(DemoHomeHost) + 예측 서버 {@code GET /api/v1/recommendations}.
+ * 13주차: 기본(또는 {@code demo_mode server})은 예측 서버에 실제로 요청하고, {@code demo_mode example} 이면
+ * assets 의 예시 응답(recommendations.json)을 씁니다
  * (주소 = {@code server_url} 값, 없으면 BuildConfig.SERVER_BASE_URL = 에뮬레이터에서 내 컴퓨터 8000번).
  * 서버가 아직 없으면 {@code android-home/tools/mock_server.py} 로 같은 형식의 테스트 서버를 띄웁니다.
  *
@@ -25,7 +26,7 @@ import kr.ac.kookmin.seatforecast.home.model.Recommendations;
  * adb shell am start -n kr.ac.kookmin.seatforecast.homedemo/kr.ac.kookmin.seatforecast.home.ui.HomeActivity --es demo_mode cases
  * </pre>
  * cases(경우 모음 home_cases.json) · empty(빈 목록) · error(오류) · signed_out(로그인 필요) · loading(로딩)
- * · refresh_error(처음엔 보통, 새로고침부터 실패) · server(13주차 서버 연결). 없으면 보통 화면.
+ * · refresh_error(처음엔 보통, 새로고침부터 실패) · example(예시 JSON) · server(13주차 서버 연결). 없으면 서버.
  * <pre>
  * adb shell am start -n ... --es demo_mode server --es server_url http://192.168.0.10:8000/
  * </pre>
@@ -71,7 +72,10 @@ public class DemoApp extends Application {
     private RecommendationSource source(String mode, @Nullable String serverUrl) {
         AssetRecommendationSource example = new AssetRecommendationSource(this);
         switch (mode) {
+            case "example":
+                return example;
             case "server":
+            case "":
                 // 13주차: 실제 HTTP 요청 (Bearer demo-id-token, 401 이면 demo-id-token-refreshed 로 한 번 더)
                 return new ApiRecommendationSource(
                         serverUrl == null || serverUrl.trim().isEmpty() ? BuildConfig.SERVER_BASE_URL : serverUrl);
