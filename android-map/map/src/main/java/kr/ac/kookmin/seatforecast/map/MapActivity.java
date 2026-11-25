@@ -17,7 +17,6 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import java.io.IOException;
 import org.json.JSONException;
 
 import com.kakao.vectormap.KakaoMap;
@@ -36,6 +35,7 @@ public final class MapActivity extends Activity {
     private static final String FINE = Manifest.permission.ACCESS_FINE_LOCATION;
 
     private RouteData routeData;
+    private KakaoMap readyMap;
     private boolean comparing = true;
     private boolean alternativeSelected;
     private MapOverlay overlay;
@@ -68,13 +68,7 @@ public final class MapActivity extends Activity {
             comparing = state.getBoolean("comparing", true);
             alternativeSelected = state.getBoolean("alternative");
         }
-        try {
-            routeData = new RouteData(this);
-            renderComparison();
-        } catch (Exception error) {
-            ((LinearLayout) findViewById(R.id.map_comparison)).addView(
-                    new RouteUi(this).text("경로 비교 정보를 불러오지 못했습니다.", 14, RouteUi.MUTED, false));
-        }
+        loadRoutes();
         findViewById(R.id.map_choices_action).setOnClickListener(v ->
                 startActivity(RouteChoicesActivity.newIntent(this, selectedNumber)));
         position = new DevicePosition(this, location -> {
@@ -91,6 +85,25 @@ public final class MapActivity extends Activity {
             }
         });
         startMap();
+    }
+
+    /** 13주차: 서버(또는 예시 JSON)에서 경로 · 추천을 읽은 뒤 비교 카드와 지도를 그린다. */
+    private void loadRoutes() {
+        LinearLayout panel = findViewById(R.id.map_comparison);
+        panel.removeAllViews();
+        RouteUi ui = new RouteUi(this);
+        panel.addView(ui.text(MapServer.isLive() ? "서버에서 경로 정보를 불러오는 중…" : "경로 정보를 불러오는 중…",
+                14, RouteUi.MUTED, false));
+        RouteData.load(this, data -> {
+            routeData = data;
+            renderComparison();
+            if (readyMap != null && overlay == null) showExample(readyMap);
+        }, error -> {
+            panel.removeAllViews();
+            panel.addView(ui.text("경로 비교 정보를 불러오지 못했습니다.", 14, RouteUi.MUTED, false));
+            panel.addView(ui.action("다시 시도", this::loadRoutes));
+            if (readyMap != null && overlay == null) mapMessage.setText(R.string.map_example_error);
+        });
     }
 
     static String readNativeAppKey(Activity activity) {
@@ -132,7 +145,8 @@ public final class MapActivity extends Activity {
                     runOnUiThread(() -> {
                         if (mapView != null) {
                             mapView.setFinishManually(true);
-                            showExample(map);
+                            readyMap = map;
+                            if (routeData != null) showExample(map);
                         }
                     });
                 }
@@ -144,7 +158,7 @@ public final class MapActivity extends Activity {
 
     private void showExample(KakaoMap map) {
         try {
-            MapExample example = MapExample.load(getAssets());
+            MapExample example = MapExample.load(routeData.geo);
             overlay = new MapOverlay(map, getResources().getDisplayMetrics().density, example);
             RadioGroup routes = findViewById(R.id.map_routes);
             for (MapExample.Line route : example.routes.values()) {
@@ -171,7 +185,7 @@ public final class MapActivity extends Activity {
             mapMessage.setVisibility(View.GONE);
             if (comparing && routeData != null) showComparison(false);
             refreshPermission();
-        } catch (IOException | JSONException | IllegalArgumentException e) {
+        } catch (JSONException | IllegalArgumentException e) {
             mapMessage.setText(R.string.map_example_error);
         }
     }
@@ -192,9 +206,10 @@ public final class MapActivity extends Activity {
     private void renderComparison() {
         LinearLayout panel = findViewById(R.id.map_comparison);
         panel.removeAllViews();
+        String source = routeData != null && routeData.live ? "실시간 " + routeData.time : "예시 경로";
         ((TextView) findViewById(R.id.map_legend)).setText(comparing
-                ? "예시 경로 · 빨강은 선택 경로, 회색은 비교 경로"
-                : "예시 경로 · 실선은 버스 노선, 파란 점선은 도보");
+                ? source + " · 빨강은 선택 경로, 회색은 비교 경로"
+                : source + " · 실선은 버스 노선, 파란 점선은 도보");
         RouteUi ui = new RouteUi(this);
         if (routeData == null) {
             panel.addView(ui.text("경로 비교 정보를 불러오지 못했습니다.", 14, RouteUi.MUTED, false));
@@ -265,6 +280,7 @@ public final class MapActivity extends Activity {
 
     private void closeMap() {
         overlay = null;
+        readyMap = null;
         if (mapView != null) {
             MapView old = mapView;
             mapView = null;

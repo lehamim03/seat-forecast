@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:icon="@drawable/map_demo_icon" android:label="@string/map_demo_title">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:name=".DemoApp" android:icon="@drawable/map_demo_icon"
+        android:label="@string/map_demo_title" android:usesCleartextTraffic="true">
         <meta-data android:name="kr.ac.kookmin.seatforecast.map.NATIVE_APP_KEY"
             android:resource="@string/map_native_key" />
         <activity android:name="kr.ac.kookmin.seatforecast.map.MapActivity" />

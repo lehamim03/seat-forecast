@@ -36,13 +36,22 @@ public final class RouteChoicesActivity extends Activity {
         header.getChildAt(0).setContentDescription("지도로 돌아가기");
         header.addView(ui.text("서울 → 국민대 · 경로 여러 개", 19, RouteUi.INK, true));
         root.addView(header);
-        try {
-            data = new RouteData(this);
-        } catch (Exception error) {
+        TextView loading = ui.text(MapServer.isLive() ? "서버에서 경로를 불러오는 중…" : "경로를 불러오는 중…",
+                16, RouteUi.MUTED, false);
+        root.addView(loading);
+        // 13주차: 서버(또는 예시 JSON)에서 백그라운드로 읽은 뒤 화면을 만든다
+        RouteData.load(this, loaded -> {
+            root.removeView(loading);
+            data = loaded;
+            show(root, state);
+        }, error -> {
+            root.removeView(loading);
             root.addView(ui.text("경로 데이터를 불러오지 못했습니다.", 16, RouteUi.MUTED, false));
             root.addView(ui.action("다시 시도", this::recreate));
-            return;
-        }
+        });
+    }
+
+    private void show(LinearLayout root, Bundle state) {
         if (data.choices.isEmpty()) {
             root.addView(ui.text("표시할 경로가 없습니다.", 16, RouteUi.MUTED, false));
             return;
@@ -87,7 +96,7 @@ public final class RouteChoicesActivity extends Activity {
             routeButtons.addView(button, new LinearLayout.LayoutParams(ui.dp(80), ui.dp(48)));
         }
         List<RouteData.Choice> choices = data.choices.get(route);
-        subtitle.setText(route + "번 · " + data.time + " 출발 기준 예시 · 경로 " + choices.size() + "개");
+        subtitle.setText(route + "번 · " + data.time + (data.live ? " 출발 기준 실시간 · 경로 " : " 출발 기준 예시 · 경로 ") + choices.size() + "개");
         cards.removeAllViews();
         JSONObject boarding = data.best(route);
         for (int i = 0; i < choices.size(); i++) {

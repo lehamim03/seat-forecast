@@ -1,15 +1,10 @@
 package kr.ac.kookmin.seatforecast.map;
 
-import android.content.res.AssetManager;
 import android.graphics.Color;
 import com.kakao.vectormap.LatLng;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,15 +19,10 @@ final class MapExample {
     final List<Line> walks = new ArrayList<>();
     final Map<String, Line> routes = new LinkedHashMap<>();
 
-    static MapExample load(AssetManager assets) throws IOException, JSONException {
-        StringBuilder text = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                assets.open("map.geojson"), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) text.append(line);
-        }
+    /** map.geojson 형식 (예시 파일 또는 서버 GET /api/v1/map) */
+    static MapExample load(JSONObject geo) throws JSONException {
         MapExample data = new MapExample();
-        JSONArray features = new JSONObject(text.toString()).getJSONArray("features");
+        JSONArray features = geo.getJSONArray("features");
         for (int i = 0; i < features.length(); i++) {
             JSONObject feature = features.getJSONObject(i);
             JSONObject properties = feature.getJSONObject("properties");
