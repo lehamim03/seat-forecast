@@ -52,6 +52,15 @@ Android 15 에뮬레이터에서 카드 선택·노선 변경·좌표 없음 안
 
 예시 JSON 세 파일은 저장소 `docs/examples`에서 빌드 시 포함한다. 서버 연결은 13주차 일정이다. 데이터 연결 회귀 테스트는 `./gradlew :map:testDebugUnitTest`로 실행한다.
 
+## 12월 · 출발지 · 도착지 모드 (서버 연결)
+
+- **데이터**: 빌드에 넣은 예시 대신 서버 `GET /api/v1/map` · `/api/v1/route-choices` · `/api/v1/recommendations` 를 `from_lat · from_lng · from_name · to_lat · to_lng · to_name` 과 함께 부른다 (`MapServer.setBaseUrl`). 서버에 연결하지 못하면 예시 JSON 으로 그리고 범례에 "서버에 연결하지 못해 예시 경로"를 표시한다.
+- **출발지 · 도착지**: 인텐트 extra 6개(`TripExtras`, A 홈 · B 대안과 같은 이름). 없으면 팀 앱이 정한 마지막 값(`MapServer.setLastTrip(from, to)`). 도착지가 없으면 안내만 한다 (고정 기본값 없음).
+  출발지가 없거나 "현재 위치"면 `DevicePosition` 으로 기기 위치를 받아 출발지로 쓴다 (권한이 없으면 권한 버튼 안내, 못 받으면 extra 좌표).
+- **지도**: `me` = "출발 · 이름", `destination` = "도착 · 이름" 마커, `transfer` 선 = 상위 경로 4개 — `main`(1순위)은 빨강 굵게, 나머지는 회색. 비교 카드는 "추천" · "다음 후보", 확률 대신 "입석 가능"(`seat_limited=false`) · "좌석 정보 없음"(`seat_known=false`).
+- **경로 목록**: `RouteChoicesActivity.newIntent(context, route, from, to)` — 경로 이름은 전체 경로 한 줄(`summary`).
+- 시연 앱: 마지막 도착지 '학교'(가짜 값), 다른 곳은 `--ed to_lat … --ed to_lng … --es to_name …`.
+
 ## 공통 앱에 연결
 
 공통 앱이 `:map`을 포함하고 `implementation project(':map')`에 의존하도록 한다. 루트 저장소 설정에는 이 프로젝트의 `settings.gradle`과 같은 카카오맵 Maven 저장소를 추가한다. 앱의 `application` 아래에는 시연 앱 매니페스트와 같은 이름의 키 메타데이터를 등록한다. 값은 앱의 문자열 리소스를 `android:resource`로 참조한다. 통합 앱의 패키지와 서명 키 해시도 카카오에 등록해야 한다.

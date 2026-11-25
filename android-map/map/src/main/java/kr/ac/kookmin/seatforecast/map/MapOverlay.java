@@ -32,8 +32,14 @@ final class MapOverlay {
             nearby.add(stop.point());
         }
         if (example.origin != null) {
-            label(example.origin, "예시 출발점", Color.rgb(66, 82, 110), true);
+            String name = example.originName == null || example.originName.isEmpty() ? "예시 출발점"
+                    : "출발 · " + example.originName;
+            label(example.origin, name, Color.rgb(66, 82, 110), true);
             nearby.add(example.origin);
+        }
+        if (example.destination != null) {
+            label(example.destination, "도착 · " + example.destinationName, RouteUi.RED, false);
+            nearby.add(example.destination);
         }
         for (MapExample.Line walk : example.walks) {
             Bitmap dot = Bitmap.createBitmap(px(8), px(5), Bitmap.Config.ARGB_8888);
@@ -88,6 +94,30 @@ final class MapOverlay {
                 comparison.add(line);
                 focus.addAll(points);
             }
+        }
+        if (fit && !focus.isEmpty()) {
+            map.moveCamera(CameraUpdateFactory.fitMapPoints(focus.toArray(new LatLng[0]), px(28)));
+        }
+    }
+
+    /** 출발지 · 도착지 모드: 상위 경로 선 4개 — 1순위(main)는 빨강 굵게, 나머지는 회색 */
+    void showTrip(RouteData data, boolean fit) {
+        clearComparison();
+        if (selected != null) {
+            selected.remove();
+            selected = null;
+        }
+        List<LatLng> focus = new ArrayList<>(nearby);
+        for (RouteData.Feature f : data.transfers()) {
+            boolean main = f.p().optBoolean("main");
+            List<LatLng> points = new ArrayList<>();
+            for (RouteData.Pt point : f.pts()) points.add(LatLng.from(point.lat(), point.lon()));
+            int color = main ? RouteUi.RED : 0xff909aa8;
+            RouteLine line = line(new MapExample.Line(f.value("route"), color, points),
+                    RouteLineStyle.from(px(main ? 5 : 2), color));
+            line.setZOrder(main ? 3 : 0);
+            comparison.add(line);
+            focus.addAll(points);
         }
         if (fit && !focus.isEmpty()) {
             map.moveCamera(CameraUpdateFactory.fitMapPoints(focus.toArray(new LatLng[0]), px(28)));

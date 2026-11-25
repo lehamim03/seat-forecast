@@ -82,4 +82,25 @@ final class RouteUi {
             });
         }
     }
+
+    /** "8800번" · 지하철은 그대로 ("수인분당선") — 숫자로 시작하지 않는 노선(호선 · 선)에는 "번"을 붙이지 않음 */
+    static String routeName(String route) {
+        if (route == null || route.isEmpty()) return "";
+        if (route.endsWith("선") || route.endsWith("호선") || !Character.isDigit(route.charAt(0))
+                && !route.matches("^[A-Za-z]{1,2}\\d.*")) return route;
+        return route + "번";
+    }
+
+    static String routeName(org.json.JSONObject option) {
+        if ("subway".equals(option.optString("first_mode"))) return option.optString("route");
+        return routeName(option.optString("route"));
+    }
+
+    /** 탑승 확률 — seat_limited=false 면 "입석 가능", seat_known=false 면 "좌석 정보 없음" */
+    static String probability(org.json.JSONObject option) {
+        if (option.has("seat_limited") && !option.optBoolean("seat_limited", true)) return "입석 가능";
+        if (option.has("seat_known") && !option.optBoolean("seat_known", true)) return "좌석 정보 없음";
+        double chance = option.optDouble("board_prob", Double.NaN);
+        return Double.isNaN(chance) ? "확률 미확인" : "탑승 " + Math.round(chance * 100) + "%";
+    }
 }

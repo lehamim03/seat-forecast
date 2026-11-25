@@ -1,0 +1,67 @@
+{
+  "generated_at": "2026-10-07T07:40:00+09:00",
+  "origin": {
+    "name": "현재 위치",
+    "lat": 37.385,
+    "lng": 127.1233
+  },
+  "destination": {
+    "name": "국민대학교",
+    "lat": 37.611,
+    "lng": 126.9952
+  },
+  "routes": [
+    {
+      "route": "수인분당선",
+      "alight_stop": "선릉",
+      "minutes_from_seoul_first_stop": 90,
+      "choices": [
+        {
+          "minutes": 90,
+          "transfers": 1,
+          "walk": 3,
+          "seq": 0,
+          "from": "현재 위치",
+          "transfer": "도보 3분 → 수인분당선(서현→선릉) → 2호선(선릉→신설동)",
+          "tags": [
+            "추천",
+            "최단시간",
+            "최소환승"
+          ]
+        }
+      ]
+    },
+    {
+      "route": "8100",
+      "alight_stop": "숭례문",
+      "minutes_from_seoul_first_stop": 94,
+      "choices": [
+        {
+          "minutes": 94,
+          "transfers": 1,
+          "walk": 4,
+          "seq": 0,
+          "from": "현재 위치",
+          "transfer": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)",
+          "tags": []
+        }
+      ]
+    },
+    {
+      "route": "M4102",
+      "alight_stop": "숭례문",
+      "minutes_from_seoul_first_stop": 98,
+      "choices": [
+        {
+          "minutes": 98,
+          "transfers": 1,
+          "walk": 4,
+          "seq": 0,
+          "from": "현재 위치",
+          "transfer": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)",
+          "tags": []
+        }
+      ]
+    }
+  ]
+}

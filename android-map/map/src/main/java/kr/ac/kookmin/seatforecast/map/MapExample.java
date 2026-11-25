@@ -15,6 +15,11 @@ final class MapExample {
     record Line(String name, int color, List<LatLng> points) {}
 
     LatLng origin;
+    /** 출발지 이름 (서버: "현재 위치" 또는 검색한 곳) */
+    String originName;
+    /** 출발지 · 도착지 모드의 도착지 */
+    LatLng destination;
+    String destinationName;
     final List<Stop> stops = new ArrayList<>();
     final List<Line> walks = new ArrayList<>();
     final Map<String, Line> routes = new LinkedHashMap<>();
@@ -29,7 +34,14 @@ final class MapExample {
             JSONObject geometry = feature.getJSONObject("geometry");
             JSONArray coords = geometry.getJSONArray("coordinates");
             switch (properties.getString("kind")) {
-                case "me" -> data.origin = point(coords);
+                case "me" -> {
+                    data.origin = point(coords);
+                    data.originName = properties.optString("name", "");
+                }
+                case "destination" -> {
+                    data.destination = point(coords);
+                    data.destinationName = properties.optString("name", "도착지");
+                }
                 case "stop" -> data.stops.add(new Stop(properties.getString("name"), point(coords)));
                 case "walk" -> data.walks.add(new Line(properties.getString("to"), Color.rgb(37, 99, 235), path(coords)));
                 case "route" -> {

@@ -53,18 +53,28 @@ final class RouteData {
     }
   }
 
-  /** 백그라운드에서 읽고 화면 스레드로 결과를 돌려준다 (화면이 닫혔으면 버림). */
-  static void load(Activity a, Result<RouteData> ok, Result<Exception> fail) {
+  /**
+   * 백그라운드에서 읽고 화면 스레드로 결과를 돌려준다 (화면이 닫혔으면 버림).
+   * 서버 주소가 있으면 from_* · to_* 로 서버에서, 서버에 연결하지 못하거나 주소가 없으면 예시 JSON ({@link #fallback}).
+   */
+  static void load(Activity a, Place from, Place to, Result<RouteData> ok, Result<Exception> fail) {
     Context app = a.getApplicationContext();
     new Thread(() -> {
       RouteData data = null;
       Exception error = null;
       try {
-        data = MapServer.isLive()
-            ? new RouteData(http(MapServer.url("api/v1/map", false)),
-                http(MapServer.url("api/v1/route-choices", false)).put("live", true),
-                http(MapServer.url("api/v1/recommendations", true)))
-            : new RouteData(app);
+        if (MapServer.isLive()) {
+          try {
+            data = new RouteData(http(MapServer.url("api/v1/map", from, to)),
+                http(MapServer.url("api/v1/route-choices", from, to)).put("live", true),
+                http(MapServer.url("api/v1/recommendations", from, to)));
+          } catch (Exception serverDown) {
+            data = new RouteData(app);   // 서버 꺼짐 · 경로 조회 실패 대비 — 예시 경로
+            data.fallback = serverDown.getMessage();
+          }
+        } else {
+          data = new RouteData(app);
+        }
       } catch (Exception e) {
         error = e;
       }
@@ -105,6 +115,10 @@ final class RouteData {
   final JSONObject usual, alternative;
   final JSONObject geo;
   final boolean live;
+  /** 출발지 · 도착지 모드 응답인지 (my_route 가 null) — 카드 이름 · 경로 이름이 달라짐 */
+  final boolean trip;
+  /** 서버 대신 예시를 보여 주는 이유 (서버에 연결하지 못함), 아니면 null */
+  String fallback;
   final String time;
 
   RouteData(Context c) throws Exception {
@@ -153,16 +167,30 @@ final class RouteData {
     }
     JSONArray rank = rec.getJSONArray("ranking");
     JSONObject u = null, a = null;
-    JSONObject suggested = rec.getJSONObject("recommendation");
+    JSONObject suggested = rec.optJSONObject("recommendation");
+    if (suggested == null) suggested = new JSONObject();
+    trip = rec.isNull("my_route") || rec.optString("my_route").isEmpty();
+    JSONObject home = rec.optJSONObject("home_stop");
     for (int i = 0; i < rank.length(); i++) {
       JSONObject x = rank.getJSONObject(i);
       if (x.optBoolean("skipped")) continue;
       ranking.add(x);
-      JSONObject stop = x.getJSONObject("stop");
-      if (x.optString("route").equals(rec.getString("my_route"))
-          && stop.optString("id").equals(rec.getJSONObject("home_stop").optString("id"))) u = x;
-      if (x.optString("route").equals(suggested.optString("route"))
-          && stop.optString("name").equals(suggested.optString("stop_name"))) a = x;
+      JSONObject stop = x.optJSONObject("stop");
+      String stopId = stop == null ? "" : stop.optString("id");
+      String stopName = stop == null ? "" : stop.optString("name");
+      if (!trip && x.optString("route").equals(rec.optString("my_route"))
+          && home != null && stopId.equals(home.optString("id"))) u = x;
+      if (a == null && x.optString("route").equals(suggested.optString("route"))
+          && stopName.equals(suggested.optString("stop_name"))) a = x;
+    }
+    if (trip) {
+      // 출발지 · 도착지 모드: 평소 경로가 없으므로 추천이 아닌 가장 빠른 후보를 '다음 후보'로 비교
+      for (JSONObject x : ranking) {
+        if (x != a) {
+          u = x;
+          break;
+        }
+      }
     }
     usual = u;
     alternative = a;
@@ -175,11 +203,23 @@ final class RouteData {
     for (int i = 0; cs != null && i < cs.length(); i++) {
       JSONObject v = cs.optJSONObject(i);
       if (v != null
-          && ch.from.equals(v.optString("alight_stop"))
+          && (trip || ch.from.equals(v.optString("alight_stop")))
           && ch.summary.equals(v.optString("summary"))
           && !v.isNull("arrive_at")) return v.optString("arrive_at");
     }
     return "";
+  }
+
+  /** 경로 이름 — 출발지 · 도착지 모드는 전체 경로 한 줄, 예전 모드는 "하차 정류장 하차 → 환승" */
+  String label(Choice ch) {
+    return trip ? ch.summary : ch.key();
+  }
+
+  /** 출발지 · 도착지 모드 지도: 상위 경로 선 (main = 1순위) */
+  List<Feature> transfers() {
+    List<Feature> out = new ArrayList<>();
+    for (Feature f : features) if (f.kind.equals("transfer") && f.pts.size() >= 2) out.add(f);
+    return out;
   }
 
   JSONObject best(String route) {
@@ -192,10 +232,11 @@ final class RouteData {
     return false;
   }
 
+  /** 환승 선이 그 경로인지 — 예전 모드는 "하차 → 환승", 출발지 · 도착지 모드는 summary 그대로 */
   static boolean matches(Feature f, String route, Choice ch) {
     return ch != null
         && f.kind.equals("transfer")
         && f.value("route").equals(route)
-        && f.value("summary").equals(ch.key());
+        && (f.value("summary").equals(ch.key()) || f.value("summary").equals(ch.summary));
   }
 }

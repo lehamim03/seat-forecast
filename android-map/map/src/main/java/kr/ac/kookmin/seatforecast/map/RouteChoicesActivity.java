@@ -9,7 +9,7 @@ import android.widget.*;
 import java.util.List;
 import org.json.JSONObject;
 
-/** C의 서울 → 국민대 경로 목록. 다른 모듈은 newIntent로 노선을 지정한다. */
+/** C의 경로 목록 (출발지 → 도착지). 다른 모듈은 newIntent로 노선 · 출발지 · 도착지를 지정한다. */
 public final class RouteChoicesActivity extends Activity {
     private RouteData data;
     private RouteUi ui;
@@ -20,8 +20,14 @@ public final class RouteChoicesActivity extends Activity {
     private String route;
     private int choiceIndex;
 
+    /** 출발지 · 도착지는 지도 탭의 마지막 값 (MapServer.setLastTrip) */
     public static Intent newIntent(Context context, String route) {
         return new Intent(context, RouteChoicesActivity.class).putExtra("route", route);
+    }
+
+    /** @param from · to 경로를 계산할 출발지 · 도착지 (extra 6개, TripExtras) */
+    public static Intent newIntent(Context context, String route, Place from, Place to) {
+        return TripExtras.put(newIntent(context, route), from, to);
     }
 
     @Override protected void onCreate(Bundle state) {
@@ -34,13 +40,25 @@ public final class RouteChoicesActivity extends Activity {
         LinearLayout header = ui.row();
         header.addView(ui.action("‹", this::finish), new LinearLayout.LayoutParams(ui.dp(48), ui.dp(52)));
         header.getChildAt(0).setContentDescription("지도로 돌아가기");
-        header.addView(ui.text("서울 → 국민대 · 경로 여러 개", 19, RouteUi.INK, true));
+        header.addView(ui.text("경로 여러 개", 19, RouteUi.INK, true));
         root.addView(header);
         TextView loading = ui.text(MapServer.isLive() ? "서버에서 경로를 불러오는 중…" : "경로를 불러오는 중…",
                 16, RouteUi.MUTED, false);
         root.addView(loading);
         // 13주차: 서버(또는 예시 JSON)에서 백그라운드로 읽은 뒤 화면을 만든다
-        RouteData.load(this, loaded -> {
+        Bundle extras = getIntent().getExtras();
+        Place from = TripExtras.from(extras);
+        Place to = TripExtras.to(extras);
+        if (to == null) {
+            to = MapServer.lastTo();
+            from = MapServer.lastFrom();
+        }
+        if (to == null || from == null || !from.hasCoords()) {
+            root.removeView(loading);
+            root.addView(ui.text("출발지 · 도착지가 없어요. 지도 화면에서 열어 주세요.", 16, RouteUi.MUTED, false));
+            return;
+        }
+        RouteData.load(this, from, to, loaded -> {
             root.removeView(loading);
             data = loaded;
             show(root, state);
@@ -96,7 +114,7 @@ public final class RouteChoicesActivity extends Activity {
             routeButtons.addView(button, new LinearLayout.LayoutParams(ui.dp(80), ui.dp(48)));
         }
         List<RouteData.Choice> choices = data.choices.get(route);
-        subtitle.setText(route + "번 · " + data.time + (data.live ? " 출발 기준 실시간 · 경로 " : " 출발 기준 예시 · 경로 ") + choices.size() + "개");
+        subtitle.setText(RouteUi.routeName(route) + " · " + data.time + (data.live ? " 출발 기준 실시간 · 경로 " : " 출발 기준 예시 · 경로 ") + choices.size() + "개");
         cards.removeAllViews();
         JSONObject boarding = data.best(route);
         for (int i = 0; i < choices.size(); i++) {
@@ -118,16 +136,17 @@ public final class RouteChoicesActivity extends Activity {
             }
             card.addView(tags);
             String arrival = data.eta(boarding, choice);
-            String timing = arrival.isEmpty() ? "서울 구간 " + choice.minutes() + "분" : arrival + " 도착";
+            String timing = !arrival.isEmpty() ? arrival + " 도착"
+                    : data.trip ? "약 " + choice.minutes() + "분" : "서울 구간 " + choice.minutes() + "분";
             TextView summary = ui.text(timing + " · 환승 " + choice.transfers()
                     + "회 · 걷기 " + choice.walk() + "분", 15, RouteUi.INK, true);
             summary.setPadding(0, ui.dp(8), 0, ui.dp(6));
             card.addView(summary);
-            card.addView(ui.text(choice.key(), 13, RouteUi.MUTED, false));
+            card.addView(ui.text(data.label(choice), 13, RouteUi.MUTED, false));
             card.setSelected(selected);
             card.setFocusable(true);
             card.setContentDescription("경로 " + (i + 1) + (selected ? " 선택됨. " : ". ")
-                    + choice.tags() + ". " + summary.getText() + ". " + choice.key());
+                    + choice.tags() + ". " + summary.getText() + ". " + data.label(choice));
             card.setOnClickListener(v -> {
                 choiceIndex = index;
                 render();
