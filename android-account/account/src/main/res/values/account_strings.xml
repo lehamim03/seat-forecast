@@ -66,6 +66,7 @@
     <string name="account_feedback_prob">앱이 보여준 탑승 확률 %1$d%%</string>
     <string name="account_feedback_memo">메모 (선택)</string>
     <string name="account_feedback_pending_tag">전송 대기</string>
+    <string name="account_feedback_rejected_tag">전송 안 됨</string>
     <string name="account_feedback_prob_tag">예측 %1$d%%</string>
     <string name="account_boarded">탔어요</string>
     <string name="account_not_boarded">못 탔어요</string>

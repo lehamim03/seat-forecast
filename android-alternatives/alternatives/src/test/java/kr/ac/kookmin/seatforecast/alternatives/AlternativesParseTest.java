@@ -84,7 +84,10 @@ public class AlternativesParseTest {
 
         Option other = r.alternatives.otherBus;
         assertEquals("양재역.서초문화예술회관(중)", other.alightStop);
-        assertEquals(Integer.valueOf(21), other.buses.get(0).seatsAtStop);
+        // 11/18 예시 갱신: 다른 버스 = 3007 · 삼성1차아파트(집 앞) · 도착 때 약 19석
+        assertEquals("203000063", other.stop.id);
+        assertEquals(0, other.walkMin);
+        assertEquals(Integer.valueOf(19), other.buses.get(0).seatsAtStop);
         assertEquals(4, other.routeChoices.size());
         assertTrue(other.mainChoice().tags.contains("추천"));
     }

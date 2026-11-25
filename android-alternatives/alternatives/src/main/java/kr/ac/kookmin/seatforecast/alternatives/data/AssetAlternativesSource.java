@@ -35,7 +35,9 @@ public class AssetAlternativesSource implements AlternativesSource {
     public AlternativesResult load(@NonNull String homeStopId, @NonNull String route, @Nullable String idToken)
             throws SourceException {
         try (InputStream in = context.getAssets().open(fileName)) {
-            return AlternativesJson.parse(in);
+            AlternativesResult r = AlternativesJson.parse(in);
+            r.source = AlternativesResult.SOURCE_EXAMPLE;
+            return r;
         } catch (IOException e) {
             throw new SourceException("예시 파일 " + fileName + " 을(를) 찾지 못했습니다.", e);
         }

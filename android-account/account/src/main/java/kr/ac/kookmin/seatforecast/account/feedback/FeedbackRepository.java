@@ -34,6 +34,9 @@ public class FeedbackRepository {
     public static final String SUBCOLLECTION = "feedback";
     static final String SENT = "sent";
     static final String SERVER_ID = "server_id";
+    /** 서버가 요청 자체를 거절함 (다시 보내지 않음) — 13주차 */
+    static final String REJECTED = "rejected";
+    static final String REJECT_STATUS = "reject_status";
     static final String CREATED_AT = "created_at";
 
     /** 서버 전송 결과까지 포함한 제출 결과 */
@@ -126,7 +129,11 @@ public class FeedbackRepository {
         }
         records(uid).whereEqualTo(SENT, false).get()
                 .addOnSuccessListener(snap -> {
-                    List<DocumentSnapshot> docs = snap.getDocuments();
+                    // 서버가 요청 자체를 거절한 기록은 다시 보내도 같으므로 빼고 보냄
+                    List<DocumentSnapshot> docs = new ArrayList<>();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        if (!Boolean.TRUE.equals(d.getBoolean(REJECTED))) docs.add(d);
+                    }
                     if (docs.isEmpty()) {
                         callback.onSuccess(0);
                         return;
@@ -188,7 +195,16 @@ public class FeedbackRepository {
                     public void onResponse(@NonNull Call<FeedbackResponse> call,
                                            @NonNull Response<FeedbackResponse> response) {
                         if (!response.isSuccessful()) {
-                            listener.onDone(false);
+                            if (FeedbackResponse.isPermanentRejection(response.code())) {
+                                Map<String, Object> rejected = new HashMap<>();
+                                rejected.put(REJECTED, true);
+                                rejected.put(REJECT_STATUS, response.code());
+                                doc.update(rejected)
+                                        .addOnSuccessListener(v -> listener.onDone(false))
+                                        .addOnFailureListener(e -> listener.onDone(false));
+                            } else {
+                                listener.onDone(false);
+                            }
                             return;
                         }
                         Map<String, Object> update = new HashMap<>();

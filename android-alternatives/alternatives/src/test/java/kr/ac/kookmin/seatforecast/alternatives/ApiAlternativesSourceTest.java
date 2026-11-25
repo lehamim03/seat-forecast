@@ -55,6 +55,18 @@ public class ApiAlternativesSourceTest {
         assertEquals("매탄위브하늘채.경기아트센터", r.alternatives.walk.stop.name);
     }
 
+    /** 13주차: 응답 헤더 X-Data-Source 로 실시간 계산인지 예시 응답인지 구분 */
+    @Test
+    public void dataSourceHeader() throws Exception {
+        server.enqueue(new MockResponse().setBody(example()).setHeader("X-Data-Source", "example"));
+        server.enqueue(new MockResponse().setBody(example()).setHeader("X-Data-Source", "live"));
+        server.enqueue(new MockResponse().setBody(example()));
+        ApiAlternativesSource src = new ApiAlternativesSource(server.url("/").toString());
+        assertEquals(AlternativesResult.SOURCE_EXAMPLE, src.load("203000063", "8800", "t").source);
+        assertEquals(AlternativesResult.SOURCE_LIVE, src.load("203000063", "8800", "t").source);
+        assertNull("헤더가 없는 서버", src.load("203000063", "8800", "t").source);
+    }
+
     @Test
     public void noTokenNoHeader() throws Exception {
         server.enqueue(new MockResponse().setBody(example()));

@@ -61,6 +61,8 @@ public class AlternativesFragment extends Fragment {
     private long lastAttemptAt;
     /** 마지막으로 화면을 바꾼 시각 (벽시계) — '07:41:05 갱신' 표시용 */
     private long lastUpdatedWall;
+    /** 지금 보이는 값이 예시 응답인지 (실시간 계산이 아니면 '예시 데이터' 표시) */
+    private boolean example;
 
     private View content;
     private TextView header;
@@ -228,6 +230,7 @@ public class AlternativesFragment extends Fragment {
 
     private void succeeded(AlternativesResult r) {
         loaded = true;
+        example = AlternativesResult.SOURCE_EXAMPLE.equals(r.source);
         lastAttemptAt = SystemClock.elapsedRealtime();
         lastUpdatedWall = System.currentTimeMillis();
         show(r);
@@ -264,7 +267,9 @@ public class AlternativesFragment extends Fragment {
             updated.setText(getString(R.string.alt_stale, time));
             updated.setTextColor(color(R.color.alt_low));
         } else {
-            updated.setText(getString(R.string.alt_updated, time, autoText()));
+            String text = getString(R.string.alt_updated, time, autoText());
+            if (example) text = getString(R.string.alt_with_example, text);
+            updated.setText(text);
             updated.setTextColor(color(R.color.alt_muted));
         }
     }
