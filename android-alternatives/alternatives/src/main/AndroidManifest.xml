@@ -3,6 +3,9 @@
 
     <!-- GET /api/v1/alternatives -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 출발지 "현재 위치" (1분 자동 갱신 때 다시 읽음) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application>
         <activity

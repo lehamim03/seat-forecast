@@ -8,12 +8,16 @@ import retrofit2.http.GET;
 import retrofit2.http.Header;
 import retrofit2.http.Query;
 
-/** docs/api.md ③ 실시간 대안 — 요청 값은 ② 홈과 같음 */
+/** docs/api.md ③ 실시간 대안 · '출발지 · 도착지 모드' */
 public interface AlternativesApi {
 
-    /** authorization 이 null 이면 헤더를 보내지 않습니다. */
+    /** 좌표 4개 필수, 이름은 화면 표시용. authorization 이 null 이면 헤더를 보내지 않습니다. */
     @GET("api/v1/alternatives")
     Call<AlternativesResult> alternatives(@Nullable @Header("Authorization") String authorization,
-                                          @Query("home_stop") String homeStop,
-                                          @Query("route") String route);
+                                          @Query("from_lat") double fromLat,
+                                          @Query("from_lng") double fromLng,
+                                          @Nullable @Query("from_name") String fromName,
+                                          @Query("to_lat") double toLat,
+                                          @Query("to_lng") double toLng,
+                                          @Nullable @Query("to_name") String toName);
 }

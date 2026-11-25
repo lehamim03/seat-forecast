@@ -1,5 +1,9 @@
 package kr.ac.kookmin.seatforecast.alternatives.ui;
 
+import kr.ac.kookmin.seatforecast.alternatives.model.Recommendation;
+
+import kr.ac.kookmin.seatforecast.alternatives.model.AlternativeSet;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -209,5 +213,55 @@ public class AltFormatTest {
         assertNull(AltFormat.nextBetterBus(docs().alternatives.wait));
         // 첫 차가 탈 만하면 안내 안 함
         assertNull(AltFormat.nextBetterBus(docs().alternatives.otherBus));
+    }
+
+    // ── 출발지 · 도착지 모드: 입석 가능 · 좌석 정보 없음 · 지하철 추천 ──
+
+    private static AlternativesResult withWait(Boolean seatLimited, Boolean seatKnown, double prob) {
+        AlternativesResult r = new AlternativesResult();
+        r.alternatives = new AlternativeSet();
+        Option o = new Option();
+        o.kind = Option.KIND_WAIT;
+        o.route = "9401";
+        o.boardProb = prob;
+        o.seatLimited = seatLimited;
+        o.seatKnown = seatKnown;
+        r.alternatives.wait = o;
+        return r;
+    }
+
+    @Test
+    public void bannerStandingAndSeatUnknown() {
+        AltFormat.Banner standing = AltFormat.banner(withWait(false, false, 1.0));
+        assertEquals(AltFormat.Status.RELAXED, standing.status);
+        assertTrue(standing.standing);
+
+        AltFormat.Banner unknown = AltFormat.banner(withWait(true, false, 0.98));
+        assertEquals(AltFormat.Status.UNKNOWN, unknown.status);
+        assertTrue(unknown.seatUnknown);
+
+        AltFormat.Banner known = AltFormat.banner(withWait(true, true, 0.3));
+        assertEquals(AltFormat.Status.FULL, known.status);
+        assertFalse(known.standing || known.seatUnknown);
+
+        // 예전 응답 (필드 없음) → 확률로
+        assertEquals(AltFormat.Status.RELAXED, AltFormat.banner(withWait(null, null, 0.9)).status);
+    }
+
+    @Test
+    public void probLabel() {
+        assertEquals(AltFormat.ProbLabel.STANDING, AltFormat.probLabel(withWait(false, null, 1).usual()));
+        assertEquals(AltFormat.ProbLabel.SEAT_UNKNOWN, AltFormat.probLabel(withWait(true, false, 1).usual()));
+        assertEquals(AltFormat.ProbLabel.PROBABILITY, AltFormat.probLabel(withWait(true, true, 1).usual()));
+    }
+
+    @Test
+    public void subwayRecommended() {
+        AlternativesResult r = withWait(true, true, 0.7);
+        assertFalse(AltFormat.subwayRecommended(r));
+        r.recommendation = new Recommendation();
+        r.recommendation.kind = Option.KIND_SUBWAY;
+        assertTrue(AltFormat.subwayRecommended(r));
+        assertFalse(AltFormat.isRecommended(r.usual(), r));
     }
 }

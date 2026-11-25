@@ -7,6 +7,8 @@ import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.List;
 
+import kr.ac.kookmin.seatforecast.alternatives.Place;
+
 /**
  * ③ 실시간 대안 — {@code GET /api/v1/alternatives} 응답.
  * 필드 이름은 docs/api.md · docs/examples/alternatives.json 과 같습니다.
@@ -26,7 +28,27 @@ public class AlternativesResult {
     @SerializedName("generated_at")
     public String generatedAt;
 
-    /** 요청한 평소 노선 */
+    /** 요청한 출발지 · 도착지 (출발지 · 도착지 모드) */
+    @Nullable
+    @SerializedName("origin")
+    public Place origin;
+
+    @Nullable
+    @SerializedName("destination")
+    public Place destination;
+
+    /** odsay · saved_nearby (ODsay 를 못 써서 근처 저장 경로 사용 → "근처 저장 경로 기준") */
+    @Nullable
+    @SerializedName("route_source")
+    public String routeSource;
+
+    public static final String ROUTE_SOURCE_SAVED_NEARBY = "saved_nearby";
+
+    public boolean isSavedNearbyRoute() {
+        return ROUTE_SOURCE_SAVED_NEARBY.equals(routeSource);
+    }
+
+    /** 요청한 평소 노선 — 출발지 · 도착지 모드에서는 null */
     @SerializedName("my_route")
     public String myRoute;
 

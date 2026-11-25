@@ -30,6 +30,8 @@ public class AlternativesParseTest {
     static final File DOCS_EXAMPLE = new File("../../docs/examples/alternatives.json");
     static final File DEMO_ASSET = new File("../demo/src/main/assets/alternatives.json");
     static final File DEMO_CASES = new File("../demo/src/main/assets/alt_cases.json");
+    /** 출발지 · 도착지 모드 예시 (docs/examples/trip_alternatives.json 복사본) */
+    static final File TRIP_EXAMPLE = new File("../demo/src/main/assets/trip_alternatives.json");
 
     static AlternativesResult load(File f) throws IOException, SourceException {
         try (InputStream in = new FileInputStream(f)) {
@@ -146,5 +148,47 @@ public class AlternativesParseTest {
     @Test
     public void demoAssetIsSameAsDocs() throws Exception {
         assertArrayEquals(Files.readAllBytes(DOCS_EXAMPLE.toPath()), Files.readAllBytes(DEMO_ASSET.toPath()));
+    }
+
+    // ── 출발지 · 도착지 모드 ──
+
+    @Test
+    public void readsTripExample() throws Exception {
+        AlternativesResult r = load(TRIP_EXAMPLE);
+        assertEquals("현재 위치", r.origin.name);
+        assertEquals(37.385, r.origin.lat, 1e-9);
+        assertEquals("국민대학교", r.destination.name);
+        assertEquals(126.9952, r.destination.lng, 1e-9);
+        assertNull(r.myRoute);
+        assertEquals(Option.KIND_SUBWAY, r.recommendation.kind);
+        assertEquals(1, r.options().size());   // 걸어가기 · 다른 버스는 null
+
+        Option wait = r.usual();
+        assertEquals("8100", wait.route);
+        assertEquals(Boolean.TRUE, wait.seatLimited);
+        assertEquals(Boolean.TRUE, wait.seatKnown);
+        assertTrue(wait.showsProbability());
+        assertFalse(wait.isSubway());
+        assertEquals(Integer.valueOf(1), wait.transfers);
+        assertTrue(wait.summary.startsWith("도보 4분"));
+        assertEquals(37.3849, wait.stop.lat, 1e-9);
+
+        assertEquals("09:10", r.subway.arriveAt);
+        assertEquals(1, r.subway.transfers);
+    }
+
+    @Test
+    public void seatFlagsAndUnknownKind() throws Exception {
+        AlternativesResult r = AlternativesJson.parse(new java.io.ByteArrayInputStream((
+                "{\"route_source\": \"saved_nearby\", \"recommendation\": {\"kind\": \"버스\"},"
+                        + " \"alternatives\": {\"기다리기\": {\"kind\": \"기다리기\", \"route\": \"9401\","
+                        + " \"seat_limited\": true, \"seat_known\": false},"
+                        + " \"다른 버스\": {\"kind\": \"다른 버스\", \"route\": \"62-1\", \"seat_limited\": false}}}")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        assertTrue(r.isSavedNearbyRoute());
+        assertTrue(r.alternatives.wait.isSeatUnknown());
+        assertFalse(r.alternatives.wait.showsProbability());
+        assertTrue(r.alternatives.otherBus.isStandingOk());
+        assertEquals("버스", r.recommendation.kind);   // 모르는 값도 그대로
     }
 }

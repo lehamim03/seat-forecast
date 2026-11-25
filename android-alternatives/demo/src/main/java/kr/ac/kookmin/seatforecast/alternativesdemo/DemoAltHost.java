@@ -18,11 +18,12 @@ import java.util.Scanner;
 
 import kr.ac.kookmin.seatforecast.alternatives.AlternativesHost;
 import kr.ac.kookmin.seatforecast.alternatives.Callback;
-import kr.ac.kookmin.seatforecast.alternatives.UsualTrip;
+import kr.ac.kookmin.seatforecast.alternatives.Place;
+import kr.ac.kookmin.seatforecast.alternatives.TripExtras;
 import kr.ac.kookmin.seatforecast.alternatives.model.Option;
 
 /**
- * 가짜 값으로 채운 AlternativesHost — 로그인 상태(demo_mode=signed_out 이면 로그아웃), 평소 정류장 203000063(삼성1차아파트) · 노선 8800.
+ * 가짜 값으로 채운 AlternativesHost — 로그인 상태(demo_mode=signed_out 이면 로그아웃), 마지막 도착지 '학교'(시연용 가짜 값).
  * 팀 앱에서는 D 의 Account · UserRepository 로 채웁니다 (android-alternatives/README.md).
  *
  * <p>13주차 서버 연결 확인(demo_mode=server): 로컬 Firebase Auth 에뮬레이터에서 익명 가입해 받은 진짜 ID 토큰을 씁니다.
@@ -30,8 +31,8 @@ import kr.ac.kookmin.seatforecast.alternatives.model.Option;
  */
 class DemoAltHost implements AlternativesHost {
 
-    static final String HOME_STOP_ID = "203000063";
-    static final String ROUTE = "8800";
+    /** 시연용 마지막 도착지 (실제 앱은 D 의 destination · last_trip.to) */
+    static final Place SCHOOL = new Place("학교", 37.610977, 126.995185);
 
     boolean signedIn = true;
     /** Firebase Auth 에뮬레이터 주소 (예: http://10.0.2.2:9099/), null 이면 가짜 토큰 */
@@ -53,8 +54,8 @@ class DemoAltHost implements AlternativesHost {
     }
 
     @Override
-    public void loadUsualTrip(Callback<UsualTrip> callback) {
-        callback.onSuccess(new UsualTrip(HOME_STOP_ID, ROUTE));
+    public void loadLastDestination(Callback<Place> callback) {
+        callback.onSuccess(SCHOOL);
     }
 
     @Override
@@ -101,8 +102,9 @@ class DemoAltHost implements AlternativesHost {
     }
 
     @Override
-    public void onOptionClicked(Context context, Option option) {
-        Toast.makeText(context, option.kind + " · " + option.route + " — 지도에서 경로 보기 (C 담당)",
-                Toast.LENGTH_SHORT).show();
+    public void onOptionClicked(Context context, Option option, Place from, Place to) {
+        Toast.makeText(context, option.kind + " · " + option.route + " — 탑승 피드백 (D 담당)\n"
+                        + TripExtras.FROM_NAME + "=" + from.name + " → " + TripExtras.TO_NAME + "=" + to.name,
+                Toast.LENGTH_LONG).show();
     }
 }

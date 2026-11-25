@@ -8,26 +8,34 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
+import kr.ac.kookmin.seatforecast.alternatives.Place;
 import kr.ac.kookmin.seatforecast.alternatives.R;
+import kr.ac.kookmin.seatforecast.alternatives.TripExtras;
 
 /**
  * {@link AlternativesFragment} 를 화면 하나로 여는 Activity — A 홈 추천 카드 · E 돌발 알림 푸시에서 엽니다.
+ * 출발지 · 도착지는 extra 6개 ({@link TripExtras}: from_lat · from_lng · from_name · to_lat · to_lng · to_name).
  * <pre>
- * startActivity(AlternativesActivity.newIntent(this));                          // 평소 정류장 · 노선
- * startActivity(AlternativesActivity.newIntent(this, "203000063", "8800"));     // 정류장 · 노선 지정
+ * startActivity(AlternativesActivity.newIntent(this, from, to));   // A 홈 카드 (from = null 이면 현재 위치)
+ * startActivity(AlternativesActivity.newIntent(this));             // 현재 GPS + 마지막 도착지
+ * // E 푸시: push.data 의 from_* · to_* 를 그대로 extra 로 넣어도 됨
  * </pre>
  */
 public class AlternativesActivity extends AppCompatActivity {
-
-    public static final String EXTRA_HOME_STOP = "kr.ac.kookmin.seatforecast.alternatives.HOME_STOP";
-    public static final String EXTRA_ROUTE = "kr.ac.kookmin.seatforecast.alternatives.ROUTE";
 
     public static Intent newIntent(Context context) {
         return new Intent(context, AlternativesActivity.class);
     }
 
+    /** @param from null 이면 현재 위치(GPS), to null 이면 마지막 도착지 */
+    public static Intent newIntent(Context context, @Nullable Place from, @Nullable Place to) {
+        return TripExtras.put(newIntent(context), from, to);
+    }
+
+    /** 예전 방식 (정류장 · 노선) — 출발지 · 도착지 모드에서는 쓰지 않아 현재 위치 + 마지막 도착지로 엽니다. */
+    @Deprecated
     public static Intent newIntent(Context context, @Nullable String homeStopId, @Nullable String route) {
-        return newIntent(context).putExtra(EXTRA_HOME_STOP, homeStopId).putExtra(EXTRA_ROUTE, route);
+        return newIntent(context);
     }
 
     @Override
@@ -38,10 +46,10 @@ public class AlternativesActivity extends AppCompatActivity {
         ActionBar bar = getSupportActionBar();
         if (bar != null && !isTaskRoot()) bar.setDisplayHomeAsUpEnabled(true);
         if (savedInstanceState == null) {
-            Intent i = getIntent();
+            Bundle extras = getIntent().getExtras();
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.alt_container, AlternativesFragment.newInstance(
-                            i.getStringExtra(EXTRA_HOME_STOP), i.getStringExtra(EXTRA_ROUTE)))
+                            TripExtras.from(extras), TripExtras.to(extras)))
                     .commit();
         }
     }

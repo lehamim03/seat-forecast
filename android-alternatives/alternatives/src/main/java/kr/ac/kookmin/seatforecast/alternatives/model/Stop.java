@@ -19,4 +19,13 @@ public class Stop {
     @Nullable
     @SerializedName("mobile_no")
     public String mobileNo;
+
+    /** 출발지 · 도착지 모드: 탈 곳 좌표 */
+    @Nullable
+    @SerializedName("lat")
+    public Double lat;
+
+    @Nullable
+    @SerializedName("lng")
+    public Double lng;
 }

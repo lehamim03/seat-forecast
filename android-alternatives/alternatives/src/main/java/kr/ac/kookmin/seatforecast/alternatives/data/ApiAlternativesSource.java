@@ -1,5 +1,7 @@
 package kr.ac.kookmin.seatforecast.alternatives.data;
 
+import kr.ac.kookmin.seatforecast.alternatives.Place;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -15,8 +17,9 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 /**
- * 예측 서버 {@code GET /api/v1/alternatives?home_stop=...&route=...}
- * 헤더 {@code Authorization: Bearer <Firebase ID 토큰>}. 실제 서버 연결은 13주차.
+ * 예측 서버 {@code GET /api/v1/alternatives?from_lat&from_lng&from_name&to_lat&to_lng&to_name}
+ * (docs/api.md '출발지 · 도착지 모드'), 헤더 {@code Authorization: Bearer <Firebase ID 토큰>} (없으면 생략).
+ * 오류 응답의 message 는 그대로 보여 줍니다 — 예: 503 route_unavailable · 400 bad_request.
  */
 public class ApiAlternativesSource implements AlternativesSource {
 
@@ -37,12 +40,12 @@ public class ApiAlternativesSource implements AlternativesSource {
 
     @NonNull
     @Override
-    public AlternativesResult load(@NonNull String homeStopId, @NonNull String route, @Nullable String idToken)
+    public AlternativesResult load(@NonNull Place from, @NonNull Place to, @Nullable String idToken)
             throws SourceException {
         String auth = idToken == null || idToken.isEmpty() ? null : "Bearer " + idToken;
         Response<AlternativesResult> res;
         try {
-            res = api.alternatives(auth, homeStopId, route).execute();
+            res = api.alternatives(auth, from.lat, from.lng, from.name, to.lat, to.lng, to.name).execute();
         } catch (JsonParseException e) {
             throw new SourceException("대안 데이터 형식이 올바르지 않습니다.", e);
         } catch (IOException e) {

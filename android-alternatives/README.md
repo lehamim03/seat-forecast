@@ -8,6 +8,19 @@ A 홈(`android-home`) · D 로그인(`android-account`) 모듈과 같은 방식�
 **지금 상태: 13주차까지 (10주차 상태별 화면 · API 확인 → 11주차 대안 카드 3장 · 차량별 좌석 → 12주차 1분 자동 갱신 · 만석/좌석 정보 없음 구분 → 13주차 `/alternatives` 서버 연결 · 확률 표시 확인).**
 13주차 서버는 저장소 루트의 팀 예측 서버 `server.py` (실행 방법은 [README의 "예측 서버"](../README.md#예측-서버-앱이-부르는-api)). 다음: 14주차 만석 상황 동작 검증.
 
+### 12월 — 출발지 · 도착지 모드 (A 홈이 정한 약속 그대로)
+
+- **요청**: `GET /api/v1/alternatives?from_lat&from_lng&from_name&to_lat&to_lng&to_name` — 예전 `home_stop` · `route` 는 보내지 않음.
+- **여는 법**: `AlternativesActivity.newIntent(context, from, to)` = 인텐트 extra 6개 (`TripExtras`: `from_lat` · `from_lng` · `from_name` · `to_lat` · `to_lng` · `to_name`).
+  A 홈 카드(`HomeHost.onOptionClicked(…, from, to)`) · E 푸시(`push.data` 의 from_* · to_* 그대로)에서 엶.
+  - 출발지가 없거나 `from_name` 이 "현재 위치"면 GPS (`AltLocation`, A 홈과 같은 방식). **1분 자동 갱신 때마다 GPS 를 다시 읽고**, 못 읽으면 마지막 좌표(처음엔 extra 좌표).
+  - 도착지가 없으면 `AlternativesHost.loadLastDestination` (D: destination · last_trip.to), 그래도 없으면 "홈에서 도착지를 정해 주세요".
+- **화면**: 머리글 "출발지 → 도착지 · HH:MM 기준", 세 카드 + 지하철 비교 유지. `recommendation.kind` 가 "지하철"이면 지하철 칸에 "★ 추천".
+  카드 배지 · 맨 위 상태: `seat_limited=false` → "입석 가능", `seat_known=false` → "좌석 정보 없음". 카드에 경로 한 줄(`summary`).
+  `route_source=saved_nearby` → 갱신 줄에 "근처 저장 경로 기준". 오류 message 그대로 + 다시 시도 (503 route_unavailable 등).
+- **카드 누르기**: `AlternativesHost.onOptionClicked(context, option, from, to)` (기본은 예전 2인자 메서드).
+- **시연 앱**: 기본 서버, `demo_mode example` = `trip_alternatives.json` (docs/examples 복사본). 마지막 도착지 '학교'는 가짜 값.
+
 ### 13주차 — `/alternatives` 서버 연결
 
 - 팀 앱에서는 `Alternatives.init(host, new ApiAlternativesSource("https://<서버>/"))` 로 바꾸면 끝 (요청 · 헤더 · 오류 처리는 10주차에 만들어 둠).

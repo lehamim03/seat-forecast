@@ -1,5 +1,7 @@
 package kr.ac.kookmin.seatforecast.alternatives.data;
 
+import kr.ac.kookmin.seatforecast.alternatives.Place;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
@@ -15,12 +17,12 @@ public interface AlternativesSource {
     /**
      * 시간이 걸릴 수 있으므로 메인 스레드가 아닌 곳에서 부릅니다 (AlternativesFragment 가 알아서 처리).
      *
-     * @param homeStopId 평소 정류장 ID, 예: "203000063"
-     * @param route      평소 노선, 예: "8800"
-     * @param idToken    Firebase ID 토큰 (서버 요청 인증용, 예시 JSON 에서는 쓰지 않음)
+     * @param from    출발지 — 현재 GPS("현재 위치") 또는 넘겨받은 곳
+     * @param to      도착지
+     * @param idToken Firebase ID 토큰 (서버 요청 인증용, 없으면 헤더 생략 · 예시 JSON 에서는 쓰지 않음)
      */
     @WorkerThread
     @NonNull
-    AlternativesResult load(@NonNull String homeStopId, @NonNull String route, @Nullable String idToken)
+    AlternativesResult load(@NonNull Place from, @NonNull Place to, @Nullable String idToken)
             throws SourceException;
 }

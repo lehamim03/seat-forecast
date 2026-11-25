@@ -1,5 +1,7 @@
 package kr.ac.kookmin.seatforecast.alternatives.data;
 
+import kr.ac.kookmin.seatforecast.alternatives.Place;
+
 import android.content.Context;
 
 import androidx.annotation.NonNull;
@@ -32,7 +34,7 @@ public class AssetAlternativesSource implements AlternativesSource {
 
     @NonNull
     @Override
-    public AlternativesResult load(@NonNull String homeStopId, @NonNull String route, @Nullable String idToken)
+    public AlternativesResult load(@NonNull Place from, @NonNull Place to, @Nullable String idToken)
             throws SourceException {
         try (InputStream in = context.getAssets().open(fileName)) {
             AlternativesResult r = AlternativesJson.parse(in);

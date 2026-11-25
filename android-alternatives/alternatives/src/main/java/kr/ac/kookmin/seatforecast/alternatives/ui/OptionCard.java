@@ -45,9 +45,22 @@ final class OptionCard {
 
         TextView badge = v.findViewById(R.id.alt_option_badge);
         AltFormat.Level level = AltFormat.level(o.boardProb);
-        badge.setText(AltFormat.percent(o.boardProb));
-        badge.setBackgroundResource(AltStyle.pill(level));
-        badge.setTextColor(color(c, AltStyle.color(level)));
+        switch (AltFormat.probLabel(o)) {
+            case STANDING:   // seat_limited=false
+                badge.setText(R.string.alt_standing);
+                badge.setBackgroundResource(AltStyle.pill(AltFormat.Level.HIGH));
+                badge.setTextColor(color(c, R.color.alt_high));
+                break;
+            case SEAT_UNKNOWN:   // seat_known=false
+                badge.setText(R.string.alt_seat_unknown);
+                badge.setBackgroundResource(AltStyle.pill(AltFormat.Status.UNKNOWN));
+                badge.setTextColor(color(c, R.color.alt_muted));
+                break;
+            default:
+                badge.setText(AltFormat.percent(o.boardProb));
+                badge.setBackgroundResource(AltStyle.pill(level));
+                badge.setTextColor(color(c, AltStyle.color(level)));
+        }
         badge.setVisibility(o.skipped ? View.GONE : View.VISIBLE);
 
         ((TextView) v.findViewById(R.id.alt_option_route)).setText(o.route);
@@ -71,7 +84,10 @@ final class OptionCard {
         RouteChoice main = o.mainChoice();
         String alight = o.alightStop != null ? o.alightStop : main == null ? null : main.alightStop;
         TextView seoul = v.findViewById(R.id.alt_option_seoul);
-        if (alight == null) {
+        if (o.summary != null && !o.summary.trim().isEmpty()) {
+            // 출발지 · 도착지 모드: 출발지 → 도착지 전체 경로 한 줄
+            seoul.setText(c.getString(R.string.alt_route_line, o.summary.trim()));
+        } else if (alight == null) {
             v.findViewById(R.id.alt_option_seoul_row).setVisibility(View.GONE);
         } else if (main != null && main.summary != null && !main.summary.isEmpty()) {
             seoul.setText(c.getString(R.string.alt_seoul, alight, main.summary));
@@ -131,6 +147,10 @@ final class OptionCard {
                 prob.setTypeface(null, android.graphics.Typeface.NORMAL);
                 seats.setTextColor(color(c, R.color.alt_muted));
                 r.setAlpha(0.55f);
+            } else if (!o.showsProbability()) {
+                prob.setText(o.isStandingOk() ? R.string.alt_standing : R.string.alt_seat_unknown);
+                prob.setTextColor(color(c, o.isStandingOk() ? R.color.alt_high : R.color.alt_muted));
+                seats.setTextColor(color(c, R.color.alt_muted));
             } else {
                 prob.setText(AltFormat.percent(row.bus.boardProb));
                 prob.setTextColor(color(c, AltStyle.color(row.level)));

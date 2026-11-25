@@ -1,5 +1,7 @@
 package kr.ac.kookmin.seatforecast.alternatives.ui;
 
+import android.Manifest;
+import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -10,6 +12,8 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -27,8 +31,9 @@ import java.util.concurrent.Executors;
 import kr.ac.kookmin.seatforecast.alternatives.Alternatives;
 import kr.ac.kookmin.seatforecast.alternatives.AlternativesHost;
 import kr.ac.kookmin.seatforecast.alternatives.Callback;
+import kr.ac.kookmin.seatforecast.alternatives.Place;
 import kr.ac.kookmin.seatforecast.alternatives.R;
-import kr.ac.kookmin.seatforecast.alternatives.UsualTrip;
+import kr.ac.kookmin.seatforecast.alternatives.TripExtras;
 import kr.ac.kookmin.seatforecast.alternatives.data.AlternativesSource;
 import kr.ac.kookmin.seatforecast.alternatives.data.SourceException;
 import kr.ac.kookmin.seatforecast.alternatives.model.AlternativesResult;
@@ -37,8 +42,10 @@ import kr.ac.kookmin.seatforecast.alternatives.model.Option;
 import kr.ac.kookmin.seatforecast.alternatives.model.Subway;
 
 /**
- * ③ 실시간 대안 — 평소 버스가 만석일 때 기다리기 · 걸어가기 · 다른 버스 비교.
- * 순서: 로그인 확인 → 평소 정류장 · 노선(인자로 받았으면 그 값) → ID 토큰 → {@link AlternativesSource#load} (백그라운드) → 화면.
+ * ③ 실시간 대안 — 기다리기 · 걸어가기 · 다른 버스 + 지하철 비교 (출발지 · 도착지 모드).
+ * 순서: 로그인 확인 → 도착지(extra, 없으면 AlternativesHost.loadLastDestination) → 출발지(extra 의 검색한 곳, 없거나 "현재 위치"면 GPS)
+ * → ID 토큰 → {@link AlternativesSource#load} (백그라운드) → 화면.
+ * 출발지가 "현재 위치"면 1분 자동 갱신 때마다 GPS 를 다시 읽습니다 (못 읽으면 마지막 좌표).
  *
  * <p>12주차 1분 자동 갱신: 화면이 보이는 동안({@link #onStart} ~ {@link #onStop})
  * {@link Alternatives#refreshIntervalMs()} 마다 다시 불러옵니다. 이미 화면이 있으면 덮지 않고 조용히 바꾸며,
@@ -46,8 +53,8 @@ import kr.ac.kookmin.seatforecast.alternatives.model.Subway;
  */
 public class AlternativesFragment extends Fragment {
 
-    static final String ARG_HOME_STOP = "home_stop";
-    static final String ARG_ROUTE = "route";
+    private static final String[] LOCATION_PERMISSIONS = {
+            Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION};
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
@@ -63,6 +70,8 @@ public class AlternativesFragment extends Fragment {
     private long lastUpdatedWall;
     /** 지금 보이는 값이 예시 응답인지 (실시간 계산이 아니면 '예시 데이터' 표시) */
     private boolean example;
+    /** route_source=saved_nearby — ODsay 대신 근처 저장 경로로 계산 */
+    private boolean savedNearby;
 
     private View content;
     private TextView header;
@@ -80,17 +89,42 @@ public class AlternativesFragment extends Fragment {
     private View subway;
     private TextView subwayLine;
     private TextView subwaySummary;
+    private TextView subwayTitle;
+
+    /** 출발지 — null 이면 현재 위치(GPS) */
+    @Nullable
+    private Place fromPlace;
+    /** 도착지 — null 이면 아직 모름 (마지막 도착지를 물어봄) */
+    @Nullable
+    private Place to;
+    /** 현재 위치로 마지막으로 받은 좌표 (extra 로 받은 "현재 위치" 좌표로 시작) */
+    @Nullable
+    private Place gpsFix;
+    /** 지금 보이는 대안을 계산한 출발지 · 도착지 — 카드를 누르면 넘김 */
+    @Nullable
+    private Place shownFrom;
+    @Nullable
+    private Place shownTo;
+    private boolean askedPermission;
+    private boolean pendingSilent;
+    private AltLocation location;
+    private final ActivityResultLauncher<String[]> permissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), granted -> {
+                if (getView() != null) reload(pendingSilent);
+            });
     private View state;
     private View progress;
     private TextView stateMessage;
     private MaterialButton stateAction;
 
-    /** 평소 정류장 · 노선 대신 이 값으로 (예: E 돌발 알림 푸시의 data.route). 둘 다 null 이면 평소 값. */
-    public static AlternativesFragment newInstance(@Nullable String homeStopId, @Nullable String route) {
+    /**
+     * @param from 출발지 — null 이거나 이름이 "현재 위치"면 GPS (그 좌표는 GPS 를 못 읽을 때 대신 씀)
+     * @param to   도착지 — null 이면 AlternativesHost.loadLastDestination
+     */
+    public static AlternativesFragment newInstance(@Nullable Place from, @Nullable Place to) {
         AlternativesFragment f = new AlternativesFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_HOME_STOP, homeStopId);
-        args.putString(ARG_ROUTE, route);
+        TripExtras.put(args, from, to);
         f.setArguments(args);
         return f;
     }
@@ -120,6 +154,17 @@ public class AlternativesFragment extends Fragment {
         subway = v.findViewById(R.id.alt_subway);
         subwayLine = v.findViewById(R.id.alt_subway_line);
         subwaySummary = v.findViewById(R.id.alt_subway_summary);
+        subwayTitle = v.findViewById(R.id.alt_subway_title);
+        location = new AltLocation(requireContext());
+        Place argFrom = TripExtras.from(getArguments());
+        if (argFrom == null || argFrom.isCurrentLocation()) {
+            fromPlace = null;
+            gpsFix = argFrom != null && argFrom.hasCoords() ? argFrom : null;
+        } else {
+            fromPlace = argFrom;
+        }
+        Place argTo = TripExtras.to(getArguments());
+        to = argTo != null && argTo.hasCoords() ? argTo : null;
         state = v.findViewById(R.id.alt_state);
         progress = v.findViewById(R.id.alt_progress);
         stateMessage = v.findViewById(R.id.alt_state_message);
@@ -149,6 +194,7 @@ public class AlternativesFragment extends Fragment {
     public void onDestroyView() {
         requestId++;   // 진행 중인 요청 결과 버림
         main.removeCallbacks(tick);
+        location.stop();
         super.onDestroyView();
     }
 
@@ -173,26 +219,73 @@ public class AlternativesFragment extends Fragment {
         } else {
             showLoading();
         }
-        Bundle args = getArguments();
-        String stopArg = args == null ? null : args.getString(ARG_HOME_STOP);
-        String routeArg = args == null ? null : args.getString(ARG_ROUTE);
-        host.loadUsualTrip(new Callback<UsualTrip>() {
-            @Override
-            public void onSuccess(UsualTrip usual) {
-                if (stale(id)) return;
-                UsualTrip trip = new UsualTrip(stopArg != null ? stopArg : usual.homeStopId,
-                        routeArg != null ? routeArg : usual.route);
-                host.getIdToken(new Callback<String>() {
-                    @Override
-                    public void onSuccess(String token) {
-                        if (!stale(id)) fetch(id, trip, token, silent);
+        if (to == null) {
+            host.loadLastDestination(new Callback<Place>() {
+                @Override
+                public void onSuccess(Place result) {
+                    if (stale(id)) return;
+                    if (result != null && result.hasCoords()) {
+                        to = result;
+                        findOrigin(id, silent);
+                    } else {
+                        showState(false, getString(R.string.alt_no_destination), null, null);
                     }
+                }
 
-                    @Override
-                    public void onError(String message) {
-                        if (!stale(id)) failed(message, silent);
-                    }
-                });
+                @Override
+                public void onError(String message) {
+                    if (!stale(id)) showState(false, getString(R.string.alt_no_destination), null, null);
+                }
+            });
+            return;
+        }
+        findOrigin(id, silent);
+    }
+
+    /** 출발지 — 넘겨받은 곳이면 그대로, 현재 위치면 GPS (자동 갱신 때도 다시 읽음) */
+    private void findOrigin(int id, boolean silent) {
+        if (fromPlace != null) {
+            withToken(id, fromPlace, silent);
+            return;
+        }
+        if (!AltLocation.hasPermission(requireContext())) {
+            if (gpsFix != null) {   // 홈이 준 "현재 위치" 좌표로
+                withToken(id, gpsFix, silent);
+            } else if (!askedPermission) {
+                askedPermission = true;
+                pendingSilent = silent;
+                permissionLauncher.launch(LOCATION_PERMISSIONS);
+            } else {
+                failed(getString(R.string.alt_location_denied), silent);
+            }
+            return;
+        }
+        if (!silent) stateMessage.setText(R.string.alt_locating);
+        location.request(new AltLocation.Listener() {
+            @Override
+            public void onLocation(@NonNull Location l) {
+                if (stale(id)) return;
+                gpsFix = new Place(Place.CURRENT_LOCATION, l.getLatitude(), l.getLongitude());
+                if (!silent) stateMessage.setText(R.string.alt_loading);
+                withToken(id, gpsFix, silent);
+            }
+
+            @Override
+            public void onFailure(int message) {
+                if (stale(id)) return;
+                if (gpsFix != null) withToken(id, gpsFix, silent);   // 마지막 좌표로
+                else failed(getString(message), silent);
+            }
+        });
+    }
+
+    private void withToken(int id, Place from, boolean silent) {
+        final Place dest = to;
+        if (dest == null) return;
+        Alternatives.host().getIdToken(new Callback<String>() {
+            @Override
+            public void onSuccess(String token) {
+                if (!stale(id)) fetch(id, from, dest, token, silent);
             }
 
             @Override
@@ -206,13 +299,13 @@ public class AlternativesFragment extends Fragment {
         return id != requestId || getView() == null;
     }
 
-    private void fetch(int id, UsualTrip trip, @Nullable String token, boolean silent) {
+    private void fetch(int id, Place from, Place dest, @Nullable String token, boolean silent) {
         final AlternativesSource source = Alternatives.source();
         EXECUTOR.execute(() -> {
             AlternativesResult result = null;
             String error = null;
             try {
-                result = source.load(trip.homeStopId, trip.route, token);
+                result = source.load(from, dest, token);
             } catch (SourceException e) {
                 error = e.getMessage();
             } catch (RuntimeException e) {
@@ -222,7 +315,11 @@ public class AlternativesFragment extends Fragment {
             final String message = error;
             main.post(() -> {
                 if (stale(id)) return;
-                if (r != null) succeeded(r);
+                if (r != null) {
+                    shownFrom = from;
+                    shownTo = dest;
+                    succeeded(r);
+                }
                 else failed(message != null ? message : getString(R.string.alt_error_default), silent);
             });
         });
@@ -231,6 +328,7 @@ public class AlternativesFragment extends Fragment {
     private void succeeded(AlternativesResult r) {
         loaded = true;
         example = AlternativesResult.SOURCE_EXAMPLE.equals(r.source);
+        savedNearby = r.isSavedNearbyRoute();
         lastAttemptAt = SystemClock.elapsedRealtime();
         lastUpdatedWall = System.currentTimeMillis();
         show(r);
@@ -269,6 +367,7 @@ public class AlternativesFragment extends Fragment {
         } else {
             String text = getString(R.string.alt_updated, time, autoText());
             if (example) text = getString(R.string.alt_with_example, text);
+            if (savedNearby) text += " · " + getString(R.string.alt_saved_nearby);
             updated.setText(text);
             updated.setTextColor(color(R.color.alt_muted));
         }
@@ -288,23 +387,31 @@ public class AlternativesFragment extends Fragment {
             return;
         }
 
-        String stopName = r.homeStop == null ? "" : r.homeStop.name;
-        String route = r.myRoute == null ? "" : r.myRoute;
+        Place o = r.origin != null ? r.origin : shownFrom;
+        Place d = r.destination != null ? r.destination : shownTo;
+        String fromName = o == null ? getString(R.string.alt_current_location) : o.nameOr(getString(R.string.alt_current_location));
+        String toName = d == null ? getString(R.string.alt_destination) : d.nameOr(getString(R.string.alt_destination));
         String time = AltFormat.time(r.generatedAt);
-        header.setText(time == null ? getString(R.string.alt_header_no_time, stopName, route)
-                : getString(R.string.alt_header, stopName, route, time));
+        header.setText(time == null ? getString(R.string.alt_header_no_time, fromName, toName)
+                : getString(R.string.alt_header, fromName, toName, time));
 
         bindBanner(AltFormat.banner(r));
         setTextOrGone(summary, r.recommendation == null ? null : r.recommendation.message);
 
         cards.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(requireContext());
-        for (Option o : options) {
-            boolean recommended = AltFormat.isRecommended(o, r);
-            cards.addView(OptionCard.create(inflater, cards, o, options, recommended,
-                    v -> Alternatives.host().onOptionClicked(requireContext(), o)));
+        for (Option opt : options) {
+            boolean recommended = AltFormat.isRecommended(opt, r);
+            cards.addView(OptionCard.create(inflater, cards, opt, options, recommended,
+                    v -> {
+                        if (shownFrom != null && shownTo != null) {
+                            Alternatives.host().onOptionClicked(requireContext(), opt, shownFrom, shownTo);
+                        } else {
+                            Alternatives.host().onOptionClicked(requireContext(), opt);
+                        }
+                    }));
         }
-        bindSubway(r.subway);
+        bindSubway(r.subway, AltFormat.subwayRecommended(r));
 
         state.setVisibility(View.GONE);
         content.setVisibility(View.VISIBLE);
@@ -335,6 +442,13 @@ public class AlternativesFragment extends Fragment {
                 statusText = R.string.alt_status_unknown;
                 adviceText = R.string.alt_advice_unknown;
         }
+        if (b.standing) adviceText = R.string.alt_advice_standing;
+        if (b.seatUnknown) {
+            statusText = R.string.alt_seat_unknown;
+            adviceText = R.string.alt_advice_seat_unknown;
+        }
+        String probText = b.standing ? getString(R.string.alt_standing)
+                : b.seatUnknown ? getString(R.string.alt_seat_unknown) : AltFormat.percent(b.prob);
         int c = color(AltStyle.color(b.status));
         banner.setBackgroundResource(AltStyle.banner(b.status));
         status.setText(statusText);
@@ -349,24 +463,28 @@ public class AlternativesFragment extends Fragment {
         boolean known = b.status != AltFormat.Status.UNKNOWN;
         if (bus != null) {
             bannerTitle.setText(getString(R.string.alt_banner_title, route, OptionCard.eta(requireContext(), bus)));
-            bannerSub.setText(getString(R.string.alt_banner_sub, OptionCard.seats(requireContext(), bus),
-                    AltFormat.percent(b.prob)));
+            bannerSub.setText(b.standing || b.seatUnknown
+                    ? getString(R.string.alt_banner_sub_plain, OptionCard.seats(requireContext(), bus), probText)
+                    : getString(R.string.alt_banner_sub, OptionCard.seats(requireContext(), bus), probText));
             bannerSub.setVisibility(View.VISIBLE);
         } else {
             bannerTitle.setText(getString(R.string.alt_banner_title_none, route));
             bannerSub.setVisibility(View.GONE);
         }
         bannerProb.setVisibility(known && b.status != AltFormat.Status.SKIPPED ? View.VISIBLE : View.GONE);
-        bannerProb.setText(AltFormat.percent(b.prob));
+        bannerProb.setText(probText);
         bannerProb.setBackgroundResource(AltStyle.pill(b.status));
         bannerProb.setTextColor(c);
     }
 
-    private void bindSubway(@Nullable Subway s) {
+    /** @param recommended recommendation.kind 가 "지하철"이면 '★ 추천' */
+    private void bindSubway(@Nullable Subway s, boolean recommended) {
         if (s == null || s.arriveAt == null) {
             subway.setVisibility(View.GONE);
             return;
         }
+        subwayTitle.setText(recommended ? R.string.alt_subway_recommended : R.string.alt_subway_title);
+        subwayTitle.setTextColor(color(recommended ? R.color.alt_high : R.color.alt_muted));
         subwayLine.setText(getString(R.string.alt_subway_line, s.arriveAt, s.transfers, s.walkMin));
         setTextOrGone(subwaySummary, s.summary);
         subway.setVisibility(View.VISIBLE);

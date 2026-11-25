@@ -16,6 +16,9 @@ public class Option {
     public static final String KIND_WAIT = "기다리기";
     public static final String KIND_WALK = "걸어가기";
     public static final String KIND_OTHER_BUS = "다른 버스";
+    /** 출발지 · 도착지 모드: 지하철로 시작 (recommendation.kind 로 옴 — 지하철 비교 칸에 '추천') */
+    public static final String KIND_SUBWAY = "지하철";
+    public static final String MODE_SUBWAY = "subway";
 
     /** {@link #KIND_WAIT} · {@link #KIND_WALK} · {@link #KIND_OTHER_BUS} */
     @SerializedName("kind")
@@ -67,6 +70,47 @@ public class Option {
     /** 서울에서 국민대까지 경로 여러 개 — 첫 번째가 '추천' */
     @SerializedName("route_choices")
     public List<RouteChoice> routeChoices = new ArrayList<>();
+
+    /** 처음 타는 것 bus · subway (예전 응답 · 모르는 값이면 버스로 봄) */
+    @Nullable
+    @SerializedName("first_mode")
+    public String firstMode;
+
+    /** true = 좌석 버스(만석이면 못 탐) · false = 서서 탈 수 있음 · 지하철 → "입석 가능". 없으면 확률 표시 */
+    @Nullable
+    @SerializedName("seat_limited")
+    public Boolean seatLimited;
+
+    /** false = 좌석 버스인데 좌석 수를 모름 (서울 등록 노선 등) → "좌석 정보 없음". 없으면 확률 표시 */
+    @Nullable
+    @SerializedName("seat_known")
+    public Boolean seatKnown;
+
+    @Nullable
+    @SerializedName("transfers")
+    public Integer transfers;
+
+    /** 출발지 → 도착지 전체 경로 한 줄 */
+    @Nullable
+    @SerializedName("summary")
+    public String summary;
+
+    public boolean isStandingOk() {
+        return Boolean.FALSE.equals(seatLimited);
+    }
+
+    public boolean isSeatUnknown() {
+        return !isStandingOk() && Boolean.FALSE.equals(seatKnown);
+    }
+
+    /** 탑승 확률을 보여 줄지 — 입석 가능 · 좌석 정보 없음이면 false */
+    public boolean showsProbability() {
+        return !isStandingOk() && !isSeatUnknown();
+    }
+
+    public boolean isSubway() {
+        return MODE_SUBWAY.equals(firstMode) || (firstMode == null && KIND_SUBWAY.equals(kind));
+    }
 
     /** 추천 경로(route_choices 첫 번째), 없으면 null */
     @Nullable

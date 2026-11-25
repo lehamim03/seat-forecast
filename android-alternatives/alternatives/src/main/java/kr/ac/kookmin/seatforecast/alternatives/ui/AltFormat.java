@@ -48,12 +48,23 @@ final class AltFormat {
         final Bus bus;
         /** 평소 버스 탑승 확률 ({@link Status#UNKNOWN} 이면 의미 없음) */
         final double prob;
+        /** seat_limited=false — 서서 탈 수 있음 (확률 대신 "입석 가능") */
+        final boolean standing;
+        /** seat_known=false — 좌석 수를 모름 (확률 대신 "좌석 정보 없음") */
+        final boolean seatUnknown;
 
         Banner(Status status, @Nullable String route, @Nullable Bus bus, double prob) {
+            this(status, route, bus, prob, false, false);
+        }
+
+        Banner(Status status, @Nullable String route, @Nullable Bus bus, double prob, boolean standing,
+               boolean seatUnknown) {
             this.status = status;
             this.route = route;
             this.bus = bus;
             this.prob = prob;
+            this.standing = standing;
+            this.seatUnknown = seatUnknown;
         }
     }
 
@@ -112,6 +123,9 @@ final class AltFormat {
         if (usual == null) return new Banner(Status.UNKNOWN, route, null, 0);
         Bus bus = firstReachable(usual);
         if (usual.skipped) return new Banner(Status.SKIPPED, route, bus, usual.boardProb);
+        // 출발지 · 도착지 모드: 서서 탈 수 있으면 여유, 좌석 수를 모르면 정보 없음 (확률을 믿을 수 없음)
+        if (usual.isStandingOk()) return new Banner(Status.RELAXED, route, bus, usual.boardProb, true, false);
+        if (usual.isSeatUnknown()) return new Banner(Status.UNKNOWN, route, bus, usual.boardProb, false, true);
         Status status;
         switch (level(usual.boardProb)) {
             case HIGH:
@@ -142,6 +156,20 @@ final class AltFormat {
         if (Option.KIND_WALK.equals(o.kind)) return 2;
         if (Option.KIND_OTHER_BUS.equals(o.kind)) return 3;
         return 0;
+    }
+
+    /** 확률 대신 보여 줄 글자: 입석 가능 · 좌석 정보 없음, 확률을 보여 주면 null */
+    enum ProbLabel { PROBABILITY, STANDING, SEAT_UNKNOWN }
+
+    static ProbLabel probLabel(Option o) {
+        if (o.isStandingOk()) return ProbLabel.STANDING;
+        if (o.isSeatUnknown()) return ProbLabel.SEAT_UNKNOWN;
+        return ProbLabel.PROBABILITY;
+    }
+
+    /** recommendation.kind 가 "지하철"이면 지하철 비교 칸에 '추천' */
+    static boolean subwayRecommended(AlternativesResult r) {
+        return r.recommendation != null && Option.KIND_SUBWAY.equals(r.recommendation.kind);
     }
 
     /** {@code recommendation.kind} 와 같은 카드에 '추천' (탈 수 없는 정류장은 제외) */
