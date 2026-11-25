@@ -17,7 +17,11 @@ android {
         versionName '0.1'
         resValue 'string', 'map_native_key', providers.environmentVariable('KAKAO_NATIVE_APP_KEY')
                 .getOrElse(local.getProperty('KAKAO_NATIVE_APP_KEY', ''))
+        // 13주차 예측 서버 주소 (server.py) — 환경 변수 또는 local.properties 의 SERVER_BASE_URL, 없으면 에뮬레이터에서 내 컴퓨터
+        buildConfigField 'String', 'SERVER_BASE_URL', '"' + providers.environmentVariable('SERVER_BASE_URL')
+                .getOrElse(local.getProperty('SERVER_BASE_URL', 'http://10.0.2.2:8000/')) + '"'
     }
+    buildFeatures { buildConfig true }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
