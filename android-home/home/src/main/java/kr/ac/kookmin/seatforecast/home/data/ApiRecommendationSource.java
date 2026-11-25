@@ -42,7 +42,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
  *   <li>401 은 {@link SourceException#isUnauthorized()} — 홈 화면이 토큰을 새로 받아 한 번 더 요청합니다.</li>
  * </ul>
  */
-public class ApiRecommendationSource implements RecommendationSource, PlaceSource {
+public class ApiRecommendationSource implements RecommendationSource, PlaceSource, ReplaySource {
 
     public static final int CONNECT_TIMEOUT_SEC = 10;
     public static final int READ_TIMEOUT_SEC = 20;
@@ -100,6 +100,19 @@ public class ApiRecommendationSource implements RecommendationSource, PlaceSourc
     @Override
     public List<Place> search(@NonNull String query, @Nullable String idToken) throws SourceException {
         return execute(api.places(auth(idToken), query.trim())).placesOrEmpty();
+    }
+
+    @NonNull
+    @Override
+    public Recommendations replay(@NonNull String at, @Nullable String idToken) throws SourceException {
+        return execute(api.replay(auth(idToken), at));
+    }
+
+    @NonNull
+    @Override
+    public List<String> replayDays(@Nullable String idToken) throws SourceException {
+        List<String> days = execute(api.replayDays(auth(idToken))).days;
+        return days == null ? new java.util.ArrayList<>() : days;
     }
 
     @Nullable

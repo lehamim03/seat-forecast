@@ -297,4 +297,14 @@ public class OptionFormatTest {
         assertEquals(OptionFormat.Badge.PROBABILITY, OptionFormat.badge(r.ranking.get(1)));
         assertEquals(BusLineKind.BUS, OptionFormat.busLine(r.ranking.get(1)).kind);
     }
+
+    @Test
+    public void actualKind() throws Exception {
+        Option o = new Option();
+        assertEquals(OptionFormat.ActualKind.NONE, OptionFormat.actualKind(o));
+        o.actual = new kr.ac.kookmin.seatforecast.home.model.Actual();
+        assertEquals(OptionFormat.ActualKind.NOT_BOARDED, OptionFormat.actualKind(o));
+        o.actual.boardedAt = "07:51";
+        assertEquals(OptionFormat.ActualKind.BOARDED, OptionFormat.actualKind(o));
+    }
 }

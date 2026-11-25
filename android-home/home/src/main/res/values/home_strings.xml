@@ -21,6 +21,23 @@
     <string name="home_location_timeout">현재 위치를 확인하지 못했어요. 다시 시도하거나 출발지를 검색해 주세요.</string>
     <string name="home_search_origin">출발지 검색</string>
 
+    <!-- 경로 출처 (route_source=saved_nearby) -->
+    <string name="home_saved_nearby">근처 저장 경로 기준</string>
+
+    <!-- 시연용: 지난 출근길 재생 -->
+    <string name="home_replay">지난 출근길 재생</string>
+    <string name="home_replay_pick_day">재생할 날짜</string>
+    <string name="home_replay_no_days">재생할 수 있는 날짜가 없어요.</string>
+    <string name="home_replay_loading_days">날짜를 불러오는 중…</string>
+    <string name="home_replay_title">지난 출근길 재생 · %1$s</string>
+    <string name="home_replay_exit">실시간으로</string>
+    <string name="home_replay_loading">그날 기록으로 다시 계산하는 중…</string>
+    <string name="home_actual_boarded">그날 실제로 · %1$s 탑승 → %2$s 도착</string>
+    <string name="home_actual_boarded_total">그날 실제로 · %1$s 탑승 → %2$s 도착 (%3$s)</string>
+    <string name="home_actual_boarded_only">그날 실제로 · %1$s 탑승</string>
+    <string name="home_actual_skipped">만석 %1$d대 보내고 </string>
+    <string name="home_actual_none">그날 실제로 · 다가온 버스가 모두 만석이라 못 탐</string>
+
     <!-- 장소 검색 화면 -->
     <string name="home_search_title_from">출발지 검색</string>
     <string name="home_search_title_to">도착지 검색</string>

@@ -336,4 +336,45 @@ public class ApiRecommendationSourceTest {
             assertEquals("검색어를 입력해 주세요.", e.getMessage());
         }
     }
+
+    // ── 지난 출근길 재생 replay=… ──
+
+    /** replay 만 보내고 from_* · to_* 는 보내지 않음 (함께 쓰면 서버가 400) */
+    @Test
+    public void replayRequest() throws Exception {
+        server.enqueue(new MockResponse().setBody(RecommendationsParseTest.readTripExample("replay_recommendations.json")));
+
+        Recommendations r = source.replay("2026-11-12T07:40", "tok");
+
+        RecordedRequest req = server.takeRequest();
+        assertEquals("/api/v1/recommendations", req.getRequestUrl().encodedPath());
+        assertEquals("2026-11-12T07:40", req.getRequestUrl().queryParameter("replay"));
+        assertNull(req.getRequestUrl().queryParameter("from_lat"));
+        assertNull(req.getRequestUrl().queryParameter("to_lat"));
+        assertEquals("Bearer tok", req.getHeader("Authorization"));
+        assertEquals("2026-11-12", r.replay.date);
+    }
+
+    @Test
+    public void replayDays() throws Exception {
+        server.enqueue(new MockResponse().setBody("{\"days\": [\"2026-10-07\", \"2026-11-12\"]}"));
+        assertEquals(java.util.Arrays.asList("2026-10-07", "2026-11-12"), source.replayDays(null));
+        assertEquals("/api/v1/replay/days", server.takeRequest().getRequestUrl().encodedPath());
+
+        server.enqueue(new MockResponse().setBody("{}"));
+        assertTrue(source.replayDays(null).isEmpty());
+    }
+
+    @Test
+    public void replayNoData() {
+        server.enqueue(new MockResponse().setResponseCode(400)
+                .setBody("{\"error\": {\"code\": \"replay_no_data\", \"message\": \"그날 수집 기록이 없습니다.\"}}"));
+        try {
+            source.replay("2026-01-01T07:40", null);
+            fail();
+        } catch (SourceException e) {
+            assertEquals("그날 수집 기록이 없습니다.", e.getMessage());
+            assertEquals("replay_no_data", e.code);
+        }
+    }
 }

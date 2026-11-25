@@ -21,6 +21,11 @@ D 모듈(`android-account`)과 같은 방식으로 **독립된 안드로이드 �
 - **오류**: `{"error": {"code", "message"}}` 의 message 를 그대로 + 다시 시도 (`503 route_unavailable` · `400 bad_request` 등).
 - **시연 앱**: 기본 = 서버, `demo_mode example` = `trip_recommendations.json` · `trip_places.json` (docs/examples 복사본, 서버 꺼짐 대비).
   즐겨찾는 곳(집 · 학교)은 시연용 가짜 값.
+- **경로 출처**: `route_source=saved_nearby` (ODsay 한도 · IP 문제로 근처 저장 경로 사용)면 갱신 시각 줄에 "근처 저장 경로 기준".
+- **지난 출근길 재생 (시연용)**: 헤더 시계 버튼 → 날짜(`GET /api/v1/replay/days`, 최근 날부터) → 시각(기본 07:40)
+  → `GET /api/v1/recommendations?replay=2026-11-12T07:40` (출발지 · 도착지 없이). 위쪽에 `replay.message` · `note`,
+  카드마다 그날 실제로(`actual`: 탑승 시각 · 만석으로 보낸 차 · 도착). 재생 중에는 자동 새로고침 · 출발 알림 · 출발지 입력을 끔, "실시간으로" 로 돌아옴.
+  예시 모드는 `replay_recommendations.json` (서버 replay=2026-11-12T07:40 응답 저장본).
 
 #### 화면 사이 약속 (다음 브랜치 B · C · D · E 도 그대로)
 

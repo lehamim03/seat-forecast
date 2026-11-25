@@ -133,6 +133,14 @@ final class OptionFormat {
         return o.kind == null || o.kind.trim().isEmpty() ? null : o.kind.trim();
     }
 
+    /** 지난 출근길 재생: 그날 실제로 — 없음(실시간) · 탔음 · 모두 만석이라 못 탐 */
+    enum ActualKind { NONE, BOARDED, NOT_BOARDED }
+
+    static ActualKind actualKind(Option o) {
+        if (o.actual == null) return ActualKind.NONE;
+        return o.actual.boardedAt == null || o.actual.boardedAt.isEmpty() ? ActualKind.NOT_BOARDED : ActualKind.BOARDED;
+    }
+
     /** 넷째 줄: 출발지 → 도착지 경로 한 줄 (summary), 없으면 null */
     @Nullable
     static String summary(Option o) {

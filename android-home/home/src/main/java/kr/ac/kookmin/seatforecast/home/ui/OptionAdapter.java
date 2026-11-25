@@ -100,6 +100,7 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
         bindBadge(h, o);
         bindBusLine(h, o, elapsedMin);
         bindNote(h, o);
+        bindActual(h, o);
 
         h.itemView.setOnClickListener(v -> onClick.onClick(o));
     }
@@ -207,6 +208,32 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
         h.busIcon.setImageTintList(ColorStateList.valueOf(tint));
     }
 
+    /** 지난 출근길 재생: "그날 실제로 · (만석 N대 보내고) 07:51 탑승 → 09:44 도착 (2시간 4분)" */
+    private static void bindActual(Holder h, Option o) {
+        Context c = h.itemView.getContext();
+        switch (OptionFormat.actualKind(o)) {
+            case BOARDED: {
+                String boarded = (o.actual.fullSkipped > 0 ? c.getString(R.string.home_actual_skipped, o.actual.fullSkipped) : "")
+                        + o.actual.boardedAt;
+                String total = LiveTime.duration(o.actual.totalMin);
+                String text = o.actual.arriveAt == null ? c.getString(R.string.home_actual_boarded_only, boarded)
+                        : total == null ? c.getString(R.string.home_actual_boarded, boarded, o.actual.arriveAt)
+                        : c.getString(R.string.home_actual_boarded_total, boarded, o.actual.arriveAt, total);
+                h.actual.setText(text);
+                h.actual.setTextColor(ContextCompat.getColor(c, R.color.home_primary));
+                h.actual.setVisibility(View.VISIBLE);
+                break;
+            }
+            case NOT_BOARDED:
+                h.actual.setText(R.string.home_actual_none);
+                h.actual.setTextColor(ContextCompat.getColor(c, R.color.home_badge_low));
+                h.actual.setVisibility(View.VISIBLE);
+                break;
+            default:
+                h.actual.setVisibility(View.GONE);
+        }
+    }
+
     /** 넷째 줄: 건너뜀(빨강)이 지연(노랑)보다 우선 */
     private static void bindNote(Holder h, Option o) {
         Context c = h.itemView.getContext();
@@ -266,6 +293,7 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
         final ImageView busIcon;
         final TextView bus;
         final TextView note;
+        final TextView actual;
 
         Holder(View v) {
             super(v);
@@ -282,6 +310,7 @@ class OptionAdapter extends RecyclerView.Adapter<OptionAdapter.Holder> {
             busIcon = v.findViewById(R.id.home_option_bus_icon);
             bus = v.findViewById(R.id.home_option_bus);
             note = v.findViewById(R.id.home_option_note);
+            actual = v.findViewById(R.id.home_option_actual);
         }
     }
 }

@@ -4,6 +4,7 @@ import androidx.annotation.Nullable;
 
 import kr.ac.kookmin.seatforecast.home.model.PlaceResult;
 import kr.ac.kookmin.seatforecast.home.model.Recommendations;
+import kr.ac.kookmin.seatforecast.home.model.ReplayDays;
 import retrofit2.Call;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
@@ -24,6 +25,15 @@ public interface RecommendationApi {
                                           @Query("to_lat") double toLat,
                                           @Query("to_lng") double toLng,
                                           @Nullable @Query("to_name") String toName);
+
+    /** 지난 출근길 재생 {@code ?replay=2026-11-12T07:40} (from_* · to_* 와 함께 쓰면 400) */
+    @GET("api/v1/recommendations")
+    Call<Recommendations> replay(@Nullable @Header("Authorization") String authorization,
+                                 @Query("replay") String at);
+
+    /** 재생할 수 있는 운행일 */
+    @GET("api/v1/replay/days")
+    Call<ReplayDays> replayDays(@Nullable @Header("Authorization") String authorization);
 
     /** 장소 검색 {@code GET /api/v1/places?q=국민대} → {@code {"query", "places": [{name, address, lat, lng}]}} */
     @GET("api/v1/places")

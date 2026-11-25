@@ -247,4 +247,36 @@ public class RecommendationsParseTest {
         byte[] asset = Files.readAllBytes(new File("../demo/src/main/assets/recommendations.json").toPath());
         assertArrayEquals(readExample("recommendations.json").getBytes(StandardCharsets.UTF_8), asset);
     }
+
+    // ── 지난 출근길 재생 · 경로 출처 ──
+
+    /** 서버 replay=2026-11-12T07:40 응답 — replay {at, date, message, note} · 선택지마다 actual */
+    @Test
+    public void readsReplay() throws Exception {
+        Recommendations r = parse(readTripExample("replay_recommendations.json"));
+        assertEquals("2026-11-12T07:40:00+09:00", r.replay.at);
+        assertEquals("2026-11-12", r.replay.date);
+        assertTrue(r.replay.message.startsWith("그날 1순위(8800번"));
+        assertNotNull(r.replay.note);
+        Option first = r.ranking.get(0);
+        assertEquals("07:51", first.actual.boardedAt);
+        assertEquals(0, first.actual.fullSkipped);
+        assertEquals("09:44", first.actual.arriveAt);
+        assertEquals(Integer.valueOf(124), first.actual.totalMin);
+    }
+
+    /** 실시간 응답에는 replay · actual 이 없음 */
+    @Test
+    public void liveHasNoReplay() throws Exception {
+        Recommendations r = parse(readTripExample("trip_recommendations.json"));
+        assertNull(r.replay);
+        assertNull(r.ranking.get(0).actual);
+    }
+
+    @Test
+    public void routeSource() throws Exception {
+        assertTrue(parse("{\"route_source\": \"saved_nearby\", \"ranking\": []}").isSavedNearbyRoute());
+        assertFalse(parse("{\"route_source\": \"odsay\", \"ranking\": []}").isSavedNearbyRoute());
+        assertFalse(parse("{\"ranking\": []}").isSavedNearbyRoute());
+    }
 }

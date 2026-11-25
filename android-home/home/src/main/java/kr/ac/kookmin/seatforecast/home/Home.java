@@ -4,6 +4,7 @@ import androidx.annotation.Nullable;
 
 import kr.ac.kookmin.seatforecast.home.data.PlaceSource;
 import kr.ac.kookmin.seatforecast.home.data.RecommendationSource;
+import kr.ac.kookmin.seatforecast.home.data.ReplaySource;
 
 /**
  * 홈 모듈 진입점. 앱 시작 시(Application.onCreate) 한 번:
@@ -43,6 +44,12 @@ public final class Home {
     public static RecommendationSource source() {
         if (source == null) throw new IllegalStateException("Home.init(host, source) 를 먼저 불러 주세요.");
         return source;
+    }
+
+    /** 지난 출근길 재생 — 추천 소스가 지원하면 그것, 아니면 null (홈의 '지난 출근길' 버튼을 숨김) */
+    @Nullable
+    public static ReplaySource replays() {
+        return source instanceof ReplaySource ? (ReplaySource) source : null;
     }
 
     /** 장소 검색 — 없으면 검색 화면에서 즐겨찾기 · 현재 위치만 고를 수 있음 */

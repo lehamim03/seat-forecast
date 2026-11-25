@@ -168,6 +168,19 @@
         tools:text="도보 3분 → 수인분당선(서현→선릉) → 2호선(선릉→신설동)"
         tools:visibility="visible" />
 
+    <!-- 지난 출근길 재생: 그날 실제로 (actual) -->
+    <TextView
+        android:id="@+id/home_option_actual"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/home_primary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:text="그날 실제로 · 07:51 탑승 → 09:44 도착 (2시간 4분)"
+        tools:visibility="visible" />
+
     <TextView
         android:id="@+id/home_option_note"
         android:layout_width="match_parent"

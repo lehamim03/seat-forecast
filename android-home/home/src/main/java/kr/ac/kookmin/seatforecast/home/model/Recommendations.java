@@ -27,6 +27,25 @@ public class Recommendations {
     @SerializedName("destination")
     public Place destination;
 
+    /** 경로를 어디서 받았는지 {@link #ROUTE_SOURCE_ODSAY} · {@link #ROUTE_SOURCE_SAVED_NEARBY} (없으면 null) */
+    @Nullable
+    @SerializedName("route_source")
+    public String routeSource;
+
+    public static final String ROUTE_SOURCE_ODSAY = "odsay";
+    /** ODsay 를 못 써서(하루 한도 · IP) 1.5km 안에 저장된 출발지의 경로를 쓰고 도보만 다시 계산 → "근처 저장 경로 기준" */
+    public static final String ROUTE_SOURCE_SAVED_NEARBY = "saved_nearby";
+
+    /** 지난 출근길 재생일 때만 (실시간이면 null) */
+    @Nullable
+    @SerializedName("replay")
+    public Replay replay;
+
+    /** "근처 저장 경로 기준" 을 보여 줄지 */
+    public boolean isSavedNearbyRoute() {
+        return ROUTE_SOURCE_SAVED_NEARBY.equals(routeSource);
+    }
+
     /** 요청한 평소 노선 — 출발지 · 도착지 모드에서는 항상 null */
     @SerializedName("my_route")
     public String myRoute;

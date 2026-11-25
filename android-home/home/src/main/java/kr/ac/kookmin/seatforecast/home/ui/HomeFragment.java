@@ -46,6 +46,7 @@ import kr.ac.kookmin.seatforecast.home.HomeHost;
 import kr.ac.kookmin.seatforecast.home.Place;
 import kr.ac.kookmin.seatforecast.home.R;
 import kr.ac.kookmin.seatforecast.home.data.RecommendationSource;
+import kr.ac.kookmin.seatforecast.home.data.ReplaySource;
 import kr.ac.kookmin.seatforecast.home.data.SourceException;
 import kr.ac.kookmin.seatforecast.home.model.Option;
 import kr.ac.kookmin.seatforecast.home.model.Recommendations;
@@ -121,6 +122,15 @@ public class HomeFragment extends Fragment {
 
     private TextView fromName;
     private TextView toName;
+
+    /** 시연용 지난 출근길 재생 중이면 "2026-11-12T07:40", 실시간이면 null (화면을 닫으면 실시간으로) */
+    @Nullable
+    private String replayAt;
+    private View tripInputs;
+    private View replayBar;
+    private TextView replayTitle;
+    private TextView replayMessage;
+    private TextView replayNote;
     private TextView dateChip;
     private TextView dayLabel;
     private TextView nowChip;
@@ -153,6 +163,15 @@ public class HomeFragment extends Fragment {
 
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
+        tripInputs = v.findViewById(R.id.home_trip_inputs);
+        replayBar = v.findViewById(R.id.home_replay_bar);
+        replayTitle = v.findViewById(R.id.home_replay_title);
+        replayMessage = v.findViewById(R.id.home_replay_message);
+        replayNote = v.findViewById(R.id.home_replay_note);
+        View replayButton = v.findViewById(R.id.home_replay);
+        replayButton.setVisibility(Home.replays() == null ? View.GONE : View.VISIBLE);
+        replayButton.setOnClickListener(b -> pickReplayDay());
+        v.findViewById(R.id.home_replay_exit).setOnClickListener(b -> exitReplay());
         fromName = v.findViewById(R.id.home_from_name);
         toName = v.findViewById(R.id.home_to_name);
         location = new HomeLocation(requireContext());
@@ -465,6 +484,10 @@ public class HomeFragment extends Fragment {
             showSignedOut();
             return;
         }
+        if (replayAt != null) {
+            startReplay(id, keepList, byUser);
+            return;
+        }
         if (to == null) {
             findDestination(id, keepList, byUser);
             return;
@@ -472,6 +495,146 @@ public class HomeFragment extends Fragment {
         if (keepList) setRefreshing(true);
         else showLoading(fromPlace == null ? R.string.home_locating : R.string.home_loading);
         findOrigin(id, keepList, byUser);
+    }
+
+    // ── 시연용: 지난 출근길 재생 (replay=…) ──
+
+    /** 날짜 고르기 (GET /api/v1/replay/days, 최근 날부터) → 시각 고르기 */
+    private void pickReplayDay() {
+        ReplaySource replays = Home.replays();
+        if (replays == null) return;
+        Snackbar.make(requireView(), R.string.home_replay_loading_days, Snackbar.LENGTH_SHORT).show();
+        Home.host().getIdToken(new Callback<String>() {
+            @Override
+            public void onSuccess(String token) {
+                loadReplayDays(replays, token);
+            }
+
+            @Override
+            public void onError(String message) {
+                loadReplayDays(replays, null);
+            }
+        });
+    }
+
+    private void loadReplayDays(ReplaySource replays, @Nullable String token) {
+        EXECUTOR.execute(() -> {
+            List<String> days = null;
+            String error = null;
+            try {
+                days = replays.replayDays(token);
+            } catch (SourceException e) {
+                error = e.getMessage();
+            } catch (RuntimeException e) {
+                error = null;
+            }
+            final List<String> d = days;
+            final String err = error;
+            main.post(() -> {
+                if (getView() == null) return;
+                if (d == null) {
+                    Snackbar.make(requireView(), err == null ? getString(R.string.home_error_default) : err,
+                            Snackbar.LENGTH_LONG).show();
+                } else if (d.isEmpty()) {
+                    Snackbar.make(requireView(), R.string.home_replay_no_days, Snackbar.LENGTH_LONG).show();
+                } else {
+                    showReplayDays(d);
+                }
+            });
+        });
+    }
+
+    private void showReplayDays(List<String> days) {
+        List<String> latestFirst = new ArrayList<>(days);
+        java.util.Collections.reverse(latestFirst);
+        String[] labels = new String[latestFirst.size()];
+        for (int i = 0; i < labels.length; i++) {
+            String chip = TripFormat.dateChip(latestFirst.get(i) + "T00:00:00+09:00");
+            labels[i] = chip == null ? latestFirst.get(i) : chip + "  " + latestFirst.get(i);
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.home_replay_pick_day)
+                .setItems(labels, (d, which) -> pickReplayTime(latestFirst.get(which)))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** 시각 고르기 — 기본 07:40 (출근 시간) */
+    private void pickReplayTime(String day) {
+        new android.app.TimePickerDialog(requireContext(), (view, hour, minute) -> {
+            replayAt = String.format(java.util.Locale.US, "%sT%02d:%02d", day, hour, minute);
+            reload();
+        }, 7, 40, true).show();
+    }
+
+    private void exitReplay() {
+        replayAt = null;
+        replayBar.setVisibility(View.GONE);
+        tripInputs.setVisibility(View.VISIBLE);
+        reload();
+    }
+
+    private void startReplay(int id, boolean keepList, boolean byUser) {
+        final ReplaySource replays = Home.replays();
+        final String at = replayAt;
+        if (replays == null || at == null) return;
+        tripInputs.setVisibility(View.GONE);
+        if (keepList) setRefreshing(true);
+        else showLoading(R.string.home_replay_loading);
+        Home.host().getIdToken(new Callback<String>() {
+            @Override
+            public void onSuccess(String token) {
+                if (!stale(id)) fetchReplay(id, replays, at, token, keepList, byUser);
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!stale(id)) fetchReplay(id, replays, at, null, keepList, byUser);
+            }
+        });
+    }
+
+    private void fetchReplay(int id, ReplaySource replays, String at, @Nullable String token, boolean keepList,
+                             boolean byUser) {
+        EXECUTOR.execute(() -> {
+            Recommendations result = null;
+            String error = null;
+            try {
+                result = replays.replay(at, token);
+            } catch (SourceException e) {
+                error = e.getMessage();
+            } catch (RuntimeException e) {
+                error = null;
+            }
+            final Recommendations r = result;
+            final String err = error;
+            main.post(() -> {
+                if (stale(id)) return;
+                if (r != null) {
+                    shownFrom = null;   // 재생은 집 → 국민대 기록 — 카드는 예전 방식으로 넘김
+                    shownTo = null;
+                    show(r);
+                } else {
+                    String message = err != null ? err : getString(R.string.home_error_default);
+                    if (keepList && loaded) failed(message, true, byUser);
+                    else showState(false, message, getString(R.string.home_replay_exit), v -> exitReplay());
+                }
+            });
+        });
+    }
+
+    /** 재생 중이면 재생 시각 · replay.message · note */
+    private void bindReplay(Recommendations r) {
+        boolean on = replayAt != null && r.replay != null;
+        replayBar.setVisibility(on ? View.VISIBLE : View.GONE);
+        tripInputs.setVisibility(replayAt != null ? View.GONE : View.VISIBLE);
+        if (!on) return;
+        String date = TripFormat.dateChip(r.replay.at != null ? r.replay.at : r.generatedAt);
+        String time = TripFormat.time(r.replay.at != null ? r.replay.at : r.generatedAt);
+        String when = (date == null ? "" : date) + (time == null ? "" : " " + time);
+        replayTitle.setText(getString(R.string.home_replay_title, when.trim()));
+        setTextOrGone(replayMessage, r.replay.message);
+        setTextOrGone(replayNote, r.replay.note);
     }
 
     /** 이 기기에 도착지가 없으면 D 의 destination · last_trip.to, 그래도 없으면 검색 안내 */
@@ -655,13 +818,14 @@ public class HomeFragment extends Fragment {
         setTextOrGone(dayLabel, TripFormat.dayChip(r.day));
         showNow();
         setTextOrGone(summary, r.recommendation == null ? null : r.recommendation.message);
+        bindReplay(r);
 
         List<Option> options = r.rankingOrEmpty();
         ranking = new ArrayList<>(options);
         first = options.isEmpty() ? null : options.get(0);
         // 새로고침해도 보던 자리는 그대로 (정렬을 바꿀 때만 맨 위로)
         adapter.submit(sort.apply(ranking), first, 0);
-        departureAlarm.setEnabled(first != null);
+        departureAlarm.setEnabled(first != null && replayAt == null);
 
         if (options.isEmpty()) {
             showState(false, getString(R.string.home_empty), null, null);   // 당기기 · 버튼으로 다시 확인 가능
@@ -698,7 +862,8 @@ public class HomeFragment extends Fragment {
         adapter.setElapsedMin(elapsedMin());
         showNow();
         showUpdated();
-        if (!refreshing && LiveTime.shouldAutoRefresh(receivedAt, lastAttemptAt, SystemClock.elapsedRealtime())) {
+        if (!refreshing && replayAt == null
+                && LiveTime.shouldAutoRefresh(receivedAt, lastAttemptAt, SystemClock.elapsedRealtime())) {
             refresh(false);
         }
         scheduleTick();
@@ -712,7 +877,7 @@ public class HomeFragment extends Fragment {
     /** '지금 HH:MM' 칩 — generated_at 에 받은 뒤 지난 분을 더함 */
     private void showNow() {
         if (current == null) return;
-        String time = LiveTime.plusMinutes(TripFormat.time(current.generatedAt), elapsedMin());
+        String time = LiveTime.plusMinutes(TripFormat.time(current.generatedAt), replayAt == null ? elapsedMin() : 0);
         setTextOrGone(nowChip, time == null ? null : getString(R.string.home_chip_now, time));
     }
 
@@ -737,6 +902,9 @@ public class HomeFragment extends Fragment {
             text = ago <= 0 ? getString(R.string.home_updated_now, base)
                     : getString(R.string.home_updated_ago, base, ago);
         }
+        if (replayAt != null && !refreshing) text = null;   // 재생 중에는 갱신 시각이 의미 없음
+        // route_source=saved_nearby: ODsay 대신 근처 저장 경로로 계산
+        if (text != null && current.isSavedNearbyRoute()) text += " · " + getString(R.string.home_saved_nearby);
         updated.setTextColor(ContextCompat.getColor(requireContext(), color));
         setTextOrGone(updated, text);
     }

@@ -104,6 +104,11 @@ public class Option {
     @SerializedName("summary")
     public String summary;
 
+    /** 지난 출근길 재생일 때만 — 그날 실제로 어떻게 됐는지 (실시간이면 null) */
+    @Nullable
+    @SerializedName("actual")
+    public Actual actual;
+
     /** 지하철로 시작하는지 ({@code first_mode}, 없으면 {@code kind} 로 판단) */
     public boolean isSubway() {
         return MODE_SUBWAY.equals(firstMode) || (firstMode == null && KIND_SUBWAY.equals(kind));
