@@ -45,7 +45,13 @@ FEEDBACK_FILE = os.path.join("feedback", "feedback.jsonl")
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "").strip()
 AUTH_EMULATOR = os.environ.get("FIREBASE_AUTH_EMULATOR_HOST", "").strip()   # Firebase 로컬 에뮬레이터 토큰 허용
 
-app = FastAPI(title="좌석예보 예측 서버", version="1.0")
+@contextlib.asynccontextmanager
+async def lifespan(_app):
+    start_background()   # 서버가 켜질 때: 미리 계산 · 뒤에서 다시 계산 (아래에 정의)
+    yield
+
+
+app = FastAPI(title="좌석예보 예측 서버", version="1.0", lifespan=lifespan)
 _lock = threading.Lock()      # 계산 모듈이 전역값(평소 정류장 · 노선)을 쓰므로 한 번에 하나씩 계산
 _cache = {}
 _feedback_lock = threading.Lock()
@@ -259,8 +265,7 @@ def warm_up():
         log.exception("미리 계산 실패 (요청 때 다시 시도)")
 
 
-@app.on_event("startup")
-def _startup():
+def start_background():
     if os.environ.get("SKIP_WARMUP") != "1":
         threading.Thread(target=warm_up, daemon=True).start()
     threading.Thread(target=_refresh_loop, daemon=True).start()
@@ -374,3 +379,11 @@ def feedback(body: Feedback, uid=Depends(current_user)):
 
 if not FIREBASE_PROJECT_ID:
     log.warning("FIREBASE_PROJECT_ID 가 없어 로그인 토큰을 확인하지 않습니다 (개발용).")
+
+
+if __name__ == "__main__":
+    # python server.py 로 실행해도 서버가 켜지도록 (uvicorn server:app --host 0.0.0.0 --port 8000 과 같음)
+    import uvicorn
+    port = int(os.environ.get("PORT", "8000"))
+    print(f"좌석예보 예측 서버 시작 — http://localhost:{port}/health (끄려면 Ctrl+C)")
+    uvicorn.run(app, host="0.0.0.0", port=port)
