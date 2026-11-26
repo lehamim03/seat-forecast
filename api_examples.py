@@ -90,5 +90,35 @@ def main():
     })
 
 
+def trip_examples():
+    """출발지 · 도착지 모드 예시 (docs/examples/trip_*.json) — 분당 서현역 → 국민대, 평일 07:40.
+    ODsay · 도착정보는 tests/fixtures 의 가짜 응답(시험과 같은 것)이라 숫자는 예시일 뿐입니다."""
+    from unittest import mock
+    import anywhere
+    import incidents
+    import server
+    import trip
+    sys_path = os.path.join("tests", "fixtures", "odsay_trip.json")
+    with open(sys_path, encoding="utf-8") as f:
+        paths = json.load(f)["result"]["path"]
+    arrivals = {"206000299": [
+        {"routeName": "M4102", "routeId": "234001159", "routeTypeCd": 14, "staOrder": 6,
+         "predictTime1": 6, "locationNo1": 2, "remainSeatCnt1": 1, "predictTime2": 16, "locationNo2": 6, "remainSeatCnt2": 30},
+        {"routeName": "8100", "routeId": "234000878", "routeTypeCd": 11, "staOrder": 7,
+         "predictTime1": 9, "locationNo1": 3, "remainSeatCnt1": 22}]}
+    with mock.patch.object(trip, "odsay_paths", lambda *a: paths), \
+            mock.patch.object(anywhere, "get", lambda path, **p: arrivals.get(p.get("stationId"), [])), \
+            mock.patch.object(incidents, "fetch_events", lambda: []):
+        r = trip.result(37.3850, 127.1233, 37.6110, 126.9952, "현재 위치", "국민대학교", RUSH)
+    keep = ("generated_at", "origin", "destination", "my_route", "home_stop", "day", "recommendation")
+    save("trip_recommendations.json", {**{k: r[k] for k in keep}, "ranking": r["ranking"]})
+    save("trip_alternatives.json", {**{k: r[k] for k in keep}, "alternatives": r["alternatives"], "subway": r["subway"]})
+    save("trip_map.geojson", server.trip_geojson(r))
+    save("trip_places.json", {"query": "국민대", "places": [
+        {"name": "국민대학교", "address": "서울 성북구 정릉동", "lat": 37.610977, "lng": 126.995185},
+        {"name": "국민대학교 정문", "address": "서울 성북구 정릉동", "lat": 37.611088, "lng": 126.994713}]})
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    trip_examples() if "--trip" in sys.argv else main()

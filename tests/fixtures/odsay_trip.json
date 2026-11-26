@@ -1,0 +1,54 @@
+{
+  "result": {
+    "path": [
+      {
+        "pathType": 3,
+        "info": {"totalTime": 72, "totalWalk": 420, "busTransitCount": 1, "subwayTransitCount": 1, "mapObj": "1:1:1:1@2:2:2:2"},
+        "subPath": [
+          {"trafficType": 3, "distance": 250, "sectionTime": 4},
+          {"trafficType": 2, "distance": 30000, "sectionTime": 48, "stationCount": 8, "intervalTime": 12,
+           "lane": [{"busNo": "M4102", "type": 14, "busID": 1, "busLocalBlID": "234001159"},
+                    {"busNo": "8100", "type": 11, "busID": 2, "busLocalBlID": "234000878"}],
+           "startName": "서현역.AK프라자", "startX": 127.1236, "startY": 37.3849, "startLocalStationID": "206000299", "startArsID": "07-302",
+           "endName": "숭례문", "endX": 126.9757, "endY": 37.5609,
+           "passStopList": {"stations": [{"x": "127.1236", "y": "37.3849"}, {"x": "127.0500", "y": "37.4700"}, {"x": "126.9757", "y": "37.5609"}]}},
+          {"trafficType": 3, "distance": 120, "sectionTime": 2},
+          {"trafficType": 1, "distance": 9000, "sectionTime": 16, "stationCount": 7, "intervalTime": 5,
+           "lane": [{"name": "수도권 4호선", "subwayCode": 4}],
+           "startName": "서울역", "startX": 126.9723, "startY": 37.5547, "startID": 426,
+           "endName": "성신여대입구", "endX": 127.0166, "endY": 37.5926,
+           "passStopList": {"stations": [{"x": "126.9723", "y": "37.5547"}, {"x": "127.0166", "y": "37.5926"}]}},
+          {"trafficType": 3, "distance": 50, "sectionTime": 2}
+        ]
+      },
+      {
+        "pathType": 1,
+        "info": {"totalTime": 85, "totalWalk": 300, "busTransitCount": 0, "subwayTransitCount": 2, "mapObj": "3:3:3:3"},
+        "subPath": [
+          {"trafficType": 3, "distance": 200, "sectionTime": 3},
+          {"trafficType": 1, "distance": 25000, "sectionTime": 45, "stationCount": 15, "intervalTime": 6,
+           "lane": [{"name": "수도권 수인분당선", "subwayCode": 116}],
+           "startName": "서현", "startX": 127.1233, "startY": 37.3850, "startID": 1855,
+           "endName": "선릉", "endX": 127.0490, "endY": 37.5045},
+          {"trafficType": 1, "distance": 15000, "sectionTime": 35, "stationCount": 12, "intervalTime": 4,
+           "lane": [{"name": "수도권 2호선", "subwayCode": 2}],
+           "startName": "선릉", "startX": 127.0490, "startY": 37.5045, "startID": 220,
+           "endName": "신설동", "endX": 127.0250, "endY": 37.5752},
+          {"trafficType": 3, "distance": 100, "sectionTime": 2}
+        ]
+      },
+      {
+        "pathType": 2,
+        "info": {"totalTime": 95, "totalWalk": 500, "busTransitCount": 1, "subwayTransitCount": 0, "mapObj": "4:4"},
+        "subPath": [
+          {"trafficType": 3, "distance": 400, "sectionTime": 6},
+          {"trafficType": 2, "distance": 35000, "sectionTime": 85, "stationCount": 30, "intervalTime": 20,
+           "lane": [{"busNo": "N4102(예약)", "type": 14, "busID": 9, "busLocalBlID": "999"}],
+           "startName": "서현역", "startX": 127.1240, "startY": 37.3852, "startLocalStationID": "206000300",
+           "endName": "국민대", "endX": 126.9952, "endY": 37.6110},
+          {"trafficType": 3, "distance": 100, "sectionTime": 4}
+        ]
+      }
+    ]
+  }
+}

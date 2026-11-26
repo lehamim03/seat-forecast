@@ -138,6 +138,27 @@ class ServerTest(unittest.TestCase):
                 r = self.client.get("/api/v1/recommendations", headers={"Authorization": "Bearer ok"})
                 self.assertEqual(200, r.status_code)
 
+    def test_replay_past_morning(self):
+        # data/ 에 있는 지난 평일 아침을 재생 — 추천 + 실제 결과(actual)
+        code, body = self.get("/api/v1/recommendations?replay=2026-11-12T07:40")
+        self.assertEqual(200, code, body)
+        self.assertTrue(body["generated_at"].startswith("2026-11-12T07:40"))
+        self.assertEqual("2026-11-12", body["replay"]["date"])
+        a = body["ranking"][0]["actual"]
+        self.assertEqual({"boarded_at", "full_skipped", "arrive_at", "total_min"}, set(a))
+        self.assertTrue(body["replay"]["message"])
+        code, days = self.get("/api/v1/replay/days")
+        self.assertIn("2026-11-12", days["days"])
+
+    def test_replay_errors(self):
+        code, body = self.get("/api/v1/recommendations?replay=2020-01-01T07:40")
+        self.assertEqual((400, "replay_no_data"), (code, body["error"]["code"]))
+        code, body = self.get("/api/v1/recommendations?replay=어제")
+        self.assertEqual((400, "bad_request"), (code, body["error"]["code"]))
+        code, body = self.get("/api/v1/recommendations?replay=2026-11-12T07:40&from_lat=37.3&from_lng=127.1"
+                              "&to_lat=37.6&to_lng=126.9")
+        self.assertEqual((400, "bad_request"), (code, body["error"]["code"]))
+
     def test_health(self):
         code, body = self.get("/health")
         self.assertEqual(200, code)

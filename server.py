@@ -257,9 +257,12 @@ _refresh_loop = _memo_transit()
 def warm_up():
     """서버를 켜자마자 한 번 계산해 둠 — 첫 요청이 오래 걸리지 않도록 (수집 데이터 읽기 · 경로 조회)"""
     try:
+        import trip
+        trip.bundle()            # 출발지 · 도착지 모드 공통 모델 미리 읽기 (첫 요청이 몇 초 더 걸리지 않도록)
         live_result(config.MY_STOP, config.MY_ROUTE)
-        route_choices(uid=None)
-        map_api(home_stop=config.MY_STOP, uid=None)
+        home = Trip(None, None, "현재 위치", None, None, "도착지")   # 출발지 · 도착지 없이 = 예전 집 → 국민대
+        route_choices(t=home, uid=None)
+        map_api(home_stop=config.MY_STOP, t=home, uid=None)
         log.warning("미리 계산 완료 — 요청을 받을 준비가 됐습니다.")
     except Exception:
         log.exception("미리 계산 실패 (요청 때 다시 시도)")
@@ -279,18 +282,128 @@ def health():
             "model": os.path.exists("board_model.pkl"), "auth": bool(FIREBASE_PROJECT_ID)}
 
 
+# ---------- 출발지 · 도착지 모드 (trip.py) — from_* · to_* 를 주면 이 모드, 없으면 예전 집 → 국민대 모드 ----------
+class Trip:
+    """요청 값 from_lat · from_lng · from_name · to_lat · to_lng · to_name"""
+    def __init__(self, from_lat: float | None = Query(None, ge=33, le=39), from_lng: float | None = Query(None, ge=124, le=132),
+                 from_name: str = Query("현재 위치"), to_lat: float | None = Query(None, ge=33, le=39),
+                 to_lng: float | None = Query(None, ge=124, le=132), to_name: str = Query("도착지")):
+        self.coords = (from_lat, from_lng, to_lat, to_lng)
+        self.from_name, self.to_name = from_name, to_name
+
+    @property
+    def on(self):
+        if all(v is None for v in self.coords):
+            return False
+        if any(v is None for v in self.coords):
+            raise ApiError(400, "bad_request", "출발지와 도착지 좌표(from_lat · from_lng · to_lat · to_lng)가 모두 필요합니다")
+        return True
+
+
+TRIP_CACHE_SEC = 30
+
+
+def trip_result(t: Trip):
+    import trip
+    fl, fg, tl, tg = t.coords
+    key = ("trip", round(fl, 4), round(fg, 4), round(tl, 4), round(tg, 4), t.from_name, t.to_name)
+
+    def compute():
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                return trip.result(fl, fg, tl, tg, t.from_name, t.to_name, now_kst())
+        except trip.RouteUnavailable as e:
+            if "quota" in str(e).lower() or "한도" in str(e):
+                raise ApiError(503, "route_unavailable", "오늘 경로 조회 한도를 다 썼습니다. 저장된 출발지 근처(1.5km 안)만 "
+                                                         "계산할 수 있어요. 내일 다시 시도해 주세요.")
+            raise ApiError(503, "route_unavailable", f"경로를 찾지 못했습니다. 잠시 후 다시 시도해 주세요. ({e})")
+    return kept_fresh(key, TRIP_CACHE_SEC, compute)
+
+
+TRIP_KEEP = KEEP + ("origin", "destination", "route_source")
+
+
+def push_trip(r):
+    """1순위 경로에 돌발이 있으면 FCM 알림 내용"""
+    rec = r["recommendation"]
+    hit = [i for i in r["incidents"] if rec and i["route"] == rec["route"]] or r["incidents"]
+    if not hit or not rec:
+        return None
+    return {"title": f"{r['destination']['name']} 가는 길 돌발 · {rec['route']} 추천",
+            "body": f"{hit[0]['notes'][0]} (+{hit[0]['delay_min']}분) — {rec['message'].split(' — ', 1)[-1]}",
+            "data": {"screen": "alternatives", "route": rec["route"],
+                     "from_lat": str(r["origin"]["lat"]), "from_lng": str(r["origin"]["lng"]), "from_name": r["origin"]["name"],
+                     "to_lat": str(r["destination"]["lat"]), "to_lng": str(r["destination"]["lng"]),
+                     "to_name": r["destination"]["name"]}}
+
+
+def public_incidents(r):
+    return [{k: v for k, v in i.items() if not k.startswith("_")} for i in r["incidents"]]
+
+
+@app.get("/api/v1/places")
+def places_api(q: str = Query(..., min_length=1, max_length=50), uid=Depends(current_user)):
+    import trip
+    try:
+        found = cached(("places", q.strip()), 3600, lambda: trip.places(q.strip()))
+    except Exception:
+        raise ApiError(503, "place_unavailable", "장소 검색이 잠시 안 됩니다. 잠시 후 다시 시도해 주세요.")
+    return {"query": q, "places": found}
+
+
+# ---------- 지난 출근길 재생 (replay.py) — replay=2026-11-12T07:40 을 주면 그날 기록으로 계산 + 실제 결과 ----------
+def home_result(home_stop, route, replay_at):
+    """예전 집 → 국민대 모드: 지금(실시간) 또는 replay 시각(수집 기록)"""
+    if not replay_at:
+        return live_result(home_stop, route)
+    import replay
+    check_stop_route(home_stop, route)
+    try:
+        when = replay.parse(replay_at)
+    except replay.NoData as e:
+        raise ApiError(400, "bad_request", str(e))
+
+    def compute():
+        try:
+            with _lock, as_user(home_stop, route), contextlib.redirect_stdout(io.StringIO()):
+                return replay.run(when, home_stop, route, lambda: L.main(route))
+        except replay.NoData as e:
+            raise ApiError(400, "replay_no_data", str(e))
+    return cached(("replay", home_stop, route, when.isoformat()), 3600, compute)
+
+
+def no_replay_with_trip(t, replay_at):
+    if replay_at and t.on:
+        raise ApiError(400, "bad_request", "재생(replay)은 집 → 국민대 경로 기록으로만 할 수 있습니다 (from_* · to_* 와 함께 쓸 수 없음)")
+
+
+@app.get("/api/v1/replay/days")
+def replay_days(uid=Depends(current_user)):
+    import replay
+    return {"days": replay.days()}
+
+
 @app.get("/api/v1/recommendations")
 def recommendations(home_stop: str = Query(config.MY_STOP), route: str = Query(config.MY_ROUTE),
-                    uid=Depends(current_user)):
-    r = live_result(home_stop, route)
-    return {**{k: r[k] for k in KEEP}, "ranking": r["ranking"]}
+                    replay: str | None = Query(None), t: Trip = Depends(), uid=Depends(current_user)):
+    no_replay_with_trip(t, replay)
+    if t.on:
+        r = trip_result(t)
+        return {**{k: r[k] for k in TRIP_KEEP}, "ranking": r["ranking"]}
+    r = home_result(home_stop, route, replay)
+    return {**{k: r[k] for k in KEEP}, "ranking": r["ranking"], **({"replay": r["replay"]} if replay else {})}
 
 
 @app.get("/api/v1/alternatives")
 def alternatives(home_stop: str = Query(config.MY_STOP), route: str = Query(config.MY_ROUTE),
-                 uid=Depends(current_user)):
-    r = live_result(home_stop, route)
-    return {**{k: r[k] for k in KEEP}, "alternatives": r["alternatives"], "subway": r.get("subway")}
+                 replay: str | None = Query(None), t: Trip = Depends(), uid=Depends(current_user)):
+    no_replay_with_trip(t, replay)
+    if t.on:
+        r = trip_result(t)
+        return {**{k: r[k] for k in TRIP_KEEP}, "alternatives": r["alternatives"], "subway": r["subway"]}
+    r = home_result(home_stop, route, replay)
+    return {**{k: r[k] for k in KEEP}, "alternatives": r["alternatives"], "subway": r.get("subway"),
+            **({"replay": r["replay"]} if replay else {})}
 
 
 def push_for(r):
@@ -307,14 +420,39 @@ def push_for(r):
 
 @app.get("/api/v1/incidents")
 def incidents_api(home_stop: str = Query(config.MY_STOP), route: str = Query(config.MY_ROUTE),
-                  uid=Depends(current_user)):
+                  replay: str | None = Query(None), t: Trip = Depends(), uid=Depends(current_user)):
+    no_replay_with_trip(t, replay)
+    if replay:
+        r = home_result(home_stop, route, replay)
+        return {"generated_at": r["generated_at"], "incidents": r["incidents"], "recommendation": r["recommendation"],
+                "alternatives": r["alternatives"], "push": push_for(r), "replay": r["replay"]}
+    if t.on:
+        r = trip_result(t)
+        return {"generated_at": r["generated_at"], "origin": r["origin"], "destination": r["destination"],
+                "incidents": public_incidents(r), "recommendation": r["recommendation"],
+                "alternatives": r["alternatives"], "push": push_trip(r)}
     r = live_result(home_stop, route)
     return {"generated_at": r["generated_at"], "incidents": r["incidents"], "recommendation": r["recommendation"],
             "alternatives": r["alternatives"], "push": push_for(r)}
 
 
 @app.get("/api/v1/route-choices")
-def route_choices(uid=Depends(current_user)):
+def route_choices(t: Trip = Depends(), uid=Depends(current_user)):
+    if t.on:
+        r = trip_result(t)
+        walk = {o["summary"]: o["walk_min"] for o in r["ranking"]}
+        groups = {}
+        for s in r["_shapes"]:
+            groups.setdefault(s["route"], []).append(s)
+        return {"generated_at": r["generated_at"], "origin": r["origin"], "destination": r["destination"],
+                "routes": [{"route": route, "alight_stop": next((o["alight_stop"] for o in r["ranking"]
+                                                                 if o["route"] == route), None),
+                            "minutes_from_seoul_first_stop": ss[0]["minutes"],
+                            "choices": [{"minutes": s["minutes"], "transfers": s["transfers"], "walk": walk.get(s["summary"], 0),
+                                         "seq": 0, "from": r["origin"]["name"], "transfer": s["summary"], "tags": s["tags"]}
+                                        for s in ss]}
+                           for route, ss in groups.items()]}
+
     def compute():
         import transit
         now = now_kst()
@@ -333,13 +471,39 @@ def transit_peak_key():
 
 
 def _round(obj, nd=5):
-    if isinstance(obj, list):
+    if isinstance(obj, (list, tuple)):
         return [_round(x, nd) for x in obj]
     return round(obj, nd) if isinstance(obj, float) else obj
 
 
+def trip_geojson(r):
+    """출발지 · 도착지 모드 지도 — docs/api.md ④ 의 kind 를 그대로 쓰고 destination 만 더함"""
+    def feat(kind, gt, coords, **p):
+        return {"type": "Feature", "geometry": {"type": gt, "coordinates": _round(coords)}, "properties": {"kind": kind, **p}}
+    o, d = r["origin"], r["destination"]
+    fs = [feat("me", "Point", [o["lng"], o["lat"]], name=o["name"]),
+          feat("destination", "Point", [d["lng"], d["lat"]], name=d["name"])]
+    seen = set()
+    for s in r["_stops"]:
+        if s["name"] in seen or not s.get("lng"):
+            continue
+        seen.add(s["name"])
+        fs.append(feat("stop", "Point", [s["lng"], s["lat"]], name=s["name"], mobile_no=s.get("mobile_no", ""), stop_id=s["id"]))
+    for s in r["_shapes"]:
+        if len(s["shape"]) >= 2:
+            fs.append(feat("transfer", "LineString", [list(p) for p in s["shape"]], route=s["route"], main=s["main"],
+                           tags=" · ".join(s["tags"]), minutes=s["minutes"], transfers=s["transfers"], summary=s["summary"]))
+    for i in r["incidents"]:
+        p = i.get("_point")
+        if p:
+            fs.append(feat("incident", "Point", [p["x"], p["y"]], type=p["type"], road=p["road"], message=p["message"]))
+    return {"type": "FeatureCollection", "features": fs}
+
+
 @app.get("/api/v1/map")
-def map_api(home_stop: str = Query(config.MY_STOP), uid=Depends(current_user)):
+def map_api(home_stop: str = Query(config.MY_STOP), t: Trip = Depends(), uid=Depends(current_user)):
+    if t.on:
+        return trip_geojson(trip_result(t))
     check_stop_route(home_stop, config.MY_ROUTE)
 
     def compute():
@@ -354,20 +518,16 @@ def map_api(home_stop: str = Query(config.MY_STOP), uid=Depends(current_user)):
 
 class Feedback(BaseModel):
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
-    route: str
-    stop_id: str
+    route: str = Field(min_length=1, max_length=30)     # 출발지 · 도착지 모드에서는 어떤 노선 · 정류장이든 받음
+    stop_id: str = Field(min_length=1, max_length=30)
     boarded: bool
     predicted_prob: float | None = Field(default=None, ge=0.0, le=1.0)
-    memo: str = ""
+    memo: str = Field(default="", max_length=500)
     uid: str | None = None
 
 
 @app.post("/api/v1/feedback", status_code=201)
 def feedback(body: Feedback, uid=Depends(current_user)):
-    if body.route not in config.ROUTES:
-        raise ApiError(400, "unknown_route", f"지원하지 않는 노선입니다: {body.route}")
-    if body.stop_id not in config.STOPS:
-        raise ApiError(400, "unknown_stop", f"지원하지 않는 정류장입니다: {body.stop_id}")
     fid = uuid.uuid4().hex
     row = {"id": fid, "received_at": datetime.now(KST).isoformat(timespec="seconds"),
            **body.model_dump(), "uid": uid or body.uid}   # 로그인했으면 토큰의 uid 를 씀

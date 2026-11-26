@@ -69,7 +69,7 @@ for (date, route, plate, trip), t in df.groupby(["date", "route_name", "plate_no
         ahead = before[(before["station_seq"] < seq) & (before["station_seq"] >= seq - LIVE_MAX_STOPS)]
         for _, o in ahead.groupby("station_seq").tail(1).iterrows():
             live_rows.append({
-                "date": date, "route_name": route, "stop_id": stop_id, "seen_at": o["collected_at"],
+                "date": date, "route_name": route, "stop_id": stop_id, "stop_seq": seq, "seen_at": o["collected_at"],
                 "n_stops": seq - o["station_seq"], "seats_now": o["remain_seat"],
                 "success": int(first_after["remain_seat"] >= SEAT_MARGIN),
             })
@@ -223,6 +223,15 @@ report("기존 공식", live_test["success"][live_peak], formula[live_peak])
 print(" 예측 확률 구간별 실제 탑승 비율 (실시간 모델)")
 calibration(live_test["success"], live_prob)
 
+# ---------- 7-2. 공통 모델 (anywhere.py — 학습 데이터가 없는 다른 지역 · 노선용) ----------
+# 노선 · 정류장 번호 없이, 정류장 도착정보 API 에서 바로 얻는 값만 쓴다. 처음 보는 노선 · 정류장 검증은 generalize.py
+GENERIC_FEATURES = ["n_stops", "seats_now", "time_min", "day_type", "stop_seq"]
+generic_model = RandomForestClassifier(n_estimators=300, min_samples_leaf=5, random_state=42)
+generic_model.fit(live_train[GENERIC_FEATURES], live_train["success"])
+generic_prob = generic_model.predict_proba(live_test[GENERIC_FEATURES])[:, 1]
+print(" 평일 출퇴근 시간대 — 공통 모델 (노선 번호 없음, 다른 지역용)")
+report("공통 모델", live_test["success"][live_peak], generic_prob[live_peak])
+
 # '만석 위험' 경고 기준 — 시험 기간 결과로 고름 (실패 사례가 적어 데이터가 쌓이면 바뀔 수 있음)
 risk_threshold = pick_threshold(live_test["success"], live_prob)
 fail = 1 - live_test["success"].to_numpy()
@@ -239,7 +248,10 @@ ride_hour = (weekday_rides.groupby(["route_name", "stop_id", weekday_rides["depa
              .median().to_dict())
 model.fit(data[FEATURES], data["success"])
 live_model.fit(live[LIVE_FEATURES], live["success"])
+generic_model.fit(live[GENERIC_FEATURES], live["success"])
 bundle = {
+    # 다른 지역 · 노선용 공통 모델 (anywhere.py)
+    "generic_model": generic_model, "generic_features": GENERIC_FEATURES,
     "model": model, "features": FEATURES, "route_map": route_map, "stop_map": stop_map,
     # 추천 계산에 쓰는 실측값: 노선별 배차간격, (노선, 정류장)별 서울까지 이동시간
     "headway": data.groupby("route_name")["headway_min"].median().to_dict(),

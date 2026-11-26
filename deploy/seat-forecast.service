@@ -1,0 +1,22 @@
+# 좌석예보 예측 서버 — 리눅스 서버(우분투)에서 부팅 때 자동 실행 · 꺼지면 다시 켜기
+# 설치:  sudo cp deploy/seat-forecast.service /etc/systemd/system/
+#        sudo systemctl daemon-reload && sudo systemctl enable --now seat-forecast
+# 로그:  journalctl -u seat-forecast -f
+[Unit]
+Description=seat-forecast prediction server (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/seat-forecast
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONUTF8=1
+# 로그인 토큰 확인을 켜려면 Firebase 프로젝트 ID 를 넣고 맨 앞 # 을 지움
+# Environment=FIREBASE_PROJECT_ID=your-firebase-project-id
+ExecStart=/home/ubuntu/seat-forecast/.venv/bin/python server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,62 @@
+# 가상 분산 시험 — 경기도 다른 지역 서울행 버스 10개 노선을 평일 출근 시간(06:00~09:40)에 1분마다 기록해
+# data_test/ 에 저장합니다 (collect_test.py). 우리 경로 수집(collect.yml)과 따로 돌고, 같은 SERVICE_KEY 를 씁니다.
+#  - 예약 실행은 늦게 시작될 때가 있어 05:30 에 대기열에 올리고, 06:00 까지 기다렸다 시작
+#  - 수동 실행: Actions 탭 → collect-test-routes → Run workflow ('once' 체크 = 한 번만 조회해 연결 확인)
+name: collect-test-routes
+
+on:
+  schedule:
+    - cron: "30 20 * * 0-4"   # UTC 일~목 20:30 = 한국 시간 월~금 05:30
+  workflow_dispatch:
+    inputs:
+      once:
+        description: "한 번만 조회해 보고 끝내기 (연결 확인용, 저장 안 함)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-test
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: 라이브러리 설치
+        run: pip install requests
+
+      - name: 인증키 파일 만들기 (Secrets 에서)
+        env:
+          SERVICE_KEY: ${{ secrets.SERVICE_KEY }}
+        run: |
+          if [ -z "$SERVICE_KEY" ]; then echo "SERVICE_KEY 시크릿이 없습니다"; exit 1; fi
+          echo "SERVICE_KEY = \"$SERVICE_KEY\"" > api_key.py
+
+      - name: 연결 확인 (한 번만 조회)
+        if: ${{ inputs.once }}
+        run: python collect_test.py --once
+
+      - name: 수집 (평일 06:00~09:40)
+        if: ${{ !inputs.once }}
+        timeout-minutes: 280
+        run: python -u collect_test.py --wait
+
+      - name: 데이터 저장 (data_test/)
+        if: ${{ always() && !inputs.once }}
+        run: |
+          if [ ! -d data_test ]; then echo "수집된 데이터 없음"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data_test
+          git commit -m "data_test: $(TZ=Asia/Seoul date '+%m/%d') 시험 노선 출근 시간 수집" || exit 0
+          for i in 1 2 3 4 5; do git pull --rebase && git push && break; sleep 10; done

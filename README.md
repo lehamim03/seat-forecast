@@ -244,7 +244,14 @@ GitHub Actions 가 **첫차 전 05:00부터 막차가 서울에 닿는 다음 �
 | `transit.py` | ODsay 환승 경로 · TMAP 도보 시간 조회 (하루 한 번 조회해 저장) |
 | `check_keys.py` | 지금 공인 IP 확인 + API 키 작동 점검 |
 | `map_data.py` | 앱 지도 화면용 GeoJSON (내 위치 · 도보 경로 · 노선 · 실시간 버스 · 돌발 · 환승 경로) + 미리보기 HTML |
-| `server.py` | 예측 서버 (FastAPI) — 앱이 부르는 `/api/v1/...` 6개, 형식은 docs/api.md |
+| `server.py` | 예측 서버 (FastAPI) — 앱이 부르는 `/api/v1/...`, 형식은 docs/api.md |
+| `trip.py` | 출발지 · 도착지 모드 — 아무 출발지(GPS) → 아무 도착지, ODsay 경로 + 실시간 좌석 + 공통 모델 |
+| `anywhere.py` | 위경도 주변 정류장 · 다가오는 서울행 좌석버스 (경기도 정류소 현황) |
+| `generalize.py` | 처음 보는 노선 · 정류장 일반화 시험 |
+| `replay.py` | 지난 출근길 재생 — 그날 그 시각의 추천 + 실제 결과 (`?replay=2026-11-12T07:40`) |
+| `docs/deploy.md` · `deploy/` | 서버 배포 (고정 IP 클라우드 VM · Cloudflare Tunnel) |
+| `field_test.py` | 현장 · 가상 분산 시험 채점 (data_test/ 기록 · 앱 탑승 버튼) — 안내: docs/field_test.md |
+| `collect_test.py` | 다른 지역 시험 노선 10개 출근 시간 수집 (`data_test/`, 워크플로 collect_test.yml) |
 | `run_server.bat` | Windows 에서 예측 서버 실행 (`0.0.0.0:8000`) |
 | `tests/test_server.py` | 예측 서버 응답 형식 · 오류 · 로그인 · 피드백 시험 |
 | `survey_form.gs` | 이용자 설문 구글폼 자동 생성 스크립트 (Google Apps Script) |
