@@ -120,8 +120,9 @@ def main(my_route=None):
         drop = base_drop * inc[route].get("drop_factor", 1.0)
         for stop_id, stop_seq in cfg["stops"].items():
             walk = walks[stop_id]   # 평소 정류장에서 걸어가는 시간
-            coming = sorted((stop_seq - int(x["stationSeq"]), x) for x in buses[route]
-                            if int(x.get("stationSeq", 999)) < stop_seq)[:LOOKAHEAD]
+            # 같은 정류장에 버스가 두 대 있으면 dict 끼리 비교하게 되므로 정류장 수로만 정렬
+            coming = sorted(((stop_seq - int(x["stationSeq"]), x) for x in buses[route]
+                             if int(x.get("stationSeq", 999)) < stop_seq), key=lambda c: c[0])[:LOOKAHEAD]
             cands = []
             for n_stops, x in coming:
                 eta = eta_exact.get((stop_id, x.get("plateNo")), n_stops * per_stop)
