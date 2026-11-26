@@ -37,6 +37,69 @@
 
 ---
 
+## 출발지 · 도착지 모드 (지도 앱처럼 — 12월부터 앱 기본)
+
+집 → 국민대 한 경로가 아니라, **출발지(기본: 현재 GPS)와 도착지를 정해** 계산합니다. 서버: `trip.py`.
+②③④⑤⑥ 의 GET 에 아래 요청 값을 붙이면 이 모드로 답합니다 (붙이지 않으면 예전 `home_stop` · `route` 방식).
+
+| 요청 값 | 예 | 설명 |
+|---|---|---|
+| `from_lat`, `from_lng` | `37.3850`, `127.1233` | 출발지 좌표 — 현재 GPS 또는 검색한 곳 (필수) |
+| `from_name` | `현재 위치` | 화면 표시용 (기본 "현재 위치") |
+| `to_lat`, `to_lng` | `37.6110`, `126.9952` | 도착지 좌표 (필수) |
+| `to_name` | `국민대학교` | 화면 표시용 (기본 "도착지") |
+
+계산: ODsay 로 출발지 → 도착지 경로 후보를 받고, 첫 탈것이 버스면 그 정류장의 실시간 도착정보(남은 정류장 · 지금 좌석)로 탑승 확률과 기대 탑승 시각을 구해 도착 예상 순으로 정렬합니다. 학습 데이터가 없는 노선이라 **노선 번호 없이 학습한 공통 모델**을 씁니다 (처음 보는 노선 · 정류장 검증: `generalize.py`).
+
+응답은 ②③④⑤⑥ 의 기존 형식을 그대로 쓰고 아래만 더합니다. 예시: [trip_recommendations.json](examples/trip_recommendations.json) · [trip_alternatives.json](examples/trip_alternatives.json) · [trip_map.geojson](examples/trip_map.geojson) (가짜 ODsay 응답으로 만든 예시)
+
+| 필드 | 설명 |
+|---|---|
+| `origin`, `destination` | `{name, lat, lng}` — 요청한 출발지 · 도착지 |
+| `my_route` | 항상 `null` |
+| `route_source` | `odsay` = 이 출발지로 조회한 경로 · `saved_nearby` = ODsay 를 못 써서(하루 한도 · IP) 1.5km 안에 저장된 출발지의 경로를 쓰고 도보만 다시 계산 (화면에 "근처 저장 경로 기준" 정도로 표시) |
+| `home_stop` | 1순위 선택지의 탈 정류장 `{id, name}` |
+| option `stop` | `{id, name, mobile_no, lat, lng}` — 지하철이면 역 |
+| option `walk_min` | 출발지에서 탈 곳까지 걷는 분 |
+| option `first_mode` | 처음 타는 것 `bus` · `subway` |
+| option `seat_limited` | `true` = 직행좌석 · 좌석 · 광역급행이라 만석이면 못 탐 (탑승 확률이 의미 있는 경우). `false` = 서서 탈 수 있음 · 지하철 → `board_prob` 1.0, 화면엔 "입석 가능" |
+| option `seat_known` | `seat_limited` 인데 좌석 수를 알면 `true`. `false` 면 (서울 등록 노선 등) 평소 탑승률(출퇴근 93% · 그 외 98%)로 계산한 값이라 화면엔 확률 대신 "좌석 정보 없음" |
+| option `kind` | `기다리기`(가장 가까운 탈 곳) · `걸어가기`(그 노선을 더 먼 정류장에서) · `다른 버스` · **`지하철`** |
+| option `transfers`, `summary` | 갈아타는 횟수 · 출발지 → 도착지 전체 경로 한 줄 |
+| option `route_choices` | 그 경로 하나 (`tags`: 추천 · 최단시간 · 최소환승) |
+| ③ `subway` | 지하철로 시작하는 가장 빠른 경로 (없으면 `null`) |
+| ④ 지도 | `me` = 출발지, **`destination`** 점 추가, `transfer` 선 = 상위 경로 4개 (지나는 정류장 좌표), `incident` = 경로 근처 공식 돌발 |
+| ⑥ `push.data` | `from_lat` · `from_lng` · `from_name` · `to_lat` · `to_lng` · `to_name` 포함 — 알림을 누르면 이 출발지 · 도착지로 대안 화면 |
+| 오류 | `400 bad_request` 좌표 일부만 줌 · `503 route_unavailable` 경로 조회 실패 (ODsay IP 미등록 · 한도) |
+
+**장소 검색** — `GET /api/v1/places?q=국민대` → `{"query", "places": [{"name", "address", "lat", "lng"}]}` (TMAP, 1시간 저장). 예시: [trip_places.json](examples/trip_places.json)
+
+**마이페이지 (Firestore `users/{uid}`)** — 이 모드에서 쓰는 필드: `favorites` `[{name, lat, lng}]`(집 · 학교 등), `destination` `{name, lat, lng}`(기본 · 최근 도착지), `last_trip` `{from: {name, lat, lng}, to: {name, lat, lng}, at}`(돌발 알림 대상). `home_stop_id` · `my_route` 는 선택.
+
+**탑승 피드백** — 이 모드에서는 어떤 `route` · `stop_id` 든 받습니다.
+
+---
+
+## 지난 출근길 재생 (발표 · 시연용)
+
+수집한 기록(data/)으로 **그날 그 시각의 추천을 다시 만들고, 실제로 어떻게 됐는지** 함께 줍니다. 서버: `replay.py`. 집 → 국민대 경로(정류장 3곳 · 노선 4개)만 됩니다.
+
+- `GET /api/v1/recommendations?replay=2026-11-12T07:40` — `alternatives` · `incidents` 도 같은 요청 값 (`from_*` · `to_*` 와 함께 쓰면 400)
+- `GET /api/v1/replay/days` → `{"days": ["2026-10-07", …]}` 재생할 수 있는 운행일
+- 응답: ② · ③ · ⑥ 형식 그대로 + 최상위 `replay` `{at, date, message, note}` + 선택지마다 `actual`
+
+| 필드 | 설명 |
+|---|---|
+| `replay.message` | 화면에 그대로: "그날 1순위(8800번 · 삼성1차아파트)대로 했다면 07:51에 타서 09:44 국민대 도착 · 평소대로면 …" |
+| option `actual.boarded_at` | 그 정류장에 갔다면 실제로 탄 버스의 출발 시각 (모두 만석이면 `null`) |
+| option `actual.full_skipped` | 만석으로 보낸 버스 수 |
+| option `actual.arrive_at`, `actual.total_min` | 실제 서울 도착 기록 기준 국민대 도착 · 걸린 분 |
+| 오류 | `400 replay_no_data` 그날 기록 없음 · 수집 공백 시각 |
+
+한계: 그때의 정확한 도착 예정(분)은 기록이 없어 정류장 수로 추정하고, 공식 돌발정보는 지난 것을 받을 수 없어 뺍니다.
+
+---
+
 ## ② 홈 — `GET /api/v1/recommendations`
 
 지금 출발하면 어느 정류장에서 어떤 버스를 타야 가장 빨리 도착하는지, 정류장 × 노선 조합의 순위입니다.

@@ -26,3 +26,5 @@ map_preview.html
 
 # 예측 서버에 들어온 탑승 피드백 (개인 기록)
 feedback/
+gg_stations.json
+trip_odsay_cache.json

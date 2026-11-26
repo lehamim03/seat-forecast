@@ -1,0 +1,164 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.1233,
+          37.385
+        ]
+      },
+      "properties": {
+        "kind": "me",
+        "name": "현재 위치"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.9952,
+          37.611
+        ]
+      },
+      "properties": {
+        "kind": "destination",
+        "name": "국민대학교"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.1233,
+          37.385
+        ]
+      },
+      "properties": {
+        "kind": "stop",
+        "name": "서현",
+        "mobile_no": "",
+        "stop_id": "1855"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.1236,
+          37.3849
+        ]
+      },
+      "properties": {
+        "kind": "stop",
+        "name": "서현역.AK프라자",
+        "mobile_no": "07302",
+        "stop_id": "206000299"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            127.1233,
+            37.385
+          ],
+          [
+            127.049,
+            37.5045
+          ]
+        ]
+      },
+      "properties": {
+        "kind": "transfer",
+        "route": "수인분당선",
+        "main": true,
+        "tags": "추천 · 최단시간 · 최소환승",
+        "minutes": 90,
+        "transfers": 1,
+        "summary": "도보 3분 → 수인분당선(서현→선릉) → 2호선(선릉→신설동)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            127.1236,
+            37.3849
+          ],
+          [
+            127.05,
+            37.47
+          ],
+          [
+            126.9757,
+            37.5609
+          ],
+          [
+            126.9723,
+            37.5547
+          ],
+          [
+            127.0166,
+            37.5926
+          ]
+        ]
+      },
+      "properties": {
+        "kind": "transfer",
+        "route": "8100",
+        "main": false,
+        "tags": "",
+        "minutes": 94,
+        "transfers": 1,
+        "summary": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            127.1236,
+            37.3849
+          ],
+          [
+            127.05,
+            37.47
+          ],
+          [
+            126.9757,
+            37.5609
+          ],
+          [
+            126.9723,
+            37.5547
+          ],
+          [
+            127.0166,
+            37.5926
+          ]
+        ]
+      },
+      "properties": {
+        "kind": "transfer",
+        "route": "M4102",
+        "main": false,
+        "tags": "",
+        "minutes": 98,
+        "transfers": 1,
+        "summary": "도보 4분 → 버스 M4102/8100(서현역.AK프라자→숭례문) → 4호선(서울역→성신여대입구)"
+      }
+    }
+  ]
+}
