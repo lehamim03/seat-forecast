@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+def local = new Properties()
+def localFile = rootProject.file('local.properties')
+if (localFile.exists()) localFile.withInputStream { local.load(it) }
+
+// app/google-services.json 이 있으면 실제 Firebase 프로젝트, 없으면 로컬 Firebase 에뮬레이터 + '로그인 없이 둘러보기'
+def hasGoogleServices = file('google-services.json').exists()
+if (hasGoogleServices) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+android {
+    namespace 'kr.ac.kookmin.seatforecast.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'kr.ac.kookmin.seatforecast'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '0.1'
+        buildConfigField 'boolean', 'USE_FIREBASE_EMULATOR', String.valueOf(!hasGoogleServices)
+        // 예측 서버 주소 (server.py) — 환경 변수 또는 local.properties 의 SERVER_BASE_URL, 없으면 에뮬레이터 → 내 컴퓨터
+        buildConfigField 'String', 'SERVER_BASE_URL', '"' + providers.environmentVariable('SERVER_BASE_URL')
+                .getOrElse(local.getProperty('SERVER_BASE_URL', 'http://10.0.2.2:8000/')) + '"'
+        // C 지도: 카카오 네이티브 앱 키 (환경 변수 또는 local.properties, 저장소에 올리지 않음)
+        resValue 'string', 'map_native_key', providers.environmentVariable('KAKAO_NATIVE_APP_KEY')
+                .getOrElse(local.getProperty('KAKAO_NATIVE_APP_KEY', ''))
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation project(':home')
+    implementation project(':alternatives')
+    implementation project(':map')
+    implementation project(':account')
+
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+}

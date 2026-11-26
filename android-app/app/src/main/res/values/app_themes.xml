@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 팀 공통 색 (각 모듈 home_primary · account 테마와 같은 값) -->
+    <color name="app_primary">#C8102E</color>
+    <color name="app_background">#F2F3F5</color>
+    <color name="app_muted">#8A8D93</color>
+
+    <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/app_primary</item>
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:statusBarColor">@color/app_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="bottomNavigationStyle">@style/AppBottomNav</item>
+    </style>
+
+    <style name="AppBottomNav" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemIconTint">@color/app_nav_item</item>
+        <item name="itemTextColor">@color/app_nav_item</item>
+        <item name="itemActiveIndicatorStyle">@style/AppNavIndicator</item>
+    </style>
+
+    <style name="AppNavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">#FDEDEE</item>
+    </style>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">좌석예보</string>
+    <string name="app_tab_home">홈</string>
+    <string name="app_tab_alternatives">실시간 대안</string>
+    <string name="app_tab_map">지도</string>
+    <string name="app_tab_my">마이</string>
+    <string name="app_alarm_title">출발 알림</string>
+    <string name="app_alarm_missing">1순위 %1$s번 · %2$s 기준 출발 알림은 아직 앱에 연결되지 않았습니다. 돌발 알림은 서버(E)가 최근 경로(last_trip) 기준으로 보냅니다.</string>
+    <string name="app_favorite_added">%1$s 을(를) 즐겨찾기에 추가했습니다.</string>
+</resources>
