@@ -3,6 +3,11 @@
 ODsay 는 **등록한 공인 IP 에서만** 작동합니다. 학교 네트워크는 공인 IP 가 `113.198.219.x` 안에서 계속 바뀌어(.112 → .114 → .115) 며칠마다 다시 막힙니다.
 그래서 IP 가 바뀌지 않는 곳에 서버를 두고 그 IP 를 한 번만 등록하는 것이 배포 계획입니다.
 
+**현재 서버 (2026-11-26~)**: AWS Lightsail 시드니(ap-southeast-2) 2GB · Ubuntu 22.04 · Python 3.12, 고정 IP **52.65.2.202** → 앱 주소 `http://52.65.2.202:8000/`
+- 코드 · 모델 갱신: 이 PC 에서 `powershell -ExecutionPolicy Bypass -File deploy\upload.ps1 -Ip 52.65.2.202 -Key <SSH 키>` ([upload.ps1](../deploy/upload.ps1) → [pack.py](../deploy/pack.py) 묶음 → [setup_server.sh](../deploy/setup_server.sh) 설치 · 재시작)
+- 시드니에서는 국가교통정보센터(ITS) 접속이 막혀 공식 돌발정보는 빠짐 (incidents.py 가 실패 후 10분 건너뜀). 나머지 API 는 정상
+- 계정이 시드니 리전으로 묶여 있어(새 AWS 경험 프로젝트) 서울에는 만들 수 없음
+
 | 방법 | 언제 | IP | 휴대폰(LTE) 접속 |
 |---|---|---|---|
 | **A. 무료 클라우드 VM (Oracle Cloud Always Free 등)** | 발표 · 이후 계속 | 고정 공인 IP | `http://<VM IP>:8000/` |

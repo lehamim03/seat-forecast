@@ -21,6 +21,7 @@
 # ==========================================================
 import math
 import os
+import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -40,6 +41,8 @@ SURGE_RATIO = 2.0      # 다가오는 버스의 좌석이 평소의 이 배 이�
 SURGE_EXTRA = 5        # … 그리고 평소보다 이 석 이상 더 줄었을 때 (행사 · 혼잡 의심)
 
 USE_ITS = True         # 국가교통정보센터 돌발상황정보 사용 여부
+ITS_RETRY_SEC = 600    # ITS 접속이 안 되면 이 시간 동안 다시 시도하지 않음
+_its_down_until = 0.0
 NEAR_KM = 0.4          # 노선 경로에서 이 거리 안의 돌발상황만 반영
 MAX_ITS_DELAY = 15     # 공식 돌발정보로 더하는 지연의 상한(분)
 # 돌발 종류별 예상 지연(분) — 앞차 기록으로 실제 지연이 확인되면 그 값이 우선
@@ -78,12 +81,17 @@ def fetch_events():
     for cfg in ROUTES.values():
         for v in transit.route_stations(cfg["route_id"]).values():
             xs.append(v["x"]); ys.append(v["y"])
+    # 해외 서버(예: 시드니 Lightsail)에서는 ITS 접속이 막혀 매번 기다리게 되므로, 실패하면 10분 동안 건너뜀
+    global _its_down_until
+    if time.time() < _its_down_until:
+        return []
     try:
-        res = requests.get("https://openapi.its.go.kr:9443/eventInfo", timeout=15, params={
+        res = requests.get("https://openapi.its.go.kr:9443/eventInfo", timeout=5, params={
             "apiKey": key, "type": "all", "eventType": "all", "getType": "json",
             "minX": min(xs), "maxX": max(xs), "minY": min(ys), "maxY": max(ys)})
         return res.json()["body"]["items"] or []
     except Exception:
+        _its_down_until = time.time() + ITS_RETRY_SEC
         return []
 
 

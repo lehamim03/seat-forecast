@@ -4,13 +4,17 @@
 set -e
 cd ~/seat-forecast
 sudo apt-get update -y
-sudo apt-get install -y python3-venv python3-pip
+# 모델(board_model.pkl)을 만든 scikit-learn 1.9 는 Python 3.11 이상 — 이 PC 와 같은 3.12
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt-get update -y
+sudo apt-get install -y python3.12 python3.12-venv
 # 메모리가 2GB 미만이면 스왑 2GB (모델 125MB · 서버 약 600MB)
 if [ "$(free -m | awk '/Mem:/{print $2}')" -lt 1900 ] && [ ! -f /swapfile ]; then
   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 fi
-python3 -m venv .venv
+rm -rf .venv && python3.12 -m venv .venv
 .venv/bin/pip install --upgrade pip -q
 .venv/bin/pip install -r requirements.txt -q
 # 모델이 안 올라왔으면 서버에서 학습 (data/ 가 묶음에 있음)
