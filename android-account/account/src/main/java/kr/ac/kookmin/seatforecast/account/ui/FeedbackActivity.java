@@ -70,11 +70,7 @@ public class FeedbackActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (!Account.isSignedIn()) {
-            Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+        // 둘러보기 · 로그아웃도 남길 수 있음 — 현장 시험 기록은 헤더 없이 서버로 (FeedbackRepository.submitAsGuest)
         Intent intent = getIntent();
         route = intent.getStringExtra(EXTRA_ROUTE);
         stopId = intent.getStringExtra(EXTRA_STOP_ID);
@@ -133,6 +129,17 @@ public class FeedbackActivity extends AppCompatActivity {
             @Override
             public void onSuccess(FeedbackRepository.SubmitResult result) {
                 setLoading(false);
+                if (result.localOnlyMessage != null) {
+                    // 서버에 못 보냄 — 현장 시험 중이면 놓치지 않게 대화상자로 알림
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(FeedbackActivity.this)
+                            .setTitle(R.string.account_feedback_local_only)
+                            .setMessage(result.localOnlyMessage)
+                            .setPositiveButton(android.R.string.ok, (d, w) -> finish())
+                            .setOnCancelListener(d -> finish())
+                            .show();
+                    setResult(RESULT_OK);
+                    return;
+                }
                 Toast.makeText(FeedbackActivity.this, result.sentToServer
                         ? R.string.account_feedback_thanks : R.string.account_feedback_pending,
                         Toast.LENGTH_LONG).show();

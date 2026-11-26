@@ -1,5 +1,7 @@
 package kr.ac.kookmin.seatforecast.account.feedback;
 
+import androidx.annotation.Nullable;
+
 import retrofit2.Call;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -11,7 +13,8 @@ import retrofit2.http.POST;
 public interface FeedbackApi {
 
     @POST("api/v1/feedback")
-    Call<FeedbackResponse> send(@Header("Authorization") String bearerToken, @Body FeedbackRequest body);
+    /** bearerToken 이 null 이면 Authorization 헤더를 보내지 않음 (둘러보기 · 로그아웃) */
+    Call<FeedbackResponse> send(@Nullable @Header("Authorization") String bearerToken, @Body FeedbackRequest body);
 
     static FeedbackApi create(String baseUrl) {
         return new Retrofit.Builder()
