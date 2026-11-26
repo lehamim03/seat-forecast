@@ -164,6 +164,19 @@
         tools:text="돌발 · 행사로 +12분 지연 반영"
         tools:visibility="visible" />
 
+    <!-- 지난 출근길 재생: 그날 실제로 (actual) -->
+    <TextView
+        android:id="@+id/alt_option_actual"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/alt_primary"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:text="그날 실제로 · 07:51 탑승 → 09:44 도착 (2시간 4분)"
+        tools:visibility="visible" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"

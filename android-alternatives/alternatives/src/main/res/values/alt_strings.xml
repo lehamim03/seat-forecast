@@ -5,6 +5,15 @@
     <string name="alt_header">%1$s → %2$s · %3$s 기준</string>
     <string name="alt_header_no_time">%1$s → %2$s</string>
     <string name="alt_saved_nearby">근처 저장 경로 기준</string>
+    <!-- 지난 출근길 재생 (A 홈 문구와 같음) -->
+    <string name="alt_replay_title">지난 출근길 재생 · %1$s</string>
+    <string name="alt_replay_loading">그날 기록으로 다시 계산하는 중…</string>
+    <string name="alt_replay_updated">그날 기록 · 자동 갱신 꺼짐</string>
+    <string name="alt_actual_boarded">그날 실제로 · %1$s 탑승 → %2$s 도착</string>
+    <string name="alt_actual_boarded_total">그날 실제로 · %1$s 탑승 → %2$s 도착 (%3$s)</string>
+    <string name="alt_actual_boarded_only">그날 실제로 · %1$s 탑승</string>
+    <string name="alt_actual_skipped">만석 %1$d대 보내고 </string>
+    <string name="alt_actual_none">그날 실제로 · 다가온 버스가 모두 만석이라 못 탐</string>
     <string name="alt_current_location">현재 위치</string>
     <string name="alt_destination">도착지</string>
 

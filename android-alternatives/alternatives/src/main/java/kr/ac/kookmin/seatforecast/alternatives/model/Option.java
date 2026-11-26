@@ -95,6 +95,11 @@ public class Option {
     @SerializedName("summary")
     public String summary;
 
+    /** 지난 출근길 재생일 때만 — 그날 실제로 어떻게 됐는지 (아니면 null) */
+    @Nullable
+    @SerializedName("actual")
+    public Actual actual;
+
     public boolean isStandingOk() {
         return Boolean.FALSE.equals(seatLimited);
     }

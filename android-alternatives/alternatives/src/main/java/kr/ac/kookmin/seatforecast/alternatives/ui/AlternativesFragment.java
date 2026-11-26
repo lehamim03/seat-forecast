@@ -60,6 +60,13 @@ public class AlternativesFragment extends Fragment {
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Runnable tick = this::autoRefresh;
+    /** 지난 출근길 재생 시각 (null = 실시간) */
+    @Nullable
+    private String replayAt;
+    private View replayBar;
+    private TextView replayTitle;
+    private TextView replayMessage;
+    private TextView replayNote;
     /** 새 요청이 시작되면 이전 요청 결과는 버림 */
     private int requestId;
     private boolean loaded;
@@ -122,9 +129,15 @@ public class AlternativesFragment extends Fragment {
      * @param to   도착지 — null 이면 AlternativesHost.loadLastDestination
      */
     public static AlternativesFragment newInstance(@Nullable Place from, @Nullable Place to) {
+        return newInstance(from, to, null);
+    }
+
+    /** @param replayAt 지난 출근길 재생 시각 (예: "2026-11-11T08:20") — 있으면 replay 로 요청, 자동 갱신 · GPS 꺼짐 */
+    public static AlternativesFragment newInstance(@Nullable Place from, @Nullable Place to, @Nullable String replayAt) {
         AlternativesFragment f = new AlternativesFragment();
         Bundle args = new Bundle();
         TripExtras.put(args, from, to);
+        if (replayAt != null) args.putString(TripExtras.REPLAY, replayAt);
         f.setArguments(args);
         return f;
     }
@@ -156,6 +169,11 @@ public class AlternativesFragment extends Fragment {
         subwaySummary = v.findViewById(R.id.alt_subway_summary);
         subwayTitle = v.findViewById(R.id.alt_subway_title);
         location = new AltLocation(requireContext());
+        replayAt = TripExtras.replay(getArguments());
+        replayBar = v.findViewById(R.id.alt_replay_bar);
+        replayTitle = v.findViewById(R.id.alt_replay_title);
+        replayMessage = v.findViewById(R.id.alt_replay_message);
+        replayNote = v.findViewById(R.id.alt_replay_note);
         Place argFrom = TripExtras.from(getArguments());
         if (argFrom == null || argFrom.isCurrentLocation()) {
             fromPlace = null;
@@ -210,6 +228,24 @@ public class AlternativesFragment extends Fragment {
         final AlternativesHost host = Alternatives.host();
         if (!host.isSignedIn()) {
             showSignedOut();   // 로그인 전에는 자동 갱신하지 않음
+            return;
+        }
+        if (!AltFormat.usesGps(replayAt)) {   // 재생: 출발지 · 도착지 · GPS 없이 replay 만
+            if (!silent) {
+                showLoading();
+                stateMessage.setText(R.string.alt_replay_loading);
+            }
+            host.getIdToken(new Callback<String>() {
+                @Override
+                public void onSuccess(String token) {
+                    if (!stale(id)) fetchReplay(id, token, silent);
+                }
+
+                @Override
+                public void onError(String message) {
+                    if (!stale(id)) fetchReplay(id, null, silent);
+                }
+            });
             return;
         }
         if (silent) {
@@ -325,6 +361,30 @@ public class AlternativesFragment extends Fragment {
         });
     }
 
+    /** 지난 출근길 재생 요청 — 400 replay_no_data 의 message 는 그대로 보여 줌 */
+    private void fetchReplay(int id, @Nullable String token, boolean silent) {
+        final AlternativesSource source = Alternatives.source();
+        final String at = replayAt;
+        EXECUTOR.execute(() -> {
+            AlternativesResult result = null;
+            String error = null;
+            try {
+                result = source.loadReplay(at, token);
+            } catch (SourceException e) {
+                error = e.getMessage();
+            } catch (RuntimeException e) {
+                error = null;
+            }
+            final AlternativesResult r = result;
+            final String message = error;
+            main.post(() -> {
+                if (stale(id)) return;
+                if (r != null) succeeded(r);
+                else failed(message != null ? message : getString(R.string.alt_error_default), silent);
+            });
+        });
+    }
+
     private void succeeded(AlternativesResult r) {
         loaded = true;
         example = AlternativesResult.SOURCE_EXAMPLE.equals(r.source);
@@ -353,13 +413,20 @@ public class AlternativesFragment extends Fragment {
         main.removeCallbacks(tick);
         if (!started) return;
         long delay = AltFormat.nextRefreshDelay(lastAttemptAt, SystemClock.elapsedRealtime(),
-                Alternatives.refreshIntervalMs());
+                AltFormat.refreshInterval(replayAt, Alternatives.refreshIntervalMs()));
         if (delay >= 0) main.postDelayed(tick, delay);
     }
 
     /** '07:41:05 갱신 · 1분마다 자동 갱신' / 실패면 '갱신하지 못했어요 · 07:41:05 정보예요' (빨강) */
     private void bindUpdated(boolean failed) {
         refresh.setEnabled(true);
+        if (replayAt != null && !failed) {   // 재생 중에는 갱신 시각 대신 자동 갱신 꺼짐 안내
+            String text = getString(R.string.alt_replay_updated);
+            if (savedNearby) text += " · " + getString(R.string.alt_saved_nearby);
+            updated.setText(text);
+            updated.setTextColor(color(R.color.alt_muted));
+            return;
+        }
         String time = new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date(lastUpdatedWall));
         if (failed) {
             updated.setText(getString(R.string.alt_stale, time));
@@ -395,6 +462,7 @@ public class AlternativesFragment extends Fragment {
         header.setText(time == null ? getString(R.string.alt_header_no_time, fromName, toName)
                 : getString(R.string.alt_header, fromName, toName, time));
 
+        bindReplay(r);
         bindBanner(AltFormat.banner(r));
         setTextOrGone(summary, r.recommendation == null ? null : r.recommendation.message);
 
@@ -415,6 +483,20 @@ public class AlternativesFragment extends Fragment {
 
         state.setVisibility(View.GONE);
         content.setVisibility(View.VISIBLE);
+    }
+
+    /** 지난 출근길 재생 — replay.message 를 맨 위에 (A 홈 재생 띠와 같은 모양) */
+    private void bindReplay(AlternativesResult r) {
+        if (replayAt == null) {
+            replayBar.setVisibility(View.GONE);
+            return;
+        }
+        String day = r.replay != null && r.replay.date != null ? r.replay.date : replayAt.replace('T', ' ');
+        String at = AltFormat.time(r.replay == null ? null : r.replay.at);
+        replayTitle.setText(getString(R.string.alt_replay_title, at == null ? day : day + " " + at));
+        setTextOrGone(replayMessage, r.replay == null ? null : r.replay.message);
+        setTextOrGone(replayNote, r.replay == null ? null : r.replay.note);
+        replayBar.setVisibility(View.VISIBLE);
     }
 
     /** 맨 위 평소 버스 상태 (여유 · 만석 위험 · 만석 · 우회 · 정보 없음) */

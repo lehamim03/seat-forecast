@@ -32,6 +32,17 @@ public class AlternativesActivity extends AppCompatActivity {
         return TripExtras.put(newIntent(context), from, to);
     }
 
+    /**
+     * 지난 출근길 재생 — A 홈이 재생 중일 때 카드에서 엶. replay 가 있으면 from · to 대신 replay 로 요청합니다.
+     *
+     * @param replayAt 예: "2026-11-11T08:20" (null 이면 실시간)
+     */
+    public static Intent newIntent(Context context, @Nullable Place from, @Nullable Place to, @Nullable String replayAt) {
+        Intent i = newIntent(context, from, to);
+        if (replayAt != null) i.putExtra(TripExtras.REPLAY, replayAt);
+        return i;
+    }
+
     /** 예전 방식 (정류장 · 노선) — 출발지 · 도착지 모드에서는 쓰지 않아 현재 위치 + 마지막 도착지로 엽니다. */
     @Deprecated
     public static Intent newIntent(Context context, @Nullable String homeStopId, @Nullable String route) {
@@ -49,7 +60,7 @@ public class AlternativesActivity extends AppCompatActivity {
             Bundle extras = getIntent().getExtras();
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.alt_container, AlternativesFragment.newInstance(
-                            TripExtras.from(extras), TripExtras.to(extras)))
+                            TripExtras.from(extras), TripExtras.to(extras), TripExtras.replay(extras)))
                     .commit();
         }
     }

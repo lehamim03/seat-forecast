@@ -20,4 +20,12 @@ public interface AlternativesApi {
                                           @Query("to_lat") double toLat,
                                           @Query("to_lng") double toLng,
                                           @Nullable @Query("to_name") String toName);
+
+    /**
+     * 지난 출근길 재생 — {@code replay=2026-11-11T08:20} 만 보냄 (from_* · to_* 와 함께 보내면 400).
+     * 응답에 최상위 replay {at, date, message, note} 와 선택지마다 actual 이 붙음.
+     */
+    @GET("api/v1/alternatives")
+    Call<AlternativesResult> replay(@Nullable @Header("Authorization") String authorization,
+                                    @Query("replay") String replayAt);
 }
