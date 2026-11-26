@@ -72,6 +72,17 @@ public interface HomeHost {
         onOptionClicked(context, option);
     }
 
+    /**
+     * 지난 출근길 재생 중에 카드를 눌렀을 때 — B 실시간 대안도 같은 시각으로 재생하도록 extra {@code "replay"}
+     * (예: "2026-11-11T08:20")를 함께 넘깁니다. 재생은 집 → 국민대 기록이라 from · to 는 null 일 수 있습니다.
+     * 기본은 재생 시각 없이 {@link #onOptionClicked(Context, Option, Place, Place)} (from · to 가 없으면 예전 방식).
+     */
+    default void onReplayOptionClicked(Context context, Option option, @androidx.annotation.Nullable Place from,
+                                       @androidx.annotation.Nullable Place to, String replayAt) {
+        if (from != null && to != null) onOptionClicked(context, option, from, to);
+        else onOptionClicked(context, option);
+    }
+
     /** 예전 방식 (출발지 · 도착지 없이). 새 코드는 {@link #onOptionClicked(Context, Option, Place, Place)} 를 구현하세요. */
     default void onOptionClicked(Context context, Option option) {
     }

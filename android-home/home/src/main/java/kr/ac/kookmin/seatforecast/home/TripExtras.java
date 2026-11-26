@@ -25,6 +25,8 @@ public final class TripExtras {
     public static final String TO_LAT = "to_lat";
     public static final String TO_LNG = "to_lng";
     public static final String TO_NAME = "to_name";
+    /** 지난 출근길 재생 시각 (예: "2026-11-11T08:20") — 홈이 재생 중일 때만 B 대안 화면에 넘김 (String) */
+    public static final String REPLAY = "replay";
 
     private TripExtras() {
     }
