@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 팀 공통 색 (A 홈 · B 대안과 같은 값) -->
+<resources>
+    <color name="map_primary">#C8102E</color>
+    <color name="map_primary_light">#FDEDEE</color>
+    <color name="map_on_primary">#FFFFFF</color>
+    <color name="map_background">#F2F3F5</color>
+    <color name="map_surface">#FFFFFF</color>
+    <color name="map_text">#1F2024</color>
+    <color name="map_text_body">#2B2F36</color>
+    <color name="map_muted">#8A8D93</color>
+    <color name="map_icon_muted">#6B7280</color>
+    <color name="map_border">#E5E7EB</color>
+    <color name="map_divider">#EEEFF1</color>
+    <color name="map_high">#1E9E5A</color>
+    <color name="map_high_bg">#E6F4EC</color>
+    <color name="map_mid">#B45309</color>
+    <color name="map_mid_bg">#FEF3C7</color>
+    <color name="map_low">#C8102E</color>
+    <color name="map_low_bg">#FBE9EC</color>
+    <color name="map_unknown">#6B7280</color>
+    <color name="map_unknown_bg">#EEEFF1</color>
+    <color name="map_walk">#2563EB</color>
+</resources>

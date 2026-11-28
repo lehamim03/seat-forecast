@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 지도 위 둥근 흰 버튼 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/map_surface" />
+    <stroke android:width="1dp" android:color="@color/map_border" />
+    <corners android:radius="999dp" />
+</shape>
