@@ -268,6 +268,44 @@ final class RouteData {
     return out;
   }
 
+  /** 출발지 · 도착지 모드 1 · 2 · 3순위 — A 홈 · B 대안과 같은 서버 ranking 순서 */
+  static final int TOP = 3;
+
+  List<JSONObject> top() {
+    return ranking.subList(0, Math.min(TOP, ranking.size()));
+  }
+
+  /**
+   * 그 선택지의 지도 선 — summary 가 같은 선, 없으면 같은 노선의 선, 그래도 없으면 null.
+   * (서버가 실측 추천을 합친 경우 /map 선은 다른 후보일 수 있어 순위 칩과 섞지 않으려고 이렇게 짝지음)
+   */
+  Feature lineFor(JSONObject option) {
+    if (option == null) return null;
+    String summary = option.optString("summary"), route = option.optString("route");
+    Feature sameRoute = null;
+    for (Feature f : transfers()) {
+      if (!summary.isEmpty() && summary.equals(f.value("summary"))) return f;
+      if (sameRoute == null && !route.isEmpty() && route.equals(f.value("route"))) sameRoute = f;
+    }
+    return sameRoute;
+  }
+
+  /** 1 · 2 · 3순위 중 선이 있는 것들 (중복 없이, 순위 순) */
+  List<Feature> topLines() {
+    List<Feature> out = new ArrayList<>();
+    for (JSONObject o : top()) {
+      Feature f = lineFor(o);
+      if (f != null && !out.contains(f)) out.add(f);
+    }
+    return out;
+  }
+
+  /** 출발지 / 도착지 점 (kind me · destination), 없으면 null */
+  Pt point(String kind) {
+    for (Feature f : features) if (f.kind.equals(kind) && !f.pts.isEmpty()) return f.pts.get(0);
+    return null;
+  }
+
   JSONObject best(String route) {
     for (JSONObject x : ranking) if (route.equals(x.optString("route"))) return x;
     return null;

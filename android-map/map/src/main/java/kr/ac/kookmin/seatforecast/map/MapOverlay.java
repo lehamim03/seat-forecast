@@ -22,6 +22,8 @@ final class MapOverlay {
     private RouteLine selected;
     private final List<RouteLine> comparison = new ArrayList<>();
     private Label device;
+    /** 고른 순위에 선이 없을 때 탈 정류장 표시 */
+    private Label boarding;
     private final List<LatLng> nearby = new ArrayList<>();
 
     MapOverlay(KakaoMap map, float density, MapExample example) {
@@ -101,8 +103,9 @@ final class MapOverlay {
     }
 
     /**
-     * 출발지 · 도착지 모드: 상위 경로 선 — 고른 경로(selected, transfers() 순서)는 빨강 굵게, 나머지는 회색.
-     * selected 가 -1 이면 1순위(main). 도로 모양으로 바꾼 선이 있으면 그 선 (RoadSnap).
+     * 출발지 · 도착지 모드: 1 · 2 · 3순위 (서버 ranking, A 홈 · B 대안과 같은 순서) 중 selected 번째를 빨강 굵게,
+     * 나머지 순위의 선은 회색. 순위와 짝이 없는 /map 선은 그리지 않음. 도로 모양으로 바꾼 선이 있으면 그 선 (RoadSnap).
+     * 고른 순위에 선이 없으면 (서버가 선 모양을 주지 않음) 탈 정류장에 표시하고 출발 · 정류장 · 도착이 보이게 맞춤.
      */
     void showTrip(RouteData data, int selected, boolean fit) {
         clearComparison();
@@ -110,12 +113,17 @@ final class MapOverlay {
             this.selected.remove();
             this.selected = null;
         }
+        if (boarding != null) {
+            boarding.remove();
+            boarding = null;
+        }
+        List<org.json.JSONObject> top = data.top();
+        org.json.JSONObject option = top.isEmpty() ? null : top.get(Math.max(0, Math.min(selected, top.size() - 1)));
+        RouteData.Feature chosenLine = data.lineFor(option);
         List<LatLng> focus = new ArrayList<>(nearby);
-        List<RouteData.Feature> lines = data.transfers();
         List<LatLng> chosenPoints = new ArrayList<>();
-        for (int i = 0; i < lines.size(); i++) {
-            RouteData.Feature f = lines.get(i);
-            boolean chosen = selected < 0 ? f.p().optBoolean("main") : i == selected;
+        for (RouteData.Feature f : data.topLines()) {
+            boolean chosen = f == chosenLine;
             List<LatLng> points = new ArrayList<>();
             for (RouteData.Pt point : data.shape(f)) points.add(LatLng.from(point.lat(), point.lon()));
             int color = chosen ? RouteUi.RED : RouteUi.GRAY_LINE;
@@ -125,6 +133,18 @@ final class MapOverlay {
             comparison.add(line);
             focus.addAll(points);
             if (chosen) chosenPoints.addAll(points);
+        }
+        if (chosenLine == null && option != null) {
+            org.json.JSONObject stop = option.optJSONObject("stop");
+            if (stop != null && stop.has("lat") && !stop.isNull("lat")) {
+                LatLng at = LatLng.from(stop.optDouble("lat"), stop.optDouble("lng"));
+                boarding = label(at, "탑승 · " + RouteUi.routeName(option), RouteUi.RED, true);
+                chosenPoints.add(at);
+            }
+            for (String kind : new String[]{"me", "destination"}) {
+                RouteData.Pt p = data.point(kind);
+                if (p != null) chosenPoints.add(LatLng.from(p.lat(), p.lon()));
+            }
         }
         if (fit) {
             List<LatLng> target = chosenPoints.isEmpty() ? focus : chosenPoints;
