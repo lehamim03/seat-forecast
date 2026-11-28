@@ -97,8 +97,8 @@ final class RoadSnap {
         if (data == null || !data.trip) return false;
         RoadSnap snap = from(activity);
         if (snap == null) return false;
-        List<RouteData.Feature> lines = new ArrayList<>(data.transfers());
-        lines.sort((a, b) -> Boolean.compare(b.p().optBoolean("main"), a.p().optBoolean("main")));
+        List<RouteData.Feature> lines = new ArrayList<>(data.topLines());   // 지도에 그리는 순위 선만, 1순위부터
+        if (lines.isEmpty()) return false;
         new Thread(() -> {
             boolean changed = false;
             for (RouteData.Feature f : lines) {

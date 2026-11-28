@@ -54,8 +54,9 @@ public final class MapActivity extends Activity {
     private boolean waitingForOrigin;
     private boolean comparing = true;
     private boolean alternativeSelected;
-    /** 출발지 · 도착지 모드에서 지도에 강조한 경로 (transfers() 순서), -1 = 1순위 */
+    /** 출발지 · 도착지 모드에서 고른 순위 (RouteData.top() 순서, 0 = 1순위) */
     private int tripSelected = -1;
+    private boolean sheetCollapsed;
     private MapOverlay overlay;
     private DevicePosition position;
     private boolean locateAfterGrant;
@@ -91,7 +92,9 @@ public final class MapActivity extends Activity {
             comparing = state.getBoolean("comparing", true);
             alternativeSelected = state.getBoolean("alternative");
             tripSelected = state.getInt("trip_selected", -1);
+            sheetCollapsed = state.getBoolean("sheet_collapsed");
         }
+        setupSheet();
         readTrip();
         showTripTitle();
         findViewById(R.id.map_choices_action).setOnClickListener(v ->
@@ -317,18 +320,16 @@ public final class MapActivity extends Activity {
         }
     }
 
-    /** 출발지 · 도착지 모드: "1순위 · 9401번" 칩 — 누르면 그 경로를 빨갛게 */
+    /** 출발지 · 도착지 모드: "1순위 · 8800번" 칩 (서버 ranking 순서 = A 홈 · B 대안) — 누르면 그 경로를 빨갛게 */
     private void buildTripChips() {
-        List<RouteData.Feature> lines = routeData.transfers();
-        if (tripSelected >= lines.size()) tripSelected = -1;
-        for (int i = 0; i < lines.size(); i++) {
+        List<JSONObject> top = routeData.top();
+        if (tripSelected < 0 || tripSelected >= top.size()) tripSelected = 0;
+        for (int i = 0; i < top.size(); i++) {
             final int index = i;
-            RouteData.Feature f = lines.get(i);
-            Chip chip = ui.choiceChip((i + 1) + "순위 · " + RouteUi.routeName(f.value("route")));
+            Chip chip = ui.choiceChip((i + 1) + "순위 · " + RouteUi.routeName(top.get(i)));
             chip.setId(View.generateViewId());
             chips.addView(chip);
-            boolean chosen = tripSelected < 0 ? f.p().optBoolean("main") : i == tripSelected;
-            chip.setChecked(chosen);
+            chip.setChecked(i == tripSelected);
             chip.setOnClickListener(v -> selectTrip(index));
         }
     }
@@ -377,22 +378,6 @@ public final class MapActivity extends Activity {
         renderComparison();
     }
 
-    /** 출발지 · 도착지 모드: 지금 지도에 빨갛게 그린 경로의 노선 */
-    private String tripSelectedRoute() {
-        List<RouteData.Feature> lines = routeData.transfers();
-        for (int i = 0; i < lines.size(); i++) {
-            RouteData.Feature f = lines.get(i);
-            if (tripSelected < 0 ? f.p().optBoolean("main") : i == tripSelected) return f.value("route");
-        }
-        return null;
-    }
-
-    private int tripIndexOf(String route) {
-        List<RouteData.Feature> lines = routeData.transfers();
-        for (int i = 0; i < lines.size(); i++) if (lines.get(i).value("route").equals(route)) return i;
-        return -1;
-    }
-
     private void renderComparison() {
         LinearLayout panel = findViewById(R.id.map_comparison);
         panel.removeAllViews();
@@ -407,13 +392,16 @@ public final class MapActivity extends Activity {
         else if (routeData.live) ui.stylePill(sourcePill, "실시간 " + routeData.time, RouteUi.Level.HIGH);
         else ui.stylePill(sourcePill, "예시 경로", RouteUi.Level.UNKNOWN);
 
-        String legend = routeData.trip ? "빨강 굵은 선은 고른 경로, 회색은 다른 후보 · 칩을 눌러 바꿔 보세요"
+        String legend = routeData.trip ? tripLegend()
                 : comparing ? "빨강은 선택 경로, 회색은 비교 경로"
                 : "실선은 버스 노선, 파란 점선은 도보";
         if (routeData.savedNearby) legend = getString(R.string.map_saved_nearby) + " · " + legend;
         ((TextView) findViewById(R.id.map_legend)).setText(legend);
 
-        String highlighted = routeData.trip ? tripSelectedRoute() : null;
+        if (routeData.trip) {
+            renderTripCards(panel);
+            return;
+        }
         JSONObject[] options = {routeData.alternative, routeData.usual};
         for (JSONObject option : options) {
             final boolean alternative = option == routeData.alternative;
@@ -425,14 +413,36 @@ public final class MapActivity extends Activity {
                 panel.addView(none);
                 continue;
             }
-            boolean selected = routeData.trip ? option.optString("route").equals(highlighted)
-                    : comparing && alternativeSelected == alternative;
-            panel.addView(optionCard(option, label, alternative, selected));
+            boolean selected = comparing && alternativeSelected == alternative;
+            panel.addView(optionCard(option, label, alternative, selected, -1));
         }
     }
 
+    /** 출발지 · 도착지 모드 카드: 칩과 같은 1 · 2 · 3순위 (홈 · 대안 화면과 같은 서버 순서) */
+    private void renderTripCards(LinearLayout panel) {
+        List<JSONObject> top = routeData.top();
+        if (top.isEmpty()) {
+            panel.addView(ui.text("추천할 경로가 없습니다.", 14, RouteUi.MUTED, false));
+            return;
+        }
+        int chosen = Math.max(0, Math.min(tripSelected, top.size() - 1));
+        for (int i = 0; i < top.size(); i++) {
+            String label = (i + 1) + "순위" + (i == 0 ? " · 추천" : "");
+            panel.addView(optionCard(top.get(i), label, i == 0, i == chosen, i));
+        }
+    }
+
+    /** 범례 — 고른 순위에 서버가 준 선이 없으면 그렇다고 알림 */
+    private String tripLegend() {
+        List<JSONObject> top = routeData.top();
+        JSONObject chosen = top.isEmpty() ? null : top.get(Math.max(0, Math.min(tripSelected, top.size() - 1)));
+        if (chosen != null && routeData.lineFor(chosen) == null)
+            return "이 경로는 지도 선 정보가 없어 탈 정류장만 표시해요 · 칩을 눌러 다른 순위를 볼 수 있어요";
+        return "빨강 굵은 선은 고른 순위, 회색은 다른 순위 · 칩을 눌러 바꿔 보세요";
+    }
+
     /** 경로 비교 카드 — B 대안 카드와 같은 모양 (노선 칩 · 추천 태그 · 확률 알약 · 도착) */
-    private View optionCard(JSONObject option, String label, boolean alternative, boolean selected) {
+    private View optionCard(JSONObject option, String label, boolean alternative, boolean selected, int tripIndex) {
         LinearLayout card = ui.column();
         card.setPadding(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12));
         ui.card(card, selected);
@@ -477,14 +487,44 @@ public final class MapActivity extends Activity {
         card.setContentDescription(label + " 지도 보기. " + option.optString("route") + "번. " + arrival);
         card.setOnClickListener(v -> {
             if (routeData.trip) {
-                int index = tripIndexOf(option.optString("route"));
-                if (index >= 0) selectTrip(index);
+                if (tripIndex >= 0) selectTrip(tripIndex);
             } else {
                 alternativeSelected = alternative;
                 showComparison(true);
             }
         });
         return card;
+    }
+
+    /** 경로 비교 시트: 머리를 누르면 접기/펼치기, 아래로 밀면 접기, 위로 밀면 펼치기 → 지도를 크게 볼 수 있음 */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    private void setupSheet() {
+        View header = findViewById(R.id.map_sheet_header);
+        float slop = 24 * getResources().getDisplayMetrics().density;
+        float[] downY = new float[1];
+        header.setOnClickListener(v -> setSheetCollapsed(!sheetCollapsed, true));
+        header.setOnTouchListener((v, e) -> {
+            if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) downY[0] = e.getRawY();
+            else if (e.getActionMasked() == android.view.MotionEvent.ACTION_UP) {
+                float dy = e.getRawY() - downY[0];
+                if (Math.abs(dy) > slop) {
+                    setSheetCollapsed(dy > 0, true);
+                    v.setPressed(false);
+                    return true;   // 민 것이므로 클릭(토글)은 하지 않음
+                }
+            }
+            return false;
+        });
+        setSheetCollapsed(sheetCollapsed, false);
+    }
+
+    private void setSheetCollapsed(boolean collapsed, boolean animate) {
+        sheetCollapsed = collapsed;
+        if (animate) android.transition.TransitionManager.beginDelayedTransition(findViewById(R.id.map_root));
+        findViewById(R.id.map_sheet_body).setVisibility(collapsed ? View.GONE : View.VISIBLE);
+        findViewById(R.id.map_sheet_toggle).setRotation(collapsed ? 180f : 0f);
+        findViewById(R.id.map_sheet_header).setContentDescription(
+                getString(collapsed ? R.string.map_sheet_expand : R.string.map_sheet_collapse));
     }
 
     private void locationStatus(int resource) {
@@ -497,6 +537,7 @@ public final class MapActivity extends Activity {
         state.putBoolean("comparing", comparing);
         state.putBoolean("alternative", alternativeSelected);
         state.putInt("trip_selected", tripSelected);
+        state.putBoolean("sheet_collapsed", sheetCollapsed);
     }
 
     private void showMapFailure() {
