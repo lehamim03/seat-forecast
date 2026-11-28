@@ -401,7 +401,10 @@ def merge_home(r, fl, fg, home_stop, _dist):
                          transfers=rc.get("transfers", 0),
                          summary=f"버스 {o['route']}({o['stop']['name']}→{o['alight_stop']}) → {rc.get('summary', '')}".rstrip(" →")))
     ours = set(config.ROUTES)
-    ranking = sorted(conv + [o for o in r["ranking"] if o["route"] not in ours], key=lambda o: o["total_min"])
+    # 기다리기 · 걸어가기는 실측 쪽(평소 정류장 · 평소 노선 기준)만 — ODsay 쪽 버스는 '다른 버스', 지하철은 그대로
+    others = [dict(o, kind=o["kind"] if o["kind"] == "지하철" else "다른 버스")
+              for o in r["ranking"] if o["route"] not in ours]
+    ranking = sorted(conv + others, key=lambda o: o["total_min"])
     if not ranking:
         return r
     top = ranking[0]
