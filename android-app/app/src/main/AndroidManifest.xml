@@ -7,12 +7,17 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
-        android:usesCleartextTraffic="true">
+        android:networkSecurityConfig="@xml/app_network_security">
 
         <!-- C 지도: 카카오 네이티브 앱 키 (app/build.gradle 의 resValue) -->
         <meta-data
             android:name="kr.ac.kookmin.seatforecast.map.NATIVE_APP_KEY"
             android:resource="@string/map_native_key" />
+
+        <!-- C 지도: 경로 선을 도로 모양으로 (TMAP 키, app/build.gradle 의 resValue) -->
+        <meta-data
+            android:name="kr.ac.kookmin.seatforecast.map.TMAP_APP_KEY"
+            android:resource="@string/map_tmap_key" />
 
         <activity
             android:name=".MainActivity"

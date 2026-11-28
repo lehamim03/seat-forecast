@@ -58,11 +58,24 @@ class TeamAltHost implements AlternativesHost {
         });
     }
 
-    /** 대안 카드 → D 탑승 피드백 (그 버스를 탔는지) — 어떤 노선 · 정류장이든 */
+    /**
+     * 대안 카드 → D 탑승 피드백 (그 버스를 탔는지) — 어떤 노선 · 정류장이든.
+     * 확률은 좌석제 · 좌석 수를 아는 카드만 (FeedbackProb), 아니면 null.
+     */
     @Override
     public void onOptionClicked(Context context, Option option, Place from, Place to) {
+        open(context, option);
+    }
+
+    /** 출발지 · 도착지 없이 열린 대안 화면 (재생 등) 의 카드도 같은 피드백 */
+    @Override
+    public void onOptionClicked(Context context, Option option) {
+        open(context, option);
+    }
+
+    private static void open(Context context, Option option) {
         if (option.stop == null || option.stop.id == null || option.route == null) return;
         context.startActivity(FeedbackActivity.newIntent(context, option.route, option.stop.id,
-                option.stop.name, option.boardProb));
+                option.stop.name, FeedbackProb.of(option)));
     }
 }

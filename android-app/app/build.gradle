@@ -23,12 +23,16 @@ android {
         versionCode 1
         versionName '0.1'
         buildConfigField 'boolean', 'USE_FIREBASE_EMULATOR', String.valueOf(!hasGoogleServices)
-        // 예측 서버 주소 (server.py) — 환경 변수 또는 local.properties 의 SERVER_BASE_URL, 없으면 에뮬레이터 → 내 컴퓨터
+        // 예측 서버 주소 — 기본은 AWS Lightsail 고정 IP (LTE 휴대폰에서도 접속).
+        // 환경 변수 또는 local.properties 의 SERVER_BASE_URL 이 우선 (에뮬레이터 → 내 컴퓨터: http://10.0.2.2:8000/)
         buildConfigField 'String', 'SERVER_BASE_URL', '"' + providers.environmentVariable('SERVER_BASE_URL')
-                .getOrElse(local.getProperty('SERVER_BASE_URL', 'http://10.0.2.2:8000/')) + '"'
+                .getOrElse(local.getProperty('SERVER_BASE_URL', 'http://52.65.2.202:8000/')) + '"'
         // C 지도: 카카오 네이티브 앱 키 (환경 변수 또는 local.properties, 저장소에 올리지 않음)
         resValue 'string', 'map_native_key', providers.environmentVariable('KAKAO_NATIVE_APP_KEY')
                 .getOrElse(local.getProperty('KAKAO_NATIVE_APP_KEY', ''))
+        // C 지도: 경로 선을 도로 모양으로 (TMAP 경유지 길찾기) — 없으면 정류장 직선 (저장소에 올리지 않음)
+        resValue 'string', 'map_tmap_key', providers.environmentVariable('TMAP_APP_KEY')
+                .getOrElse(local.getProperty('TMAP_APP_KEY', ''))
     }
 
     buildFeatures {
@@ -49,4 +53,6 @@ dependencies {
 
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
+
+    testImplementation 'junit:junit:4.13.2'
 }
