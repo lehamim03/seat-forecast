@@ -27,7 +27,12 @@ from config import (CITY_BUS_PEAK_FACTOR, DEFAULT_DROP_PER_STOP, TRANSFER_PENALT
 
 SEAT_TYPES = {"11", "12", "14"}   # 직행좌석형 · 좌석형 · 광역급행(M버스) — 입석 금지라 만석이면 못 탐
 BUFFER_MIN = 1                    # 정류장에 버스보다 1분 먼저 도착해야 탈 수 있다고 봄
-MAX_PATHS = 6                     # ODsay 경로 후보 중 볼 개수
+MAX_PATHS = 12                    # ODsay 경로 후보 중 볼 개수 (소요시간 순) — ODsay 는 지하철형 · 버스형으로 묶어서
+                                  # 주므로 앞에서 몇 개만 자르면 가장 빠른 광역버스가 빠질 수 있음 (서현역 M4102 가 10번째)
+# 출퇴근 정체 할증(CITY_BUS_PEAK_FACTOR)은 시내 도로를 다니는 버스에만 — ODsay 버스 종류(lane.type)
+# 1 일반 · 3 마을 · 11 간선 · 12 지선 · 13 순환 · 15 급행 · 20 농어촌 · 26 급행간선
+# (광역 14 · 직행좌석 4 · 좌석 2 · 공항 5 · 간선급행 6 · 외곽 10 은 고속도로 · 전용차로 위주라 할증 없음)
+CITY_BUS_TYPES = {1, 3, 11, 12, 13, 15, 20, 26}
 MAX_LANES = 3                     # 같은 구간을 가는 버스가 여러 개면 몇 개까지 선택지로
 ODSAY_CACHE = "trip_odsay_cache.json"
 ODSAY_DAYS = 14                   # 시간표 기반이라 2주는 그대로 씀 (ODsay 하루 한도 아끼기)
@@ -214,6 +219,8 @@ def board_probs(buses, stop_seq, now, day_type, prior):
 def expected_board(cands, walk, headway):
     """기대 탑승 시각(분) — live_recommend.py 와 같은 계산: 첫 차부터 차례로, 다 놓치면 배차간격마다"""
     reach = [c for c in cands if c["ok"]]
+    if not reach:   # 실시간으로 보이는 차가 없으면 ODsay 와 같은 가정: 걸어가서 배차간격의 절반을 기다림
+        return walk + headway / 2
     expected, miss = 0.0, 1.0
     for c in reach:
         expected += miss * c["p"] * c["eta"]
@@ -236,7 +243,7 @@ def build_options(paths, now, day, origin=None):
     """origin=(위도, 경도) 를 주면 (근처 저장 경로를 쓸 때) 첫 탈 곳까지 걷는 시간을 실제 출발지 기준으로 다시 계산"""
     peak = peak_now(now)
     opts = []
-    paths = [p for p in paths if not special(p)][:MAX_PATHS]
+    paths = sorted((p for p in paths if not special(p)), key=lambda p: p["info"]["totalTime"])[:MAX_PATHS]
     prefetch(paths)
     for path in paths:
         subs = path["subPath"]
@@ -253,7 +260,8 @@ def build_options(paths, now, day, origin=None):
             walk = round(m * 1.3 / 75)
         # 첫 탈것을 탄 뒤의 시간: ODsay 전체 시간 − 첫 걷기 + 갈아탈 때 기다림 + 출퇴근 시내버스 정체
         later_wait = sum((sp.get("intervalTime") or 10) / 2 for sp in legs[1:])
-        citybus = sum(sp.get("sectionTime", 0) for sp in legs if sp["trafficType"] == 2)
+        citybus = sum(sp.get("sectionTime", 0) for sp in legs
+                      if sp["trafficType"] == 2 and (sp["lane"][0].get("type") in CITY_BUS_TYPES))
         after = (path["info"]["totalTime"] - odsay_walk + later_wait
                  + ((CITY_BUS_PEAK_FACTOR - 1) * citybus if peak else 0))
         transfers = len(legs) - 1
