@@ -148,6 +148,46 @@ class TripTest(unittest.TestCase):
         self.assertEqual(503, code)
         self.assertIn("한도", body["error"]["message"])
 
+    def test_home_area_merges_measured(self):
+        # 집 근처 → 국민대: ODsay 에 없는 삼성1차아파트 8800 을 실측 추천에서 가져와 함께 순위
+        home = {"generated_at": "2026-11-30T07:40:00+09:00", "day": {"label": "평일 출퇴근 시간대", "kind": "평일 출퇴근",
+                                                                      "drop_factor": 1.0, "headway_factor": 1.0},
+                "recommendation": {"kind": "기다리기", "route": "8800", "stop_name": "삼성1차아파트",
+                                   "message": "기다리기 (8800번 · 삼성1차아파트)"},
+                "incidents": [],
+                "ranking": [{"kind": "기다리기", "route": "8800", "stop": {"id": "203000063", "name": "삼성1차아파트", "mobile_no": "04007"},
+                             "walk_min": 0, "board_prob": 0.9, "arrive_at": "08:40", "total_min": 60, "delay_min": 0,
+                             "skipped": False, "alight_stop": "서울시청",
+                             "buses": [{"order": 1, "eta_min": 5, "seats_at_stop": 10, "board_prob": 0.9, "reachable": True}],
+                             "route_choices": [{"arrive_at": "08:40", "transfers": 1, "walk_min": 6, "tags": ["추천"],
+                                                "alight_stop": "서울시청", "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞)"}]}]}
+        with mock.patch.object(server, "near_home", lambda *a: ("203000063", 0.2)), \
+                mock.patch.object(server, "live_result", lambda *a: home), \
+                mock.patch.object(server, "stop_coords", lambda: {"203000063": (37.3850, 127.1233)}):   # 출발지 바로 옆
+            code, body = self.get(f"/api/v1/recommendations?{FROM}")
+        self.assertEqual(200, code, body)
+        self.assertEqual("measured", body["route_source"])
+        top = body["ranking"][0]
+        self.assertEqual(("8800", "bus", True), (top["route"], top["first_mode"], top["seat_limited"]))
+        self.assertIn("버스 8800(삼성1차아파트→서울시청)", top["summary"])
+        self.assertIn("수인분당선", {o["route"] for o in body["ranking"]})   # ODsay 쪽 지하철도 함께
+
+    def test_night_bus_leg_replaced(self):
+        # 광역버스 → 심야버스(N) 경로는 버리지 않고, 심야 구간을 낮 경로로 바꿔 붙임
+        night = {"pathType": 2, "info": {"totalTime": 90, "mapObj": "x"}, "subPath": [
+            {"trafficType": 3, "sectionTime": 5},
+            {"trafficType": 2, "sectionTime": 50, "lane": [{"busNo": "3007", "type": 4}], "startName": "A", "startX": 127.0, "startY": 37.3,
+             "endName": "강남역", "endX": 127.03, "endY": 37.5},
+            {"trafficType": 2, "sectionTime": 35, "lane": [{"busNo": "N31", "type": 11}], "startName": "강남역",
+             "startX": 127.03, "startY": 37.5, "endName": "국민대", "endX": 126.99, "endY": 37.61}]}
+        day = [{"pathType": 1, "info": {"totalTime": 40}, "subPath": [
+            {"trafficType": 1, "sectionTime": 40, "lane": [{"name": "수도권 4호선"}], "startName": "강남", "endName": "길음"}]}]
+        with mock.patch.object(trip, "odsay_paths", lambda *a: day):
+            out = trip.splice_night([night], 126.99, 37.61)
+        self.assertEqual(1, len(out))
+        self.assertEqual(95, out[0]["info"]["totalTime"])     # 앞 55분 + 낮 경로 40분
+        self.assertFalse(trip.special(out[0]))
+
     def test_places(self):
         with mock.patch.object(trip, "places", lambda q: [{"name": "국민대학교", "address": "서울 성북구",
                                                             "lat": 37.611, "lng": 126.995}]):

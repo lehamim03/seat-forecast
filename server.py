@@ -19,6 +19,7 @@ import contextlib
 import io
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -309,10 +310,14 @@ def trip_result(t: Trip):
     key = ("trip", round(fl, 4), round(fg, 4), round(tl, 4), round(tg, 4), t.from_name, t.to_name)
 
     def compute():
+        home = near_home(fl, fg, tl, tg)
         try:
             with contextlib.redirect_stdout(io.StringIO()):
-                return trip.result(fl, fg, tl, tg, t.from_name, t.to_name, now_kst())
+                r = trip.result(fl, fg, tl, tg, t.from_name, t.to_name, now_kst())
+            return merge_home(r, fl, fg, *home) if home else r
         except trip.RouteUnavailable as e:
+            if home:   # ODsay 가 안 돼도 집 근처 → 국민대는 실측 추천만으로 답함
+                return merge_home(trip_skeleton(fl, fg, tl, tg, t.from_name, t.to_name), fl, fg, *home)
             if "quota" in str(e).lower() or "한도" in str(e):
                 raise ApiError(503, "route_unavailable", "오늘 경로 조회 한도를 다 썼습니다. 저장된 출발지 근처(1.5km 안)만 "
                                                          "계산할 수 있어요. 내일 다시 시도해 주세요.")
@@ -321,6 +326,101 @@ def trip_result(t: Trip):
 
 
 TRIP_KEEP = KEEP + ("origin", "destination", "route_source")
+
+# ---------- 집 근처 → 국민대는 실측 추천과 합치기 ----------
+# ODsay 정류장 자료에는 삼성1차아파트에서 8800 · 3007 · 7001 을 타는 경로가 없음 (8800 도 '아주대병원까지 걸어가기'로만 나옴).
+# 출발지가 우리 정류장 3곳 근처이고 도착지가 국민대면, 50일 실측으로 만든 실시간 추천(live_recommend)을 ODsay 경로와 함께 순위에 넣는다.
+HOME_NEAR_KM = 1.2     # 출발지 ↔ 우리 정류장
+DEST_NEAR_KM = 0.6     # 도착지 ↔ 국민대 (config.DEST_X/Y)
+_stop_xy = {}
+
+
+def _km(lat1, lng1, lat2, lng2):
+    return math.hypot((lng1 - lng2) * 88.4, (lat1 - lat2) * 111.0)
+
+
+def stop_coords():
+    """우리 정류장 좌표 {정류장 ID: (위도, 경도)} — nearby_stops.json, 없으면 경기도 정류장 목록"""
+    if not _stop_xy:
+        try:
+            with open("nearby_stops.json", encoding="utf-8") as f:
+                for s in json.load(f):
+                    _stop_xy[str(s["station_id"])] = (float(s["lat"]), float(s["lng"]))
+        except Exception:
+            pass
+        if not all(s in _stop_xy for s in config.STOPS):
+            import anywhere
+            for s in anywhere.stations():
+                if s["id"] in config.STOPS:
+                    _stop_xy[s["id"]] = (s["lat"], s["lng"])
+    return _stop_xy
+
+
+def near_home(fl, fg, tl, tg):
+    """(우리 정류장 중 출발지에서 가장 가까운 곳, 거리 km) — 집 근처 → 국민대가 아니면 None"""
+    if _km(tl, tg, config.DEST_Y, config.DEST_X) > DEST_NEAR_KM:
+        return None
+    xy = stop_coords()
+    near = sorted((_km(fl, fg, *xy[s]), s) for s in config.STOPS if s in xy)
+    return (near[0][1], near[0][0]) if near and near[0][0] <= HOME_NEAR_KM else None
+
+
+def trip_skeleton(fl, fg, tl, tg, from_name, to_name):
+    """ODsay 없이 실측 추천만으로 답할 때의 빈 틀"""
+    import daytype
+    now = now_kst()
+    day = daytype.factors(now)
+    return {"generated_at": now.strftime("%Y-%m-%dT%H:%M:%S+09:00"), "origin": {"name": from_name, "lat": fl, "lng": fg},
+            "route_source": "measured", "destination": {"name": to_name, "lat": tl, "lng": tg}, "my_route": None,
+            "home_stop": None, "day": {"label": day["label"], "kind": day["key"], "drop_factor": day["drop"],
+                                       "headway_factor": day["headway"]},
+            "recommendation": None, "ranking": [], "alternatives": {}, "subway": None, "incidents": [],
+            "_shapes": [], "_stops": []}
+
+
+def merge_home(r, fl, fg, home_stop, _dist):
+    """trip 결과(r)에 집 → 국민대 실측 추천을 합침 — 우리 노선 4개는 실측 쪽, 그 밖(지하철 등)은 ODsay 쪽"""
+    try:
+        h = live_result(home_stop, config.MY_ROUTE)
+    except Exception:
+        log.exception("실측 추천 실패 — ODsay 경로만 사용")
+        return r
+    xy = stop_coords()
+    gen = datetime.fromisoformat(r["generated_at"][:19])
+    conv = []
+    for o in h["ranking"]:
+        sid = o["stop"]["id"]
+        lat, lng = xy.get(sid, (None, None))
+        # 출발지에서 그 정류장까지 직접 걷는 시간으로 바꾸고, 그 차이만큼 도착 예상도 옮김
+        walk = round(_km(fl, fg, lat, lng) * 1000 * 1.3 / 75) if lat else o["walk_min"]
+        total = o["total_min"] + (walk - o["walk_min"])
+        rc = (o.get("route_choices") or [{}])[0]
+        conv.append(dict(o, stop=dict(o["stop"], lat=lat, lng=lng), walk_min=walk, total_min=total,
+                         arrive_at=(gen + timedelta(minutes=total)).strftime("%H:%M"), first_mode="bus",
+                         seat_limited=True, seat_known=any(b["seats_at_stop"] is not None for b in o["buses"]),
+                         transfers=rc.get("transfers", 0),
+                         summary=f"버스 {o['route']}({o['stop']['name']}→{o['alight_stop']}) → {rc.get('summary', '')}".rstrip(" →")))
+    ours = set(config.ROUTES)
+    ranking = sorted(conv + [o for o in r["ranking"] if o["route"] not in ours], key=lambda o: o["total_min"])
+    if not ranking:
+        return r
+    top = ranking[0]
+    msg = h["recommendation"]["message"] if (h.get("recommendation") and top in conv
+                                              and h["recommendation"]["route"] == top["route"]
+                                              and h["recommendation"]["stop_name"] == top["stop"]["name"]) else \
+        next((x["message"] for x in [r.get("recommendation") or {}] if x.get("route") == top["route"]),
+             f"{top['kind']} ({top['route']}{'번' if top['first_mode'] == 'bus' else ''} · {top['stop']['name']})")
+    by_kind = {}
+    for o in ranking:
+        by_kind.setdefault(o["kind"], o)
+    out = dict(r)
+    out.update(route_source="measured", ranking=ranking, home_stop={"id": top["stop"]["id"], "name": top["stop"]["name"]},
+               day=h.get("day", r["day"]), recommendation={"kind": top["kind"], "route": top["route"],
+                                                           "stop_name": top["stop"]["name"], "message": msg},
+               alternatives={k: by_kind.get(k) for k in ("기다리기", "걸어가기", "다른 버스")},
+               incidents=r["incidents"] + [i for i in h.get("incidents", []) if i not in r["incidents"]],
+               _stops=r.get("_stops", []) + [o["stop"] for o in conv])
+    return out
 
 
 def push_trip(r):

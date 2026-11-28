@@ -130,6 +130,41 @@ def special(path):
                for sp in path["subPath"])
 
 
+MAX_SPLICE = 3   # 한 번에 다시 조회할 환승 지점 수 (ODsay 하루 한도 아끼기, 결과는 저장)
+
+
+def splice_night(paths, ex, ey):
+    """ODsay 는 서울 구간을 심야버스(N31 등)로 잇는 경로를 자주 주는데, 통째로 빼면 앞의 광역버스(3007 등)도 같이 빠짐.
+    심야 · 예약버스 구간부터 도착지까지를 그 지점에서 다시 조회한 낮 경로로 바꿔 붙인다 (첫 탈것이 심야 · 예약이면 뺌)."""
+    out, asked = [], set()
+    for p in paths:
+        if not special(p):
+            out.append(p)
+            continue
+        subs = p["subPath"]
+        idx = next(i for i, sp in enumerate(subs) if sp["trafficType"] == 2
+                   and any(bus_no(l).startswith("N") or "예약" in bus_no(l) for l in sp["lane"]))
+        if not any(sp["trafficType"] in (1, 2) for sp in subs[:idx]) or not subs[idx].get("startX"):
+            continue
+        sx, sy = float(subs[idx]["startX"]), float(subs[idx]["startY"])
+        key = _key(sx, sy, ex, ey)
+        if key not in asked and len(asked) >= MAX_SPLICE:
+            continue
+        asked.add(key)
+        try:
+            rest = [q for q in odsay_paths(sx, sy, ex, ey) if not special(q)]
+        except RouteUnavailable:
+            continue
+        if not rest:
+            continue
+        best = min(rest, key=lambda q: q["info"]["totalTime"])
+        prefix = subs[:idx]
+        out.append({"pathType": p.get("pathType"), "subPath": prefix + best["subPath"],
+                    "info": dict(p["info"], mapObj=None,
+                                 totalTime=sum(sp.get("sectionTime", 0) for sp in prefix) + best["info"]["totalTime"])})
+    return out
+
+
 def peak_now(now):
     try:
         import daytype
@@ -377,6 +412,7 @@ def result(from_lat, from_lng, to_lat, to_lng, from_name="현재 위치", to_nam
         source, origin = "saved_nearby", (from_lat, from_lng)
     if not paths:
         raise RouteUnavailable("출발지와 도착지 사이 대중교통 경로를 찾지 못했습니다")
+    paths = splice_night(paths, to_lng, to_lat)
     opts = build_options(paths, now, day, origin)
     incs = incidents_on(opts)
     opts.sort(key=lambda o: o["total"])

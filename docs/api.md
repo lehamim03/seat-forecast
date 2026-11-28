@@ -57,7 +57,7 @@
 |---|---|
 | `origin`, `destination` | `{name, lat, lng}` — 요청한 출발지 · 도착지 |
 | `my_route` | 항상 `null` |
-| `route_source` | `odsay` = 이 출발지로 조회한 경로 · `saved_nearby` = ODsay 를 못 써서(하루 한도 · IP) 1.5km 안에 저장된 출발지의 경로를 쓰고 도보만 다시 계산 (화면에 "근처 저장 경로 기준" 정도로 표시) |
+| `route_source` | `measured` = 출발지가 우리 정류장 3곳 1.2km 안 · 도착지가 국민대라 50일 실측 추천(8800 · 3007 · 7001 · 3008)을 ODsay 경로와 함께 순위 (ODsay 자료엔 삼성1차아파트 탑승 경로가 없음) · `odsay` = 이 출발지로 조회한 경로 · `saved_nearby` = ODsay 를 못 써서(하루 한도 · IP) 1.5km 안에 저장된 출발지의 경로를 쓰고 도보만 다시 계산 (화면에 "근처 저장 경로 기준" 정도로 표시) |
 | `home_stop` | 1순위 선택지의 탈 정류장 `{id, name}` |
 | option `stop` | `{id, name, mobile_no, lat, lng}` — 지하철이면 역 |
 | option `walk_min` | 출발지에서 탈 곳까지 걷는 분 |
