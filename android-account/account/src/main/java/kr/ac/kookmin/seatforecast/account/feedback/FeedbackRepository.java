@@ -43,15 +43,24 @@ public class FeedbackRepository {
     public static class SubmitResult {
         public final String recordId;
         public final boolean sentToServer;
+        /** 둘러보기 · 로그아웃에서 서버에 못 보내 이 휴대폰에만 남았을 때 화면에 알릴 문장 (아니면 null) */
+        @androidx.annotation.Nullable
+        public final String localOnlyMessage;
 
         SubmitResult(String recordId, boolean sentToServer) {
+            this(recordId, sentToServer, null);
+        }
+
+        SubmitResult(String recordId, boolean sentToServer, @androidx.annotation.Nullable String localOnlyMessage) {
             this.recordId = recordId;
             this.sentToServer = sentToServer;
+            this.localOnlyMessage = localOnlyMessage;
         }
     }
 
     private final FirebaseFirestore db;
     private final FeedbackApi api;
+    private final GuestFeedbackSender guest;
 
     /** 둘러보기(Account.isPreview) 중 기록 — Firestore 대신 앱 메모리에만 둡니다 (최신순). */
     private static List<FeedbackRecord> previewRecords;
@@ -63,6 +72,7 @@ public class FeedbackRepository {
     public FeedbackRepository(FirebaseFirestore db, FeedbackApi api) {
         this.db = db;
         this.api = api;
+        this.guest = new GuestFeedbackSender(api);
     }
 
     private CollectionReference records(String uid) {
@@ -71,24 +81,16 @@ public class FeedbackRepository {
 
     public void submit(@NonNull FeedbackRequest request, Callback<SubmitResult> callback) {
         String uid = Account.currentUid();
-        if (uid == null) {
-            callback.onError("로그인이 필요합니다.");
-            return;
-        }
-        request.uid = uid;
         String problem = request.validate();
         if (problem != null) {
             callback.onError(problem);
             return;
         }
-        if (Account.isPreview()) {
-            FeedbackRecord r = record("preview-" + System.currentTimeMillis(), request.date, request.route,
-                    request.stopId, request.boarded, request.predictedProb);
-            r.memo = request.memo;
-            previewRecords().add(0, r);
-            callback.onSuccess(new SubmitResult(r.id, true));
+        if (uid == null || Account.isPreview()) {
+            submitAsGuest(request, callback);
             return;
         }
+        request.uid = uid;
         Map<String, Object> data = request.toMap();
         data.put(SENT, false);
         data.put(CREATED_AT, FieldValue.serverTimestamp());
@@ -99,14 +101,45 @@ public class FeedbackRepository {
                 .addOnFailureListener(e -> callback.onError("피드백을 저장하지 못했습니다."));
     }
 
+    /**
+     * 둘러보기 · 로그아웃 — 현장 시험 기록이 사라지지 않게 헤더 · uid 없이 서버로 보내고, 기록 화면용으로 메모리에도 둠.
+     * 서버가 401(로그인한 사용자만 받는 중)이면 메모리에만 저장하고 그 사실을 알림.
+     */
+    private void submitAsGuest(FeedbackRequest request, Callback<SubmitResult> callback) {
+        android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+        new Thread(() -> {
+            GuestFeedbackSender.Result result = guest.sendNow(request);
+            main.post(() -> {
+                boolean sent = result == GuestFeedbackSender.Result.SENT;
+                FeedbackRecord r = record("preview-" + System.currentTimeMillis(), request.date, request.route,
+                        request.stopId, request.boarded, request.predictedProb);
+                r.memo = request.memo;
+                r.sent = sent;
+                r.rejected = !sent && result != GuestFeedbackSender.Result.FAILED;
+                previewRecords().add(0, r);
+                callback.onSuccess(new SubmitResult(r.id, sent, guestMessage(result)));
+            });
+        }, "feedback-guest").start();
+    }
+
+    @androidx.annotation.Nullable
+    public static String guestMessage(GuestFeedbackSender.Result result) {
+        switch (result) {
+            case SENT:
+                return null;
+            case UNAUTHORIZED:
+                return "서버가 로그인한 사용자만 받고 있어 이 휴대폰에만 저장했어요. 로그인 후 다시 남겨 주세요.";
+            case REJECTED:
+                return "서버가 기록을 받지 않아 이 휴대폰에만 저장했어요.";
+            default:
+                return "서버에 연결하지 못해 이 휴대폰에만 저장했어요. 팀 시트에도 적어 주세요.";
+        }
+    }
+
     /** 최근 기록 (최신순) */
     public void loadHistory(int limit, Callback<List<FeedbackRecord>> callback) {
         String uid = Account.currentUid();
-        if (uid == null) {
-            callback.onError("로그인이 필요합니다.");
-            return;
-        }
-        if (Account.isPreview()) {
+        if (uid == null || Account.isPreview()) {
             List<FeedbackRecord> all = previewRecords();
             callback.onSuccess(new ArrayList<>(all.subList(0, Math.min(limit, all.size()))));
             return;

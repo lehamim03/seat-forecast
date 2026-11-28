@@ -100,27 +100,37 @@ final class MapOverlay {
         }
     }
 
-    /** 출발지 · 도착지 모드: 상위 경로 선 4개 — 1순위(main)는 빨강 굵게, 나머지는 회색 */
-    void showTrip(RouteData data, boolean fit) {
+    /**
+     * 출발지 · 도착지 모드: 상위 경로 선 — 고른 경로(selected, transfers() 순서)는 빨강 굵게, 나머지는 회색.
+     * selected 가 -1 이면 1순위(main). 도로 모양으로 바꾼 선이 있으면 그 선 (RoadSnap).
+     */
+    void showTrip(RouteData data, int selected, boolean fit) {
         clearComparison();
-        if (selected != null) {
-            selected.remove();
-            selected = null;
+        if (this.selected != null) {
+            this.selected.remove();
+            this.selected = null;
         }
         List<LatLng> focus = new ArrayList<>(nearby);
-        for (RouteData.Feature f : data.transfers()) {
-            boolean main = f.p().optBoolean("main");
+        List<RouteData.Feature> lines = data.transfers();
+        List<LatLng> chosenPoints = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            RouteData.Feature f = lines.get(i);
+            boolean chosen = selected < 0 ? f.p().optBoolean("main") : i == selected;
             List<LatLng> points = new ArrayList<>();
-            for (RouteData.Pt point : f.pts()) points.add(LatLng.from(point.lat(), point.lon()));
-            int color = main ? RouteUi.RED : 0xff909aa8;
+            for (RouteData.Pt point : data.shape(f)) points.add(LatLng.from(point.lat(), point.lon()));
+            int color = chosen ? RouteUi.RED : RouteUi.GRAY_LINE;
             RouteLine line = line(new MapExample.Line(f.value("route"), color, points),
-                    RouteLineStyle.from(px(main ? 5 : 2), color));
-            line.setZOrder(main ? 3 : 0);
+                    RouteLineStyle.from(px(chosen ? 5 : 3), color, px(1), Color.WHITE));
+            line.setZOrder(chosen ? 3 : 0);
             comparison.add(line);
             focus.addAll(points);
+            if (chosen) chosenPoints.addAll(points);
         }
-        if (fit && !focus.isEmpty()) {
-            map.moveCamera(CameraUpdateFactory.fitMapPoints(focus.toArray(new LatLng[0]), px(28)));
+        if (fit) {
+            List<LatLng> target = chosenPoints.isEmpty() ? focus : chosenPoints;
+            if (!target.isEmpty()) {
+                map.moveCamera(CameraUpdateFactory.fitMapPoints(target.toArray(new LatLng[0]), px(40)));
+            }
         }
     }
 

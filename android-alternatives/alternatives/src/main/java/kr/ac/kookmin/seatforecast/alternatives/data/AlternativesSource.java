@@ -25,4 +25,16 @@ public interface AlternativesSource {
     @NonNull
     AlternativesResult load(@NonNull Place from, @NonNull Place to, @Nullable String idToken)
             throws SourceException;
+
+    /**
+     * 지난 출근길 재생 (A 홈이 재생 중일 때 extra "replay") — 그날 기록으로 다시 계산한 대안 + 실제 결과.
+     * 기본은 지원하지 않음 (예시 JSON 소스).
+     *
+     * @param replayAt 예: "2026-11-11T08:20"
+     */
+    @WorkerThread
+    @NonNull
+    default AlternativesResult loadReplay(@NonNull String replayAt, @Nullable String idToken) throws SourceException {
+        throw new SourceException("이 데이터 소스는 지난 출근길 재생을 지원하지 않습니다.", null);
+    }
 }

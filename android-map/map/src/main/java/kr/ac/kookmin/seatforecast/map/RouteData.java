@@ -33,6 +33,38 @@ final class RouteData {
     }
   }
 
+  /** 서버 오류 — message 는 화면에 그대로 보여 줘도 되는 문장 (docs/api.md 공통 규칙) */
+  static final class ServerError extends IOException {
+    final int status;
+    final String code;
+
+    ServerError(int status, String code, String message) {
+      super(message);
+      this.status = status;
+      this.code = code;
+    }
+  }
+
+  /** 오류 응답 {"error": {"code", "message"}} → 화면 문장. message 가 없으면 상태 코드로 만든 문장 */
+  static ServerError errorOf(int status, String body) {
+    String code = null, message = null;
+    try {
+      JSONObject error = new JSONObject(body).optJSONObject("error");
+      if (error != null) {
+        code = error.optString("code", null);
+        message = error.optString("message", null);
+      }
+    } catch (JSONException | RuntimeException ignored) {
+      // HTML 오류 페이지 등
+    }
+    if (message == null || message.trim().isEmpty()) {
+      message = status == 401 ? "로그인이 필요합니다."
+          : status >= 500 ? "경로 서버에 문제가 있어요. 잠시 후 다시 시도해 주세요. (" + status + ")"
+          : "경로 정보를 불러오지 못했습니다. (" + status + ")";
+    }
+    return new ServerError(status, code, message);
+  }
+
   /** 서버 GET → JSON (서버가 처음 계산할 때 수십 초 걸릴 수 있어 넉넉히 기다림) */
   static JSONObject http(String url) throws Exception {
     HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
@@ -40,10 +72,15 @@ final class RouteData {
     con.setReadTimeout(60_000);
     con.setRequestProperty("Accept", "application/json");
     try {
-      int code = con.getResponseCode();
+      int code;
+      try {
+        code = con.getResponseCode();
+      } catch (IOException e) {
+        throw new IOException("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.", e);
+      }
       if (code / 100 != 2) {
         InputStream err = con.getErrorStream();
-        throw new IOException("서버 응답 " + code + (err == null ? "" : ": " + read(err)));
+        throw errorOf(code, err == null ? "" : read(err));
       }
       try (InputStream in = con.getInputStream()) {
         return new JSONObject(read(in));
@@ -55,7 +92,9 @@ final class RouteData {
 
   /**
    * 백그라운드에서 읽고 화면 스레드로 결과를 돌려준다 (화면이 닫혔으면 버림).
-   * 서버 주소가 있으면 from_* · to_* 로 서버에서, 서버에 연결하지 못하거나 주소가 없으면 예시 JSON ({@link #fallback}).
+   * 서버 주소가 있으면 from_* · to_* 로 서버에서 — 실패하면 (503 route_unavailable 등) 서버 문장 그대로 fail.
+   * 현장 시험에서 다른 지역 예시 경로가 진짜처럼 보이지 않도록 서버 모드에서는 예시로 바꾸지 않음.
+   * 서버 주소가 없으면 (시연 앱) 예시 JSON.
    */
   static void load(Activity a, Place from, Place to, Result<RouteData> ok, Result<Exception> fail) {
     Context app = a.getApplicationContext();
@@ -64,14 +103,9 @@ final class RouteData {
       Exception error = null;
       try {
         if (MapServer.isLive()) {
-          try {
-            data = new RouteData(http(MapServer.url("api/v1/map", from, to)),
-                http(MapServer.url("api/v1/route-choices", from, to)).put("live", true),
-                http(MapServer.url("api/v1/recommendations", from, to)));
-          } catch (Exception serverDown) {
-            data = new RouteData(app);   // 서버 꺼짐 · 경로 조회 실패 대비 — 예시 경로
-            data.fallback = serverDown.getMessage();
-          }
+          data = new RouteData(http(MapServer.url("api/v1/map", from, to)),
+              http(MapServer.url("api/v1/route-choices", from, to)).put("live", true),
+              http(MapServer.url("api/v1/recommendations", from, to)));
         } else {
           data = new RouteData(app);
         }
@@ -119,6 +153,10 @@ final class RouteData {
   final boolean trip;
   /** 서버 대신 예시를 보여 주는 이유 (서버에 연결하지 못함), 아니면 null */
   String fallback;
+  /** route_source=saved_nearby — ODsay 를 못 써서 근처 저장 경로 기준 ("근처 저장 경로 기준" 표시) */
+  final boolean savedNearby;
+  /** 도로 모양으로 바꾼 경로 선 (RoadSnap) — 없으면 정류장 직선 */
+  final Map<Feature, List<Pt>> road = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
   final String time;
 
   RouteData(Context c) throws Exception {
@@ -194,6 +232,8 @@ final class RouteData {
     }
     usual = u;
     alternative = a;
+    savedNearby = "saved_nearby".equals(rec.optString("route_source"))
+        || "saved_nearby".equals(routes.optString("route_source"));
     String at = rec.optString("generated_at");
     time = at.length() >= 16 ? at.substring(11, 16) : "";
   }
@@ -213,6 +253,12 @@ final class RouteData {
   /** 경로 이름 — 출발지 · 도착지 모드는 전체 경로 한 줄, 예전 모드는 "하차 정류장 하차 → 환승" */
   String label(Choice ch) {
     return trip ? ch.summary : ch.key();
+  }
+
+  /** 지도에 그릴 선 — 도로 모양으로 바꿨으면 그 선, 아니면 서버가 준 정류장 좌표 */
+  List<Pt> shape(Feature f) {
+    List<Pt> r = road.get(f);
+    return r != null && r.size() >= 2 ? r : f.pts;
   }
 
   /** 출발지 · 도착지 모드 지도: 상위 경로 선 (main = 1순위) */

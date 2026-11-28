@@ -12,6 +12,8 @@ android {
 
 dependencies {
     implementation 'com.kakao.maps.open:android:2.15.2'
+    // 팀 앱 다른 화면(A · B)과 같은 Material 3 버튼 · 칩
+    implementation 'com.google.android.material:material:1.12.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }

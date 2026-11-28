@@ -44,6 +44,11 @@ public class AlternativesResult {
 
     public static final String ROUTE_SOURCE_SAVED_NEARBY = "saved_nearby";
 
+    /** 지난 출근길 재생 요청(replay=…)일 때만 {at, date, message, note} */
+    @Nullable
+    @SerializedName("replay")
+    public Replay replay;
+
     public boolean isSavedNearbyRoute() {
         return ROUTE_SOURCE_SAVED_NEARBY.equals(routeSource);
     }

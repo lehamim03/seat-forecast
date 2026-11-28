@@ -199,7 +199,10 @@ public class HomeFragment extends Fragment {
 
         // 카드 → B 실시간 대안 (그 추천을 계산한 출발지 · 도착지를 extra 6개로 — TripExtras)
         adapter = new OptionAdapter(o -> {
-            if (shownFrom != null && shownTo != null) {
+            if (replayAt != null) {
+                // 재생 중 — B 도 같은 시각으로 재생 (extra "replay")
+                Home.host().onReplayOptionClicked(requireContext(), o, shownFrom, shownTo, replayAt);
+            } else if (shownFrom != null && shownTo != null) {
                 Home.host().onOptionClicked(requireContext(), o, shownFrom, shownTo);
             } else {
                 Home.host().onOptionClicked(requireContext(), o);
@@ -904,7 +907,11 @@ public class HomeFragment extends Fragment {
         }
         if (replayAt != null && !refreshing) text = null;   // 재생 중에는 갱신 시각이 의미 없음
         // route_source=saved_nearby: ODsay 대신 근처 저장 경로로 계산
-        if (text != null && current.isSavedNearbyRoute()) text += " · " + getString(R.string.home_saved_nearby);
+        // (갱신 시각이 없어도 이 표시는 항상 보이게)
+        if (current != null && current.isSavedNearbyRoute() && !refreshing) {
+            String label = getString(R.string.home_saved_nearby);
+            text = text == null ? label : text + " · " + label;
+        }
         updated.setTextColor(ContextCompat.getColor(requireContext(), color));
         setTextOrGone(updated, text);
     }

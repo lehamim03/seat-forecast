@@ -109,6 +109,13 @@ class TeamHomeHost implements HomeHost {
                 from == null ? null : LastTrip.toAlt(from), to == null ? null : LastTrip.toAlt(to)));
     }
 
+    /** 재생 중 추천 카드 → B 도 같은 시각으로 재생 (extra "replay") */
+    @Override
+    public void onReplayOptionClicked(Context context, Option option, Place from, Place to, String replayAt) {
+        context.startActivity(AlternativesActivity.newIntent(context,
+                from == null ? null : LastTrip.toAlt(from), to == null ? null : LastTrip.toAlt(to), replayAt));
+    }
+
     /** 출발 알림 → E (E 는 서버 쪽 FCM 전송만 있고 안드로이드 모듈이 없음) */
     @Override
     public void onDepartureAlarmClicked(Context context, Option first) {

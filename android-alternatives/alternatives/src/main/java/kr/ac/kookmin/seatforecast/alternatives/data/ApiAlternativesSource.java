@@ -58,6 +58,25 @@ public class ApiAlternativesSource implements AlternativesSource {
         return body;
     }
 
+    /** 지난 출근길 재생 — replay 만 보냄. 400 replay_no_data 의 message 는 그대로 (예: "그날 기록이 없습니다") */
+    @NonNull
+    @Override
+    public AlternativesResult loadReplay(@NonNull String replayAt, @Nullable String idToken) throws SourceException {
+        String auth = idToken == null || idToken.isEmpty() ? null : "Bearer " + idToken;
+        Response<AlternativesResult> res;
+        try {
+            res = api.replay(auth, replayAt).execute();
+        } catch (JsonParseException e) {
+            throw new SourceException("대안 데이터 형식이 올바르지 않습니다.", e);
+        } catch (IOException e) {
+            throw new SourceException("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.", e);
+        }
+        if (!res.isSuccessful()) throw errorOf(res);
+        AlternativesResult body = res.body();
+        if (body == null) throw new SourceException("대안 데이터가 비어 있습니다.", null, res.code(), null);
+        return body;
+    }
+
     /** 오류 응답 {@code {"error": {"code": "...", "message": "..."}}} */
     private static SourceException errorOf(Response<?> res) {
         String code = null;

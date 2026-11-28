@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 아래 경로 비교 시트: 흰 바탕 · 위쪽 모서리만 둥글게 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/map_surface" />
+    <corners android:topLeftRadius="20dp" android:topRightRadius="20dp" />
+</shape>

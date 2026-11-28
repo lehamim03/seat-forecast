@@ -67,6 +67,46 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
+            <!-- 지난 출근길 재생 (A 홈이 재생 중일 때 카드로 열면) — replay.message 그대로 -->
+            <LinearLayout
+                android:id="@+id/alt_replay_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/alt_bg_option_recommended"
+                android:orientation="vertical"
+                android:padding="14dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    android:id="@+id/alt_replay_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/alt_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="지난 출근길 재생 · 2026-11-11 08:20" />
+
+                <TextView
+                    android:id="@+id/alt_replay_message"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/alt_text"
+                    android:textSize="14sp"
+                    tools:text="그날 1순위(8800번 · 삼성1차아파트)대로 했다면 07:51에 타서 09:44 국민대 도착" />
+
+                <TextView
+                    android:id="@+id/alt_replay_note"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/alt_muted"
+                    android:textSize="12sp"
+                    tools:text="수집 기록으로 다시 계산 — 도착 예정 분은 정류장 수로 추정, 공식 돌발정보 없음" />
+            </LinearLayout>
+
             <!-- 평소 버스 상태 (테두리 · 알약 색이 상태마다 바뀜) -->
             <LinearLayout
                 android:id="@+id/alt_banner"

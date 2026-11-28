@@ -28,7 +28,7 @@ final class RoutePreview extends FrameLayout {
     RoutePreview(Context context, RouteData data, String key) {
         super(context);
         this.data = data;
-        setBackgroundColor(RouteUi.SURFACE);
+        setBackgroundColor(RouteUi.BACKGROUND);
         message = new TextView(context);
         message.setText("환승 지도를 불러오는 중입니다.");
         message.setGravity(Gravity.CENTER);
@@ -91,7 +91,7 @@ final class RoutePreview extends FrameLayout {
             if (!feature.kind().equals("transfer") || !feature.value("route").equals(route)) continue;
             boolean selected = RouteData.matches(feature, route, choice);
             List<LatLng> points = new ArrayList<>();
-            for (RouteData.Pt point : feature.pts()) points.add(LatLng.from(point.lat(), point.lon()));
+            for (RouteData.Pt point : data.shape(feature)) points.add(LatLng.from(point.lat(), point.lon()));
             int color = selected ? RouteUi.COLORS[choices.indexOf(choice) % RouteUi.COLORS.length] : 0xffb3b8c2;
             int width = Math.max(1, Math.round((selected ? 4 : 2) * getResources().getDisplayMetrics().density));
             RouteLineStyles styles = RouteLineStyles.from(RouteLineStyle.from(width, color));

@@ -22,6 +22,8 @@ public final class TripExtras {
     public static final String TO_LAT = "to_lat";
     public static final String TO_LNG = "to_lng";
     public static final String TO_NAME = "to_name";
+    /** 지난 출근길 재생 시각 (예: "2026-11-11T08:20") — A 홈이 재생 중일 때만. 있으면 출발지 · 도착지 대신 replay 로 요청 */
+    public static final String REPLAY = "replay";
 
     private TripExtras() {
     }
@@ -44,6 +46,13 @@ public final class TripExtras {
             b.putDouble(TO_LNG, to.lng);
             b.putString(TO_NAME, to.name);
         }
+    }
+
+    /** 재생 시각 extra, 없거나 비었으면 null */
+    @Nullable
+    public static String replay(@Nullable Bundle b) {
+        String r = b == null ? null : b.getString(REPLAY);
+        return r == null || r.trim().isEmpty() ? null : r.trim();
     }
 
     @Nullable

@@ -108,8 +108,35 @@ final class OptionCard {
             note.setVisibility(View.VISIBLE);
         }
 
+        bindActual(v, o);
         bindBuses(inflater, v, o);
         return v;
+    }
+
+    /** 지난 출근길 재생 — 그날 실제로 (A 홈 카드와 같은 문구 · 색) */
+    private static void bindActual(View card, Option o) {
+        Context c = card.getContext();
+        TextView actual = card.findViewById(R.id.alt_option_actual);
+        switch (AltFormat.actualKind(o)) {
+            case BOARDED: {
+                String boarded = (o.actual.fullSkipped > 0 ? c.getString(R.string.alt_actual_skipped, o.actual.fullSkipped) : "")
+                        + o.actual.boardedAt;
+                String total = AltFormat.duration(o.actual.totalMin);
+                actual.setText(o.actual.arriveAt == null ? c.getString(R.string.alt_actual_boarded_only, boarded)
+                        : total == null ? c.getString(R.string.alt_actual_boarded, boarded, o.actual.arriveAt)
+                        : c.getString(R.string.alt_actual_boarded_total, boarded, o.actual.arriveAt, total));
+                actual.setTextColor(color(c, R.color.alt_primary));
+                actual.setVisibility(View.VISIBLE);
+                break;
+            }
+            case NOT_BOARDED:
+                actual.setText(R.string.alt_actual_none);
+                actual.setTextColor(color(c, R.color.alt_low));
+                actual.setVisibility(View.VISIBLE);
+                break;
+            default:
+                actual.setVisibility(View.GONE);
+        }
     }
 
     /** 3줄: 어떻게 타는지 */

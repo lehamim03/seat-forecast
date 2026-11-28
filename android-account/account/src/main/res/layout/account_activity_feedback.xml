@@ -83,7 +83,9 @@
                 style="@style/AccountInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp">
+                android:layout_marginTop="12dp"
+                app:helperText="@string/account_feedback_memo_help"
+                app:placeholderText="@string/account_feedback_memo_help">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/account_memo"

@@ -219,6 +219,35 @@ final class AltFormat {
      * 다음 자동 갱신까지 남은 시간(밀리초). 마지막 갱신에서 interval 이 지났으면 0 (바로),
      * interval 이 0 이하면 -1 (자동 갱신 끔).
      */
+    /** 지난 출근길 재생 중에는 자동 갱신을 끔 (그날 기록은 바뀌지 않음) — 0 이면 nextRefreshDelay 가 -1 */
+    static long refreshInterval(@Nullable String replayAt, long configured) {
+        return replayAt != null ? 0 : configured;
+    }
+
+    /** 재생 중에는 GPS 를 읽지 않음 (replay 요청은 집 → 국민대 기록이라 출발지를 쓰지 않음) */
+    static boolean usesGps(@Nullable String replayAt) {
+        return replayAt == null;
+    }
+
+    enum ActualKind { NONE, BOARDED, NOT_BOARDED }
+
+    /** A 홈의 OptionFormat.actualKind 와 같은 규칙 */
+    static ActualKind actualKind(Option o) {
+        if (o == null || o.actual == null) return ActualKind.NONE;
+        return o.actual.boardedAt == null || o.actual.boardedAt.isEmpty() ? ActualKind.NOT_BOARDED : ActualKind.BOARDED;
+    }
+
+    /** 걸린 분 → "1시간 52분" (A 홈 LiveTime.duration 과 같음), 모르면 null */
+    @Nullable
+    static String duration(@Nullable Integer minutes) {
+        if (minutes == null || minutes < 0) return null;
+        int h = minutes / 60;
+        int m = minutes % 60;
+        if (h == 0) return m + "분";
+        if (m == 0) return h + "시간";
+        return h + "시간 " + m + "분";
+    }
+
     static long nextRefreshDelay(long lastUpdatedAt, long now, long interval) {
         if (interval <= 0) return -1;
         if (lastUpdatedAt <= 0) return 0;
