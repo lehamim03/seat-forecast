@@ -378,6 +378,98 @@ def trip_skeleton(fl, fg, tl, tg, from_name, to_name):
             "_shapes": [], "_stops": []}
 
 
+LANE_CACHE = "lane_cache.json"   # ODsay loadLane 결과 (mapObj → 선) — 같은 환승 경로는 한 번만 조회
+_lane = {}
+_lane_lock = threading.Lock()
+
+
+def lane_lines(map_obj):
+    """서울 하차 → 국민대 구간 선 (ODsay loadLane, 파일에 저장해 두고 다시 부르지 않음). 실패하면 []"""
+    if not map_obj:
+        return []
+    with _lane_lock:
+        if not _lane and os.path.exists(LANE_CACHE):
+            try:
+                with open(LANE_CACHE, encoding="utf-8") as f:
+                    _lane.update(json.load(f))
+            except Exception:
+                pass
+        if map_obj in _lane:
+            return _lane[map_obj]
+    try:
+        import map_data
+        lines = map_data.lane_shape(map_obj)
+    except Exception:
+        log.exception("loadLane 실패 — 환승 구간 선 없이 그림")
+        return []
+    with _lane_lock:
+        _lane[map_obj] = lines
+        try:
+            with open(LANE_CACHE, "w", encoding="utf-8") as f:
+                json.dump(_lane, f, ensure_ascii=False)
+        except OSError:
+            pass
+    return lines
+
+
+def measured_shape(o, legs):
+    """실측 추천 선택지의 지도 선: 탈 정류장 → 서울 하차 (노선 정류장 좌표) + 하차 → 국민대 (ODsay loadLane).
+    [[경도, 위도], …] — 노선 정보가 없으면 []"""
+    import transit
+    cfg = config.ROUTES.get(o["route"])
+    if not cfg:
+        return []
+    try:
+        st = transit.route_stations(cfg["route_id"])
+    except Exception:
+        log.exception("노선 정류장 조회 실패 — %s 선 없음", o["route"])
+        return []
+    seqs = sorted(st)
+    if not seqs:
+        return []
+    lat, lng = o["stop"].get("lat"), o["stop"].get("lng")
+    board = min(seqs, key=lambda q: _km(st[q]["y"], st[q]["x"], lat, lng)) if lat else seqs[0]
+    rc = (o.get("route_choices") or [{}])[0]
+    alight = rc.get("alight_stop") or o.get("alight_stop")
+    leg = legs.get(o["route"]) or {}
+    end = next((q for q in seqs if q > board and st[q]["name"] == alight), None) \
+        or next((q for q in seqs if q > board and st[q]["name"] == o.get("alight_stop")), None) \
+        or leg.get("seq")
+    if not end or end <= board:
+        return []
+    line = [[st[q]["x"], st[q]["y"]] for q in seqs if board <= q <= end]
+    choices = leg.get("choices", [])
+    ch = next((c for c in choices if c.get("from") == alight and c.get("transfer") == rc.get("summary")), None) \
+        or next((c for c in choices if c.get("transfer") == rc.get("summary")), None)
+    for ln in lane_lines(ch.get("map_obj") if ch else None):
+        line += [list(pt) for pt in ln]
+    return line
+
+
+def merged_shapes(ranking, conv, odsay_shapes):
+    """지도 · route-choices 용 선 — 합친 ranking 앞 4개와 같은 순서 (이전에는 ODsay 후보만 남아 순위와 달랐음)"""
+    import transit
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            legs = transit.get_legs(now_kst(), fetch=False)
+    except Exception:
+        legs = {}
+    by_summary = {x["summary"]: x for x in odsay_shapes}
+    top = ranking[:4]
+    fewest = min(top, key=lambda o: (o["transfers"], o["total_min"])) if top else None
+    out = []
+    for i, o in enumerate(top):
+        if any(o is c for c in conv):
+            shape, map_obj = measured_shape(o, legs), None
+        else:
+            x = by_summary.get(o["summary"]) or {}
+            shape, map_obj = x.get("shape") or [], x.get("map_obj")
+        tags = (["추천", "최단시간"] if i == 0 else []) + (["최소환승"] if o is fewest else [])
+        out.append({"route": o["route"], "main": i == 0, "map_obj": map_obj, "shape": shape, "tags": tags,
+                    "minutes": o["total_min"], "transfers": o["transfers"], "summary": o["summary"]})
+    return out
+
+
 def merge_home(r, fl, fg, home_stop, _dist):
     """trip 결과(r)에 집 → 국민대 실측 추천을 합침 — 우리 노선 4개는 실측 쪽, 그 밖(지하철 등)은 ODsay 쪽"""
     try:
@@ -421,6 +513,7 @@ def merge_home(r, fl, fg, home_stop, _dist):
                day=h.get("day", r["day"]), recommendation={"kind": top["kind"], "route": top["route"],
                                                            "stop_name": top["stop"]["name"], "message": msg},
                alternatives={k: by_kind.get(k) for k in ("기다리기", "걸어가기", "다른 버스")},
+               _shapes=merged_shapes(ranking, conv, r.get("_shapes", [])),
                incidents=r["incidents"] + [i for i in h.get("incidents", []) if i not in r["incidents"]],
                _stops=r.get("_stops", []) + [o["stop"] for o in conv])
     return out

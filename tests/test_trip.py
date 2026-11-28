@@ -163,6 +163,7 @@ class TripTest(unittest.TestCase):
                                                 "alight_stop": "서울시청", "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞)"}]}]}
         with mock.patch.object(server, "near_home", lambda *a: ("203000063", 0.2)), \
                 mock.patch.object(server, "live_result", lambda *a: home), \
+                mock.patch.object(server, "measured_shape", lambda o, legs: []), \
                 mock.patch.object(server, "stop_coords", lambda: {"203000063": (37.3850, 127.1233)}):   # 출발지 바로 옆
             code, body = self.get(f"/api/v1/recommendations?{FROM}")
         self.assertEqual(200, code, body)
@@ -171,6 +172,51 @@ class TripTest(unittest.TestCase):
         self.assertEqual(("8800", "bus", True), (top["route"], top["first_mode"], top["seat_limited"]))
         self.assertIn("버스 8800(삼성1차아파트→서울시청)", top["summary"])
         self.assertIn("수인분당선", {o["route"] for o in body["ranking"]})   # ODsay 쪽 지하철도 함께
+
+    def test_home_area_map_follows_merged_ranking(self):
+        # 실측 추천을 합치면 /map 선 · /route-choices 도 같은 ranking 순서 (예전에는 ODsay 후보만 남아 앱 지도 순위가 달랐음)
+        home = {"generated_at": "2026-11-30T07:40:00+09:00", "day": {"label": "평일", "kind": "평일",
+                                                                      "drop_factor": 1.0, "headway_factor": 1.0},
+                "recommendation": {"kind": "기다리기", "route": "8800", "stop_name": "삼성1차아파트",
+                                   "message": "기다리기 (8800번 · 삼성1차아파트)"},
+                "incidents": [],
+                "ranking": [{"kind": "기다리기", "route": "8800", "stop": {"id": "203000063", "name": "삼성1차아파트", "mobile_no": "04007"},
+                             "walk_min": 0, "board_prob": 0.9, "arrive_at": "08:40", "total_min": 10, "delay_min": 0,
+                             "skipped": False, "alight_stop": "서울시청",
+                             "buses": [{"order": 1, "eta_min": 5, "seats_at_stop": 10, "board_prob": 0.9, "reachable": True}],
+                             "route_choices": [{"arrive_at": "08:40", "transfers": 1, "walk_min": 6, "tags": ["추천"],
+                                                "alight_stop": "서울시청", "summary": "도보 6분 → 버스 1711(서울신문사→국민대앞)"}]}]}
+        stations = {1: {"name": "앞 정류장", "x": 127.20, "y": 37.30}, 2: {"name": "삼성1차아파트", "x": 127.1233, "y": 37.3850},
+                    3: {"name": "중간", "x": 127.05, "y": 37.50}, 4: {"name": "서울시청", "x": 126.978, "y": 37.566},
+                    5: {"name": "회차", "x": 126.97, "y": 37.57}}
+        legs = {"8800": {"seq": 4, "choices": [{"from": "서울시청", "transfer": "도보 6분 → 버스 1711(서울신문사→국민대앞)",
+                                                "map_obj": "MAPOBJ"}]}}
+        lanes = {"MAPOBJ": [[[126.98, 37.57], [126.995, 37.611]]]}
+        import transit
+        with mock.patch.object(server, "near_home", lambda *a: ("203000063", 0.2)), \
+                mock.patch.object(server, "live_result", lambda *a: home), \
+                mock.patch.object(server, "stop_coords", lambda: {"203000063": (37.3850, 127.1233)}), \
+                mock.patch.object(transit, "route_stations", lambda rid: stations), \
+                mock.patch.object(transit, "get_legs", lambda now=None, fetch=True: legs), \
+                mock.patch.object(server, "lane_lines", lambda m: lanes.get(m, [])):
+            server._cache.clear()
+            _, rec = self.get(f"/api/v1/recommendations?{FROM}")
+            code, geo = self.get(f"/api/v1/map?{FROM}")
+            _, rc = self.get(f"/api/v1/route-choices?{FROM}")
+        self.assertEqual(200, code, geo)
+        lines = [f["properties"] for f in geo["features"] if f["properties"]["kind"] == "transfer"]
+        top = rec["ranking"][:4]
+        self.assertEqual(top[0]["summary"], lines[0]["summary"])     # 1순위 선 = ranking 1순위 (8800)
+        self.assertTrue(lines[0]["main"])
+        self.assertEqual([o["summary"] for o in top if o["summary"] in {l["summary"] for l in lines}],
+                         [l["summary"] for l in lines])               # 순서도 ranking 과 같음
+        shape = next(f for f in geo["features"] if f["properties"].get("summary") == top[0]["summary"])
+        coords = shape["geometry"]["coordinates"]
+        self.assertEqual([127.1233, 37.385], coords[0])               # 탈 정류장부터 (앞 정류장 제외)
+        self.assertIn([126.978, 37.566], coords)                      # 서울시청에서 내림 (회차 제외)
+        self.assertNotIn([126.97, 37.57], coords)
+        self.assertEqual([126.995, 37.611], coords[-1])               # 하차 → 국민대 (loadLane)
+        self.assertEqual("8800", rc["routes"][0]["route"])
 
     def test_night_bus_leg_replaced(self):
         # 광역버스 → 심야버스(N) 경로는 버리지 않고, 심야 구간을 낮 경로로 바꿔 붙임
